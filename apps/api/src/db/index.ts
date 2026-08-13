@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = join(__dirname, '..', '..', '..', 'data');
+const DATA_DIR = join(__dirname, '..', '..', '..', '..', 'data');
 
 export function getDb(): Database.Database {
   mkdirSync(DATA_DIR, { recursive: true });
