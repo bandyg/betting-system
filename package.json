@@ -1,0 +1,14 @@
+{
+  "name": "betting-system",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Sports betting MVP — pre-match fixed odds + betting + settlement loop (football, 1X2/Asian Handicap/Over-Under)",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:api": "pnpm --filter api dev",
+    "start:api": "pnpm --filter api start"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+  }
+}
