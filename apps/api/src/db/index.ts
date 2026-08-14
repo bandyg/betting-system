@@ -15,8 +15,21 @@ export function getDb(): Database.Database {
 }
 
 export function migrate(db: Database.Database): void {
-  const sql = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
-  db.exec(sql);
+  // Resolve schema.sql in both dev (tsx: src/db/schema.sql) and build (dist/db -> src/db/schema.sql)
+  const candidates = [
+    join(__dirname, 'schema.sql'),
+    join(__dirname, '..', '..', 'src', 'db', 'schema.sql'),
+  ];
+  const found = candidates.find((p) => {
+    try {
+      readFileSync(p);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  if (!found) throw new Error(`schema.sql not found (tried: ${candidates.join(', ')})`);
+  db.exec(readFileSync(found, 'utf8'));
 }
 
 // Ensure schema exists on import (idempotent)
