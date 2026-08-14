@@ -35,6 +35,18 @@ accountsRouter.post('/users', (req, res) => {
   res.status(201).json({ user: row });
 });
 
+// GET /users — list users with balance (for web UI)
+accountsRouter.get('/users', (_req, res) => {
+  const rows = db
+    .prepare(
+      `SELECT u.id, u.name, a.id AS account_id, a.balance, u.created_at
+       FROM users u JOIN accounts a ON a.user_id = u.id
+       ORDER BY u.id`,
+    )
+    .all();
+  res.json({ users: rows });
+});
+
 // GET /users/:id — user + balance
 accountsRouter.get('/users/:id', (req, res) => {
   const id = Number(req.params.id);
