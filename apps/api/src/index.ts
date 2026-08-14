@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { accountsRouter } from './routes/accounts.js';
+import { matchesRouter } from './routes/matches.js';
+import { marketsRouter } from './routes/markets.js';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4100);
@@ -13,6 +15,8 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api', accountsRouter);
+app.use('/api', matchesRouter);
+app.use('/api', marketsRouter);
 
 app.listen(PORT, () => {
   console.log(`[betting-api] listening on :${PORT}`);
