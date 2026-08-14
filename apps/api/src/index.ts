@@ -4,6 +4,7 @@ import { accountsRouter } from './routes/accounts.js';
 import { matchesRouter } from './routes/matches.js';
 import { marketsRouter } from './routes/markets.js';
 import { betsRouter } from './routes/bets.js';
+import { settleRouter } from './routes/settle.js';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4100);
@@ -19,6 +20,7 @@ app.use('/api', accountsRouter);
 app.use('/api', matchesRouter);
 app.use('/api', marketsRouter);
 app.use('/api', betsRouter);
+app.use('/api', settleRouter);
 
 app.listen(PORT, () => {
   console.log(`[betting-api] listening on :${PORT}`);
