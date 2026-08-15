@@ -1,4 +1,4 @@
-export { api, setApiBase, getApiBase } from './api.js';
+export { api, setApiBase, getApiBase } from './api';
 export type {
   Bet,
   Market,
@@ -10,12 +10,12 @@ export type {
   MatchesResponse,
   UsersResponse,
   BetsResponse
-} from './types.js';
+} from './types';
 export {
   TYPE_LABELS,
   SEL_LABELS,
   MATCH_STATUS_LABELS
-} from './types.js';
+} from './types';
 export {
   useAsync,
   useMatches,
@@ -24,5 +24,5 @@ export {
   useCurrentUser,
   useBetSlip,
   placeBetItems
-} from './hooks.js';
-export type { BetSlipItem, BetSlipState, CurrentUserState, PlaceBetResult } from './hooks.js';
+} from './hooks';
+export type { BetSlipItem, BetSlipState, CurrentUserState, PlaceBetResult } from './hooks';

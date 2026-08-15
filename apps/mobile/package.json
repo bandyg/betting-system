@@ -3,6 +3,8 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@betting/core": "workspace:*",
+    "@betting/ui": "workspace:*",
     "@expo/ui": "~57.0.11",
     "expo": "~57.0.13",
     "expo-constants": "~57.0.11",

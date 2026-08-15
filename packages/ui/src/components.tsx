@@ -10,8 +10,8 @@ import {
   type TextStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radius, fontSize, font, shadows } from './tokens.js';
-import { useTheme } from './theme.js';
+import { colors, radius, fontSize, font, shadows } from './tokens';
+import { useTheme } from './theme';
 
 /* ---------------- Card ---------------- */
 export function Card({
@@ -132,9 +132,9 @@ export function OddsButton({
 }
 
 /* ---------------- SectionTitle ---------------- */
-export function SectionTitle({ children }: { children: React.ReactNode }) {
+export function SectionTitle({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
   const t = useTheme();
-  return <Text style={[styles.sectionTitle, { color: t.text }]}>{children}</Text>;
+  return <Text style={[styles.sectionTitle, { color: t.text }, style]}>{children}</Text>;
 }
 
 /* ---------------- Screen (暗色背景容器) ---------------- */

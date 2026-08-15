@@ -9,7 +9,7 @@ import type {
   MatchesResponse,
   UsersResponse,
   BetsResponse
-} from './types.js';
+} from './types';
 
 /**
  * API base URL 可配置：
@@ -93,4 +93,4 @@ export type {
   SettleResponse,
   SettleSummaryItem,
   User
-} from './types.js';
+} from './types';

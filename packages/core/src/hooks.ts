@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api } from './api.js';
-import type { Bet, Match, User, MatchesResponse, UsersResponse, BetsResponse } from './types.js';
+import { api } from './api';
+import type { Bet, Match, User, MatchesResponse, UsersResponse, BetsResponse } from './types';
 
 /** 通用异步数据 hook：加载 + 刷新 + 错误 */
 export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []) {
@@ -45,15 +45,48 @@ export function useBets(userId?: number) {
 export interface CurrentUserState {
   user: User | null;
   select: (u: User) => void;
+  update: (u: User) => void;
   clear: () => void;
 }
 
-/** 当前选中用户（demo 无鉴权，前端本地状态） */
+/**
+ * 当前选中用户（demo 无鉴权，前端本地状态）
+ * 模块级单例 store —— 跨页面共享（赛事页选用户，下注页提交，我的页显示）
+ */
+let currentUser: User | null = null;
+const listeners = new Set<() => void>();
+
+function emit() {
+  listeners.forEach((l) => l());
+}
+
 export function useCurrentUser(): CurrentUserState {
-  const [user, setUser] = useState<User | null>(null);
-  const select = useCallback((u: User) => setUser(u), []);
-  const clear = useCallback(() => setUser(null), []);
-  return { user, select, clear };
+  const [user, setUser] = useState<User | null>(currentUser);
+
+  useEffect(() => {
+    const listener = () => setUser(currentUser);
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
+
+  const select = useCallback((u: User) => {
+    currentUser = u;
+    emit();
+  }, []);
+
+  const update = useCallback((u: User) => {
+    currentUser = u;
+    emit();
+  }, []);
+
+  const clear = useCallback(() => {
+    currentUser = null;
+    emit();
+  }, []);
+
+  return { user, select, update, clear };
 }
 
 export interface BetSlipItem {
@@ -61,37 +94,56 @@ export interface BetSlipItem {
   selection: string;
   price: number;
   label: string;
+  stake: number;
 }
 
 export interface BetSlipState {
   items: BetSlipItem[];
-  add: (item: BetSlipItem) => void;
+  add: (item: Omit<BetSlipItem, 'stake'> & { stake?: number }) => void;
   remove: (marketId: number, selection: string) => void;
   clear: () => void;
   totalStake: number;
   potentialPayout: number;
 }
 
-/** 下注单（前端暂存，提交时才调 API） */
-export function useBetSlip(): BetSlipState {
-  const [items, setItems] = useState<BetSlipItem[]>([]);
+/** 下注单（前端暂存，提交时才调 API）—— 模块级单例，跨页面共享 */
+let slipItems: BetSlipItem[] = [];
+const slipListeners = new Set<() => void>();
 
-  const add = useCallback((item: BetSlipItem) => {
-    setItems((prev) => {
-      const exists = prev.find((i) => i.marketId === item.marketId && i.selection === item.selection);
-      if (exists) return prev.filter((i) => i !== exists);
-      return [...prev, item];
-    });
+function slipEmit() {
+  slipListeners.forEach((l) => l());
+}
+
+export function useBetSlip(): BetSlipState {
+  const [items, setItems] = useState<BetSlipItem[]>(slipItems);
+
+  useEffect(() => {
+    const listener = () => setItems([...slipItems]);
+    slipListeners.add(listener);
+    return () => {
+      slipListeners.delete(listener);
+    };
+  }, []);
+
+  const add = useCallback((item: Omit<BetSlipItem, 'stake'> & { stake?: number }) => {
+    const next = { ...item, stake: item.stake ?? 100 };
+    const exists = slipItems.find((i) => i.marketId === next.marketId && i.selection === next.selection);
+    slipItems = exists ? slipItems.filter((i) => i !== exists) : [...slipItems, next];
+    slipEmit();
   }, []);
 
   const remove = useCallback((marketId: number, selection: string) => {
-    setItems((prev) => prev.filter((i) => !(i.marketId === marketId && i.selection === selection)));
+    slipItems = slipItems.filter((i) => !(i.marketId === marketId && i.selection === selection));
+    slipEmit();
   }, []);
 
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => {
+    slipItems = [];
+    slipEmit();
+  }, []);
 
-  const totalStake = items.reduce((sum, i) => sum + 100, 0);
-  const potentialPayout = items.reduce((sum, i) => sum + 100 * i.price, 0);
+  const totalStake = items.reduce((sum, i) => sum + i.stake, 0);
+  const potentialPayout = items.reduce((sum, i) => sum + i.stake * i.price, 0);
 
   return { items, add, remove, clear, totalStake, potentialPayout };
 }
@@ -105,7 +157,7 @@ export interface PlaceBetResult {
 export async function placeBetItems(userId: number, items: BetSlipItem[]): Promise<PlaceBetResult[]> {
   const results: PlaceBetResult[] = [];
   for (const item of items) {
-    const res = await api.placeBet(userId, item.marketId, item.selection, 100);
+    const res = await api.placeBet(userId, item.marketId, item.selection, item.stake);
     results.push({ bet: res.bet, balance: res.account.balance });
   }
   return results;
