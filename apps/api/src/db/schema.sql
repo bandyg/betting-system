@@ -73,3 +73,44 @@ CREATE INDEX IF NOT EXISTS idx_markets_match ON markets(match_id);
 CREATE INDEX IF NOT EXISTS idx_bets_user ON bets(user_id);
 CREATE INDEX IF NOT EXISTS idx_bets_market ON bets(market_id);
 CREATE INDEX IF NOT EXISTS idx_tx_account ON transactions(account_id);
+
+-- ============ CMS (Step 15) ============
+CREATE TABLE IF NOT EXISTS contents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('announcement', 'promotion', 'article')),
+  body TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ============ CRM (Step 16) ============
+CREATE TABLE IF NOT EXISTS promotions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  bonus_type TEXT NOT NULL CHECK (bonus_type IN ('deposit_bonus', 'free_bet')),
+  bonus_value REAL NOT NULL DEFAULT 0,
+  min_deposit REAL NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired')),
+  start_at TEXT,
+  end_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS user_preferences (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  favorite_team TEXT,
+  marketing_opt_in INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS promotion_claims (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  promotion_id INTEGER NOT NULL REFERENCES promotions(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (promotion_id, user_id)
+);
