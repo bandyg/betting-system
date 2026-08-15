@@ -110,18 +110,20 @@ export default function PromoScreen() {
           />
         )}
 
-        {/* 管理员快速建活动（demo） */}
-        <View style={styles.adminBox}>
-          <Text style={styles.adminTitle}>🛠️ 管理员：快速建活动</Text>
-          <TextInput value={title} onChangeText={setTitle} placeholder="活动标题" placeholderTextColor={colors.textMuted} style={styles.input} />
-          <TextInput value={desc} onChangeText={setDesc} placeholder="描述（可选）" placeholderTextColor={colors.textMuted} style={styles.input} />
-          <View style={styles.adminRow}>
-            <TextInput value={bonusValue} onChangeText={setBonusValue} keyboardType="numeric" placeholderTextColor={colors.textMuted} style={[styles.input, { flex: 1 }]} />
-            <Pressable onPress={createPromo} disabled={creating} style={({ pressed }) => [styles.adminBtn, { opacity: pressed || creating ? 0.8 : 1 }]}>
-              <Text style={styles.adminBtnText}>{creating ? '创建中…' : '创建'}</Text>
-            </Pressable>
+        {/* 管理员快速建活动（仅 role=admin 可见） */}
+        {user?.role === 'admin' && (
+          <View style={styles.adminBox}>
+            <Text style={styles.adminTitle}>🛠️ 管理员：快速建活动</Text>
+            <TextInput value={title} onChangeText={setTitle} placeholder="活动标题" placeholderTextColor={colors.textMuted} style={styles.input} />
+            <TextInput value={desc} onChangeText={setDesc} placeholder="描述（可选）" placeholderTextColor={colors.textMuted} style={styles.input} />
+            <View style={styles.adminRow}>
+              <TextInput value={bonusValue} onChangeText={setBonusValue} keyboardType="numeric" placeholderTextColor={colors.textMuted} style={[styles.input, { flex: 1 }]} />
+              <Pressable onPress={createPromo} disabled={creating} style={({ pressed }) => [styles.adminBtn, { opacity: pressed || creating ? 0.8 : 1 }]}>
+                <Text style={styles.adminBtnText}>{creating ? '创建中…' : '创建'}</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+        )}
       </SafeAreaView>
     </Screen>
   );
