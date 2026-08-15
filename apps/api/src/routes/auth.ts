@@ -11,12 +11,12 @@ authRouter.post('/auth/login', (req, res) => {
   }
   const row = db
     .prepare(
-      `SELECT u.id, u.name, u.password, a.id AS account_id, a.balance, u.created_at
+      `SELECT u.id, u.name, u.password, u.role, a.id AS account_id, a.balance, u.created_at
        FROM users u JOIN accounts a ON a.user_id = u.id
        WHERE u.name = ?`,
     )
     .get(name.trim()) as
-    | { id: number; name: string; password: string; account_id: number; balance: number; created_at: string }
+    | { id: number; name: string; password: string; role: string; account_id: number; balance: number; created_at: string }
     | undefined;
 
   if (!row || row.password !== hashPassword(password)) {

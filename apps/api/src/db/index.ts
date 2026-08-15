@@ -48,6 +48,24 @@ export function migrate(db: Database.Database): void {
   if (empty.n > 0) {
     db.prepare("UPDATE users SET password = ? WHERE password = ''").run(hashPassword(DEFAULT_PASSWORD));
   }
+
+  // 迁移：role 列（默认 user）
+  const cols2 = db.prepare('PRAGMA table_info(users)').all() as { name: string }[];
+  if (!cols2.some((c) => c.name === 'role')) {
+    db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'");
+  }
+
+  // 默认 admin 账号（admin / admin123），不存在则创建
+  const admin = db.prepare("SELECT id FROM users WHERE name = 'admin'").get() as { id: number } | undefined;
+  if (!admin) {
+    const info = db
+      .prepare("INSERT INTO users (name, password, role) VALUES (?, ?, 'admin')")
+      .run('admin', hashPassword('admin123'));
+    db.prepare('INSERT INTO accounts (user_id) VALUES (?)').run(Number(info.lastInsertRowid));
+  } else {
+    // 已存在则确保角色是 admin
+    db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(admin.id);
+  }
 }
 
 // Ensure schema exists on import (idempotent)

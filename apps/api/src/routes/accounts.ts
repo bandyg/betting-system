@@ -28,7 +28,7 @@ accountsRouter.post('/users', (req, res) => {
 
   const row = db
     .prepare(
-      `SELECT u.id, u.name, a.id AS account_id, a.balance
+      `SELECT u.id, u.name, u.role, a.id AS account_id, a.balance, u.created_at
        FROM users u JOIN accounts a ON a.user_id = u.id
        WHERE u.id = ?`,
     )
@@ -40,7 +40,7 @@ accountsRouter.post('/users', (req, res) => {
 accountsRouter.get('/users', (_req, res) => {
   const rows = db
     .prepare(
-      `SELECT u.id, u.name, a.id AS account_id, a.balance, u.created_at
+      `SELECT u.id, u.name, u.role, a.id AS account_id, a.balance, u.created_at
        FROM users u JOIN accounts a ON a.user_id = u.id
        ORDER BY u.id`,
     )
@@ -56,7 +56,7 @@ accountsRouter.get('/users/:id', (req, res) => {
   }
   const row = db
     .prepare(
-      `SELECT u.id, u.name, a.id AS account_id, a.balance, u.created_at
+      `SELECT u.id, u.name, u.role, a.id AS account_id, a.balance, u.created_at
        FROM users u JOIN accounts a ON a.user_id = u.id
        WHERE u.id = ?`,
     )

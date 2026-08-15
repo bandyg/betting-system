@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api, useAuth, useBets, usePreferences, SEL_LABELS } from '@betting/core';
-import type { Bet } from '@betting/core';
+import { api, useAuth, useBets, usePreferences, useUsers, SEL_LABELS } from '@betting/core';
+import type { Bet, User } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
 function betLabel(b: Bet): string {
@@ -85,6 +85,136 @@ function AuthForm() {
           {mode === 'login' ? '没有账号？注册一个' : '已有账号？去登录'}
         </Text>
       </Pressable>
+    </>
+  );
+}
+
+/** 管理员面板：新建用户 / 用户列表 / 给任意用户充值（仅 role=admin 可见） */
+function AdminPanel() {
+  const users = useUsers();
+  const [newName, setNewName] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [selected, setSelected] = useState<User | null>(null);
+  const [depositAmt, setDepositAmt] = useState('1000');
+  const [depositing, setDepositing] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const createUser = async () => {
+    if (!newName.trim()) {
+      setMsg({ kind: 'err', text: '请输入用户名' });
+      return;
+    }
+    setCreating(true);
+    setMsg(null);
+    try {
+      const res = await api.createUser(newName.trim(), newPw || undefined);
+      setNewName('');
+      setNewPw('');
+      users.refresh();
+      setMsg({ kind: 'ok', text: `✅ 用户 ${res.user.name} 已创建` });
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const deposit = async () => {
+    if (!selected) {
+      setMsg({ kind: 'err', text: '先从列表选择要充值的用户' });
+      return;
+    }
+    const amount = Number(depositAmt);
+    if (!amount || amount <= 0) {
+      setMsg({ kind: 'err', text: '请输入有效金额' });
+      return;
+    }
+    setDepositing(true);
+    setMsg(null);
+    try {
+      const res = await api.deposit(selected.id, amount);
+      setMsg({ kind: 'ok', text: `✅ 已给 ${selected.name} 充值 ¥${amount}，余额 ¥${res.account.balance}` });
+      users.refresh();
+      setSelected((prev) => (prev ? { ...prev, balance: res.account.balance } : prev));
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setDepositing(false);
+    }
+  };
+
+  return (
+    <>
+      <SectionTitle style={styles.recordTitle}>🛠 管理</SectionTitle>
+
+      {/* 新建用户 */}
+      <Card style={styles.sectionCard}>
+        <Text style={styles.cardTitle}>新建用户</Text>
+        <View style={styles.row}>
+          <TextInput
+            value={newName}
+            onChangeText={setNewName}
+            placeholder="用户名"
+            placeholderTextColor={colors.textMuted}
+            autoCapitalize="none"
+            style={styles.input}
+          />
+        </View>
+        <TextInput
+          value={newPw}
+          onChangeText={setNewPw}
+          placeholder="密码（默认 123456）"
+          placeholderTextColor={colors.textMuted}
+          secureTextEntry
+          style={[styles.input, { marginTop: spacing.sm }]}
+        />
+        <Button title="创建" onPress={createUser} loading={creating} style={{ marginTop: spacing.sm }} />
+      </Card>
+
+      {/* 用户列表（点击选中） */}
+      <Card style={styles.sectionCard}>
+        <Text style={styles.cardTitle}>用户列表 · 点击选择</Text>
+        {users.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
+        <View style={styles.userList}>
+          {(users.data?.users ?? []).map((u) => (
+            <Pressable
+              key={u.id}
+              onPress={() => setSelected(u)}
+              style={({ pressed }) => [
+                styles.userChip,
+                {
+                  backgroundColor: selected?.id === u.id ? colors.oddsActiveBg : colors.oddsBg,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Text style={[styles.userChipText, { color: selected?.id === u.id ? colors.secondary : colors.text }]}>
+                #{u.id} {u.name}{u.role === 'admin' ? ' 👑' : ''} · ¥{u.balance}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </Card>
+
+      {/* 给选中用户充值 */}
+      <Card style={styles.sectionCard}>
+        <Text style={styles.cardTitle}>
+          充值 {selected ? `→ ${selected.name}（¥${selected.balance}）` : '（先选用户）'}
+        </Text>
+        <View style={styles.row}>
+          <TextInput
+            value={depositAmt}
+            onChangeText={setDepositAmt}
+            keyboardType="numeric"
+            placeholderTextColor={colors.textMuted}
+            style={styles.input}
+          />
+          <Button title="充值" onPress={deposit} loading={depositing} style={{ minWidth: 96 }} />
+        </View>
+      </Card>
+
+      {msg && <FlashMsg msg={msg} />}
     </>
   );
 }
@@ -179,6 +309,9 @@ export default function AccountScreen() {
               </Pressable>
             </View>
           </Card>
+
+          {/* 管理面板（仅 admin） */}
+          {user.role === 'admin' && <AdminPanel />}
 
           {/* 充值 */}
           <Card style={styles.sectionCard}>
@@ -278,6 +411,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
   },
   recordTitle: { marginTop: spacing.sm },
+  userList: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  userChip: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 8 },
+  userChipText: { fontSize: fontSize.sm, fontWeight: font.regular },
   betRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   betMain: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
   betSub: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
