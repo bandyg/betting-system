@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBetSlip, useCurrentUser, useBets, placeBetItems } from '@betting/core';
-import { Card, Screen, Button, colors, radius, fontSize, font, spacing, EmptyState, SectionTitle } from '@betting/ui';
+import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, EmptyState, SectionTitle } from '@betting/ui';
 
 export default function SlipScreen() {
   const slip = useBetSlip();
@@ -49,11 +49,7 @@ export default function SlipScreen() {
 
         {slip.items.length === 0 && !msg && <EmptyState text="还没有选中的赔率，去赛事页点一下赔率" />}
 
-        {msg && (
-          <View style={[styles.msg, { backgroundColor: msg.kind === 'ok' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)' }]}>
-            <Text style={{ color: msg.kind === 'ok' ? colors.success : colors.danger }}>{msg.text}</Text>
-          </View>
-        )}
+        {msg && <FlashMsg msg={msg} />}
 
         {slip.items.length > 0 && (
           <>
@@ -127,6 +123,5 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
   summaryText: { color: colors.textSecondary, fontSize: fontSize.sm },
   payout: { color: colors.success, fontSize: fontSize.xl, fontWeight: font.bold },
-  msg: { marginHorizontal: spacing.lg, marginTop: spacing.md, borderRadius: radius.md, padding: spacing.md },
   hint: { color: colors.warning, fontSize: fontSize.sm, marginTop: spacing.sm, textAlign: 'center' },
 });

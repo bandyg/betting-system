@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,6 +9,15 @@ import {
   type ViewStyle,
   type TextStyle,
 } from 'react-native';
+import Animated, {
+  BounceIn,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, fontSize, font, shadows } from './tokens';
 import { useTheme } from './theme';
@@ -58,6 +67,7 @@ export function Button({
   style?: StyleProp<ViewStyle>;
 }) {
   const t = useTheme();
+  const scale = useSharedValue(1);
   const inner = (
     <View style={[styles.buttonInner, { borderRadius: radius.pill }]}>
       {loading ? (
@@ -69,34 +79,46 @@ export function Button({
       )}
     </View>
   );
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled || loading}
-      style={({ pressed }) => [
-        styles.button,
-        { borderRadius: radius.pill },
-        { opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
-        style,
-      ]}
-    >
-      {variant === 'gradient' ? (
-        <LinearGradient
-          colors={[t.gradientStart, t.gradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
-        />
-      ) : (
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            { borderRadius: radius.pill, backgroundColor: variant === 'danger' ? t.danger : t.bgElevated },
-          ]}
-        />
-      )}
-      {inner}
-    </Pressable>
+    <Animated.View style={[styles.buttonWrap, animStyle]}>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled || loading}
+        onPressIn={() => {
+          scale.value = withSpring(0.96, { damping: 14, stiffness: 320 });
+        }}
+        onPressOut={() => {
+          scale.value = withSequence(
+            withSpring(1.03, { damping: 10, stiffness: 260 }),
+            withSpring(1, { damping: 12, stiffness: 240 })
+          );
+        }}
+        style={({ pressed }) => [
+          styles.button,
+          { borderRadius: radius.pill },
+          { opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
+          style,
+        ]}
+      >
+        {variant === 'gradient' ? (
+          <LinearGradient
+            colors={[t.gradientStart, t.gradientEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
+          />
+        ) : (
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { borderRadius: radius.pill, backgroundColor: variant === 'danger' ? t.danger : t.bgElevated },
+            ]}
+          />
+        )}
+        {inner}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -113,21 +135,65 @@ export function OddsButton({
   onPress?: () => void;
 }) {
   const t = useTheme();
+  const scale = useSharedValue(1);
+  // 0 = 无闪烁, 1 = 升(绿), -1 = 降(红)
+  const flash = useSharedValue(0);
+  const prevPrice = useRef(price);
+  const prevActive = useRef(active);
+
+  // 赔率变化闪烁（升绿/降红）——未来接入赔率推送后自动生效
+  useEffect(() => {
+    if (prevPrice.current !== price) {
+      flash.value = price > prevPrice.current ? 1 : -1;
+      flash.value = withSequence(withTiming(1, { duration: 160 }), withTiming(0, { duration: 700 }));
+      prevPrice.current = price;
+    }
+  }, [price, flash]);
+
+  // 加入下注单成功反馈：active false→true 时绿闪一下
+  useEffect(() => {
+    if (!prevActive.current && active) {
+      flash.value = 1;
+      flash.value = withSequence(withTiming(1, { duration: 160 }), withTiming(0, { duration: 700 }));
+    }
+    prevActive.current = active;
+  }, [active, flash]);
+
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const flashStyle = useAnimatedStyle(() => ({
+    opacity: Math.abs(flash.value),
+    backgroundColor: flash.value > 0 ? colors.success : colors.danger,
+  }));
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
+    <Animated.View
+      style={[
         styles.odds,
         {
           backgroundColor: active ? t.oddsActiveBg : t.oddsBg,
           borderColor: active ? t.oddsActiveBorder : t.oddsBorder,
-          transform: [{ scale: pressed ? 0.94 : 1 }],
         },
+        animStyle,
       ]}
     >
-      <Text style={styles.oddsLabel}>{label}</Text>
-      <Text style={[styles.oddsPrice, { color: t.text }]}>{price.toFixed(2)}</Text>
-    </Pressable>
+      <Animated.View pointerEvents="none" style={[styles.oddsFlash, flashStyle]} />
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => {
+          scale.value = withSpring(0.92, { damping: 14, stiffness: 320 });
+        }}
+        onPressOut={() => {
+          scale.value = withSequence(
+            withSpring(1.08, { damping: 9, stiffness: 240 }),
+            withSpring(1, { damping: 12, stiffness: 220 })
+          );
+        }}
+        style={styles.oddsPress}
+      >
+        <Text style={styles.oddsLabel}>{label}</Text>
+        <Text style={[styles.oddsPrice, { color: t.text }]}>{price.toFixed(2)}</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -137,7 +203,7 @@ export function SectionTitle({ children, style }: { children: React.ReactNode; s
   return <Text style={[styles.sectionTitle, { color: t.text }, style]}>{children}</Text>;
 }
 
-/* ---------------- Screen (暗色背景容器) ---------------- */
+/* ---------------- Screen (暗色背景容器，带进入转场) ---------------- */
 export function Screen({
   children,
   style,
@@ -146,7 +212,27 @@ export function Screen({
   style?: StyleProp<ViewStyle>;
 }) {
   const t = useTheme();
-  return <View style={[styles.screen, { backgroundColor: t.bg }, style]}>{children}</View>;
+  return (
+    <Animated.View entering={FadeInDown.duration(320)} style={[styles.screen, { backgroundColor: t.bg }, style]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+/* ---------------- SuccessMsg (成功/失败提示，BounceIn 回弹) ---------------- */
+export function FlashMsg({
+  msg,
+}: {
+  msg: { kind: 'ok' | 'err'; text: string };
+}) {
+  return (
+    <Animated.View
+      entering={BounceIn.duration(420)}
+      style={[styles.msg, { backgroundColor: msg.kind === 'ok' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)' }]}
+    >
+      <Text style={{ color: msg.kind === 'ok' ? colors.success : colors.danger }}>{msg.text}</Text>
+    </Animated.View>
+  );
 }
 
 /* ---------------- EmptyState ---------------- */
@@ -161,6 +247,9 @@ export function EmptyState({ text }: { text: string }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  buttonWrap: {
+    borderRadius: radius.pill,
+  },
   card: {
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -188,6 +277,21 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     paddingVertical: 10,
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  oddsPress: {
+    flex: 1,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  oddsFlash: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: radius.md,
   },
   oddsLabel: {
     color: '#8B93B5',
@@ -207,6 +311,11 @@ const styles = StyleSheet.create({
   empty: {
     padding: 32,
     alignItems: 'center',
+  },
+  msg: {
+    borderRadius: radius.md,
+    padding: 12,
+    marginBottom: 16,
   },
 });
 

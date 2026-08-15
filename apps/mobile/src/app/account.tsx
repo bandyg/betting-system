@@ -3,7 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, T
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api, useUsers, useCurrentUser, useBets, SEL_LABELS, MATCH_STATUS_LABELS } from '@betting/core';
 import type { Bet } from '@betting/core';
-import { Card, Screen, Button, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
+import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
 function betLabel(b: Bet): string {
   return `${SEL_LABELS[b.selection] ?? b.selection} @${b.price.toFixed(2)}`;
@@ -149,11 +149,7 @@ export default function AccountScreen() {
             </Card>
           )}
 
-          {msg && (
-            <View style={[styles.msg, { backgroundColor: msg.kind === 'ok' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)' }]}>
-              <Text style={{ color: msg.kind === 'ok' ? colors.success : colors.danger }}>{msg.text}</Text>
-            </View>
-          )}
+          {msg && <FlashMsg msg={msg} />}
 
           {/* 投注记录 */}
           <SectionTitle style={styles.recordTitle}>📋 投注记录</SectionTitle>
@@ -208,7 +204,6 @@ const styles = StyleSheet.create({
   userList: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   userChip: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 8 },
   userChipText: { fontSize: fontSize.sm, fontWeight: font.regular },
-  msg: { borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg },
   recordTitle: { marginTop: spacing.sm },
   betRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   betMain: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
