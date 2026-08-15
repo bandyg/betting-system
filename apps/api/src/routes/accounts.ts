@@ -1,9 +1,12 @@
 import { Router } from 'express';
+import { randomUUID } from 'node:crypto';
 import db, { hashPassword, DEFAULT_PASSWORD } from '../db/index.js';
+import { requireAuth, requireRole } from './middleware.js';
 
 export const accountsRouter = Router();
 
 // POST /users — create user + account (balance 0)，password 可选（默认 123456，demo）
+// 公开注册端点（也用于 admin 面板新建用户，注册后即返回可用的 session token）
 accountsRouter.post('/users', (req, res) => {
   const { name, password } = req.body ?? {};
   if (typeof name !== 'string' || name.trim() === '') {
@@ -33,11 +36,14 @@ accountsRouter.post('/users', (req, res) => {
        WHERE u.id = ?`,
     )
     .get(userId);
-  res.status(201).json({ user: row });
+  // 注册即登录：直接发一个 session token
+  const token = crypto.randomUUID();
+  db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, userId);
+  res.status(201).json({ user: row, token });
 });
 
-// GET /users — list users with balance (for web UI)
-accountsRouter.get('/users', (_req, res) => {
+// GET /users — list users with balance（仅 admin）
+accountsRouter.get('/users', requireAuth, requireRole('admin'), (_req, res) => {
   const rows = db
     .prepare(
       `SELECT u.id, u.name, u.role, a.id AS account_id, a.balance, u.created_at
@@ -48,11 +54,15 @@ accountsRouter.get('/users', (_req, res) => {
   res.json({ users: rows });
 });
 
-// GET /users/:id — user + balance
-accountsRouter.get('/users/:id', (req, res) => {
+// GET /users/:id — user + balance（登录用户可查自己；admin 可查任意）
+accountsRouter.get('/users/:id', requireAuth, (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'invalid user id' });
+  }
+  const me = res.locals.user as { id: number; role: string };
+  if (me.role !== 'admin' && me.id !== id) {
+    return res.status(403).json({ error: '只能查看自己的账户信息' });
   }
   const row = db
     .prepare(
@@ -68,10 +78,15 @@ accountsRouter.get('/users/:id', (req, res) => {
 });
 
 // POST /users/:id/deposit — top up balance, record transaction
-accountsRouter.post('/users/:id/deposit', (req, res) => {
+// 登录用户可给自己充值；给他人充值仅 admin
+accountsRouter.post('/users/:id/deposit', requireAuth, (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'invalid user id' });
+  }
+  const me = res.locals.user as { id: number; role: string };
+  if (me.role !== 'admin' && me.id !== id) {
+    return res.status(403).json({ error: '只能给自己充值，给他人充值需要管理员权限' });
   }
   const amount = Number(req.body?.amount);
   if (!Number.isFinite(amount) || amount <= 0) {

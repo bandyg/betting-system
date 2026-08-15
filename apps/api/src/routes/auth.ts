@@ -1,9 +1,10 @@
 import { Router } from 'express';
+import { randomUUID } from 'node:crypto';
 import db, { hashPassword } from '../db/index.js';
 
 export const authRouter = Router();
 
-// POST /auth/login — 用户名 + 密码登录，返回用户信息（不含密码）
+// POST /auth/login — 用户名 + 密码登录，返回用户信息（不含密码）+ session token
 authRouter.post('/auth/login', (req, res) => {
   const { name, password } = req.body ?? {};
   if (typeof name !== 'string' || typeof password !== 'string') {
@@ -23,6 +24,20 @@ authRouter.post('/auth/login', (req, res) => {
     return res.status(401).json({ error: '用户名或密码错误' });
   }
 
+  // 创建 session token（登录态：前端 localStorage 持有，请求带 Authorization: Bearer <token>）
+  const token = randomUUID();
+  db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, row.id);
+
   const { password: _pw, ...user } = row;
-  res.json({ user });
+  res.json({ user, token });
+});
+
+// POST /auth/logout — 注销当前 token
+authRouter.post('/auth/logout', (req, res) => {
+  const header = req.headers.authorization ?? '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (token) {
+    db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+  }
+  res.json({ ok: true });
 });

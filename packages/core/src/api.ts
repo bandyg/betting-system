@@ -31,9 +31,22 @@ export function getApiBase() {
   return API_BASE;
 }
 
+/** 当前登录用户的 session token（登录后由 setAuthToken 注入） */
+let AUTH_TOKEN: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  AUTH_TOKEN = token;
+}
+
+export function getAuthToken() {
+  return AUTH_TOKEN;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (AUTH_TOKEN) headers.Authorization = `Bearer ${AUTH_TOKEN}`;
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...options
   });
   const body = await res.json().catch(() => ({}));
@@ -47,9 +60,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   // auth
   login: (name: string, password: string) =>
-    request<{ user: User }>('/auth/login', { method: 'POST', body: JSON.stringify({ name, password }) }),
+    request<{ user: User; token: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ name, password }) }),
   register: (name: string, password: string) =>
-    request<{ user: User }>('/users', { method: 'POST', body: JSON.stringify({ name, password }) }),
+    request<{ user: User; token: string }>('/users', { method: 'POST', body: JSON.stringify({ name, password }) }),
+  logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
   // accounts
   createUser: (name: string, password?: string) =>
     request<{ user: User }>('/users', { method: 'POST', body: JSON.stringify({ name, password }) }),

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api } from './api';
+import { api, setAuthToken } from './api';
 import type {
   Bet,
   Match,
@@ -123,6 +123,7 @@ export function useCurrentUser(): CurrentUserState {
 // ---- 登录/注册/退出（密码鉴权版） ----
 
 const STORAGE_KEY = 'betting.currentUser';
+const TOKEN_KEY = 'betting.token';
 
 function persistUser(u: User | null) {
   try {
@@ -135,6 +136,17 @@ function persistUser(u: User | null) {
   }
 }
 
+function persistToken(t: string | null) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      if (t) localStorage.setItem(TOKEN_KEY, t);
+      else localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 /** 启动时从 localStorage 恢复登录态（web 端刷新不丢登录） */
 export function restoreSession(): User | null {
   if (currentUser) return currentUser;
@@ -144,6 +156,8 @@ export function restoreSession(): User | null {
       if (raw) {
         const u = JSON.parse(raw) as User;
         currentUser = u;
+        const token = localStorage.getItem(TOKEN_KEY);
+        if (token) setAuthToken(token);
         return u;
       }
     }
@@ -167,6 +181,8 @@ export function useAuth(): AuthState {
   const login = useCallback(
     async (name: string, password: string) => {
       const res = await api.login(name, password);
+      setAuthToken(res.token);
+      persistToken(res.token);
       select(res.user);
       return res.user;
     },
@@ -176,13 +192,21 @@ export function useAuth(): AuthState {
   const register = useCallback(
     async (name: string, password: string) => {
       const res = await api.register(name, password);
+      setAuthToken(res.token);
+      persistToken(res.token);
       select(res.user);
       return res.user;
     },
     [select],
   );
 
-  const logout = useCallback(() => clear(), [clear]);
+  const logout = useCallback(() => {
+    // 通知服务端作废 token（失败也继续本地登出）
+    api.logout().catch(() => {});
+    setAuthToken(null);
+    persistToken(null);
+    clear();
+  }, [clear]);
 
   return { user, login, register, logout, update };
 }
