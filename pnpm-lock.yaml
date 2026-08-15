@@ -41,6 +41,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@betting/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -63,6 +66,15 @@ importers:
       vite:
         specifier: ^6.0.3
         version: 6.4.3(@types/node@24.13.3)(tsx@4.23.12)
+
+  packages/core:
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.31
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
 
 packages:
 

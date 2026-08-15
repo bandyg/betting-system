@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api } from './api.js';
-import type { Bet, Market, Match, SettleResponse, User } from './api.js';
-import { MATCH_STATUS_LABELS, SEL_LABELS, TYPE_LABELS } from './types.js';
+import { api } from '@betting/core';
+import type { Bet, Market, Match, SettleResponse, User } from '@betting/core';
+import { MATCH_STATUS_LABELS, SEL_LABELS, TYPE_LABELS } from '@betting/core';
 
 interface Msg { kind: 'ok' | 'err'; text: string }
 
