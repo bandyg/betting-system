@@ -3,12 +3,15 @@ import { StatusBar } from 'expo-status-bar';
 import { Platform, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, colors } from '@betting/ui';
-import { setApiBase } from '@betting/core';
+import { setApiBase, restoreSession } from '@betting/core';
 
 // 所有端都直连 API（Tailscale IP，CORS 已放行 *）
 // - Native（iOS/Android）不能走相对路径
 // - Expo Web 没有 vite proxy，/api 会打到自身 → 也用绝对地址
 setApiBase('http://100.66.5.26:4100/api');
+
+// 启动时恢复 web 端登录态（localStorage）
+restoreSession();
 
 function EmojiIcon({ emoji }: { emoji: string }) {
   return <Text style={{ fontSize: 20 }}>{emoji}</Text>;

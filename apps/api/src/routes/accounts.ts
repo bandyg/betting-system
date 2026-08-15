@@ -1,15 +1,16 @@
 import { Router } from 'express';
-import db from '../db/index.js';
+import db, { hashPassword, DEFAULT_PASSWORD } from '../db/index.js';
 
 export const accountsRouter = Router();
 
-// POST /users — create user + account (balance 0)
+// POST /users — create user + account (balance 0)，password 可选（默认 123456，demo）
 accountsRouter.post('/users', (req, res) => {
-  const { name } = req.body ?? {};
+  const { name, password } = req.body ?? {};
   if (typeof name !== 'string' || name.trim() === '') {
     return res.status(400).json({ error: 'name is required (non-empty string)' });
   }
   const trimmed = name.trim();
+  const pw = typeof password === 'string' && password.length > 0 ? password : DEFAULT_PASSWORD;
   const existing = db.prepare('SELECT id FROM users WHERE name = ?').get(trimmed) as
     | { id: number }
     | undefined;
@@ -18,7 +19,7 @@ accountsRouter.post('/users', (req, res) => {
   }
 
   const create = db.transaction(() => {
-    const info = db.prepare('INSERT INTO users (name) VALUES (?)').run(trimmed);
+    const info = db.prepare('INSERT INTO users (name, password) VALUES (?, ?)').run(trimmed, hashPassword(pw));
     const userId = Number(info.lastInsertRowid);
     db.prepare('INSERT INTO accounts (user_id) VALUES (?)').run(userId);
     return userId;

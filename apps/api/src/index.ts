@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { accountsRouter } from './routes/accounts.js';
+import { authRouter } from './routes/auth.js';
 import { matchesRouter } from './routes/matches.js';
 import { marketsRouter } from './routes/markets.js';
 import { betsRouter } from './routes/bets.js';
@@ -19,6 +20,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api', accountsRouter);
+app.use('/api', authRouter);
 app.use('/api', matchesRouter);
 app.use('/api', marketsRouter);
 app.use('/api', betsRouter);

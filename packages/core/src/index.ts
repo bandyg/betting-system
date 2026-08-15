@@ -31,6 +31,8 @@ export {
   placeBetItems,
   useContents,
   usePromotions,
-  usePreferences
+  usePreferences,
+  useAuth,
+  restoreSession
 } from './hooks';
-export type { BetSlipItem, BetSlipState, CurrentUserState, PlaceBetResult } from './hooks';
+export type { BetSlipItem, BetSlipState, CurrentUserState, AuthState, PlaceBetResult } from './hooks';

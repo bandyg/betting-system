@@ -61,7 +61,13 @@ export function usePromotions(status?: 'active' | 'expired') {
 }
 
 export function usePreferences(userId?: number | null) {
-  return useAsync<{ preferences: UserPreferences }>(() => api.getPreferences(userId!), [userId]);
+  return useAsync<{ preferences: UserPreferences }>(
+    () =>
+      userId
+        ? api.getPreferences(userId)
+        : Promise.resolve({ preferences: { favorite_team: null, marketing_opt_in: false } }),
+    [userId],
+  );
 }
 
 export interface CurrentUserState {
@@ -95,20 +101,90 @@ export function useCurrentUser(): CurrentUserState {
 
   const select = useCallback((u: User) => {
     currentUser = u;
+    persistUser(u);
     emit();
   }, []);
 
   const update = useCallback((u: User) => {
     currentUser = u;
+    persistUser(u);
     emit();
   }, []);
 
   const clear = useCallback(() => {
     currentUser = null;
+    persistUser(null);
     emit();
   }, []);
 
   return { user, select, update, clear };
+}
+
+// ---- 登录/注册/退出（密码鉴权版） ----
+
+const STORAGE_KEY = 'betting.currentUser';
+
+function persistUser(u: User | null) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      if (u) localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+      else localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    /* web localStorage 不可用时忽略 */
+  }
+}
+
+/** 启动时从 localStorage 恢复登录态（web 端刷新不丢登录） */
+export function restoreSession(): User | null {
+  if (currentUser) return currentUser;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const u = JSON.parse(raw) as User;
+        currentUser = u;
+        return u;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export interface AuthState {
+  user: User | null;
+  login: (name: string, password: string) => Promise<User>;
+  register: (name: string, password: string) => Promise<User>;
+  logout: () => void;
+  update: (u: User) => void;
+}
+
+export function useAuth(): AuthState {
+  const { user, select, update, clear } = useCurrentUser();
+
+  const login = useCallback(
+    async (name: string, password: string) => {
+      const res = await api.login(name, password);
+      select(res.user);
+      return res.user;
+    },
+    [select],
+  );
+
+  const register = useCallback(
+    async (name: string, password: string) => {
+      const res = await api.register(name, password);
+      select(res.user);
+      return res.user;
+    },
+    [select],
+  );
+
+  const logout = useCallback(() => clear(), [clear]);
+
+  return { user, login, register, logout, update };
 }
 
 export interface BetSlipItem {

@@ -45,9 +45,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // auth
+  login: (name: string, password: string) =>
+    request<{ user: User }>('/auth/login', { method: 'POST', body: JSON.stringify({ name, password }) }),
+  register: (name: string, password: string) =>
+    request<{ user: User }>('/users', { method: 'POST', body: JSON.stringify({ name, password }) }),
   // accounts
-  createUser: (name: string) =>
-    request<{ user: User }>('/users', { method: 'POST', body: JSON.stringify({ name }) }),
+  createUser: (name: string, password?: string) =>
+    request<{ user: User }>('/users', { method: 'POST', body: JSON.stringify({ name, password }) }),
   listUsers: () => request<UsersResponse>('/users'),
   getUser: (id: number) => request<{ user: User }>(`/users/${id}`),
   deposit: (id: number, amount: number) =>

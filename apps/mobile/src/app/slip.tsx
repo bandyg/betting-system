@@ -14,7 +14,7 @@ export default function SlipScreen() {
 
   const submit = async () => {
     if (!user) {
-      setMsg({ kind: 'err', text: '请先在「我的」页选择用户' });
+      setMsg({ kind: 'err', text: '请先到「我的」页登录' });
       return;
     }
     if (slip.items.length === 0) {
@@ -88,7 +88,7 @@ export default function SlipScreen() {
                 </Text>
               </View>
               <Button title={submitting ? '提交中…' : `确认下注 ¥${(Number(stake || 0) * slip.items.length).toLocaleString()}`} onPress={submit} loading={submitting} />
-              {!user && <Text style={styles.hint}>⚠️ 未选择用户，下注前请到「我的」页选一个</Text>}
+              {!user && <Text style={styles.hint}>⚠️ 未登录，下注前请到「我的」页登录</Text>}
             </View>
           </>
         )}

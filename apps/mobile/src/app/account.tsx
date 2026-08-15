@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api, useUsers, useCurrentUser, useBets, usePreferences, SEL_LABELS, MATCH_STATUS_LABELS } from '@betting/core';
+import { api, useAuth, useBets, usePreferences, SEL_LABELS } from '@betting/core';
 import type { Bet } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
@@ -16,12 +16,83 @@ function statusColor(status: string): string {
   return colors.textSecondary;
 }
 
+/** 登录 / 注册表单 */
+function AuthForm() {
+  const auth = useAuth();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const submit = async () => {
+    if (!name.trim() || !password) {
+      setMsg({ kind: 'err', text: '请输入用户名和密码' });
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const user =
+        mode === 'login'
+          ? await auth.login(name.trim(), password)
+          : await auth.register(name.trim(), password);
+      setMsg({ kind: 'ok', text: `✅ 欢迎，${user.name}` });
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Card style={styles.authCard} glass>
+        <Text style={styles.authTitle}>{mode === 'login' ? '🔐 登录' : '✨ 注册新账号'}</Text>
+        <Text style={styles.authSub}>
+          {mode === 'login' ? '登录后查看余额、下注记录与偏好' : '注册即送 ¥0 余额，先充后玩'}
+        </Text>
+
+        <TextInput
+          value={name}
+          onChangeText={setName}
+          placeholder="用户名"
+          placeholderTextColor={colors.textMuted}
+          autoCapitalize="none"
+          style={styles.input}
+        />
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder="密码"
+          placeholderTextColor={colors.textMuted}
+          secureTextEntry
+          style={[styles.input, { marginTop: spacing.md }]}
+        />
+
+        {msg && <FlashMsg msg={msg} />}
+
+        <Button
+          title={busy ? (mode === 'login' ? '登录中…' : '注册中…') : mode === 'login' ? '登 录' : '注 册'}
+          onPress={submit}
+          loading={busy}
+          style={{ marginTop: spacing.md }}
+        />
+      </Card>
+
+      <Pressable onPress={() => setMode(mode === 'login' ? 'register' : 'login')} hitSlop={8}>
+        <Text style={styles.switchText}>
+          {mode === 'login' ? '没有账号？注册一个' : '已有账号？去登录'}
+        </Text>
+      </Pressable>
+    </>
+  );
+}
+
 export default function AccountScreen() {
-  const users = useUsers();
-  const { user, select, update, clear } = useCurrentUser();
+  const auth = useAuth();
+  const { user } = auth;
   const bets = useBets(user?.id);
-  const [newName, setNewName] = useState('');
-  const [creating, setCreating] = useState(false);
   const [depositAmt, setDepositAmt] = useState('1000');
   const [depositing, setDepositing] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
@@ -30,31 +101,8 @@ export default function AccountScreen() {
   const [optIn, setOptIn] = useState(true);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
-  const createUser = async () => {
-    if (!newName.trim()) {
-      setMsg({ kind: 'err', text: '请输入用户名' });
-      return;
-    }
-    setCreating(true);
-    setMsg(null);
-    try {
-      const res = await api.createUser(newName.trim());
-      select(res.user);
-      setNewName('');
-      users.refresh();
-      setMsg({ kind: 'ok', text: `✅ 用户 ${res.user.name} 已创建` });
-    } catch (e) {
-      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setCreating(false);
-    }
-  };
-
   const deposit = async () => {
-    if (!user) {
-      setMsg({ kind: 'err', text: '先选择/创建用户' });
-      return;
-    }
+    if (!user) return;
     const amount = Number(depositAmt);
     if (!amount || amount <= 0) {
       setMsg({ kind: 'err', text: '请输入有效金额' });
@@ -65,10 +113,9 @@ export default function AccountScreen() {
     try {
       const res = await api.deposit(user.id, amount);
       setMsg({ kind: 'ok', text: `✅ 已充值 ¥${amount}，余额 ¥${res.account.balance}` });
-      users.refresh();
       bets.refresh();
       // 刷新当前用户对象（余额等字段）
-      update({ ...user, balance: res.account.balance });
+      auth.update({ ...user, balance: res.account.balance });
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -77,10 +124,7 @@ export default function AccountScreen() {
   };
 
   const savePreferences = async () => {
-    if (!user) {
-      setMsg({ kind: 'err', text: '先选择/创建用户' });
-      return;
-    }
+    if (!user) return;
     setSavingPrefs(true);
     setMsg(null);
     try {
@@ -99,6 +143,24 @@ export default function AccountScreen() {
     }
   };
 
+  // ── 未登录：登录页 ──
+  if (!user) {
+    return (
+      <Screen>
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <View style={styles.brand}>
+              <Text style={styles.brandTitle}>⚡ BET NOW</Text>
+              <Text style={styles.brandSub}>登录你的投注账户</Text>
+            </View>
+            <AuthForm />
+          </ScrollView>
+        </SafeAreaView>
+      </Screen>
+    );
+  }
+
+  // ── 已登录：用户信息页 ──
   return (
     <Screen>
       <SafeAreaView style={styles.safe} edges={['top']}>
@@ -107,104 +169,59 @@ export default function AccountScreen() {
 
           {/* 当前用户 */}
           <Card style={styles.userCard} glass>
-            {user ? (
-              <View style={styles.userRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.userName}>#{user.id} {user.name}</Text>
-                  <Text style={styles.balance}>余额 ¥{user.balance.toLocaleString()}</Text>
-                </View>
-                <Pressable onPress={clear} hitSlop={8}>
-                  <Text style={styles.switch}>切换</Text>
-                </Pressable>
+            <View style={styles.userRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.userName}>#{user.id} {user.name}</Text>
+                <Text style={styles.balance}>余额 ¥{user.balance.toLocaleString()}</Text>
               </View>
-            ) : (
-              <Text style={styles.noUser}>未选择用户 —— 选一个或新建</Text>
-            )}
-          </Card>
-
-          {/* 创建用户 */}
-          <Card style={styles.sectionCard}>
-            <Text style={styles.cardTitle}>新建用户</Text>
-            <View style={styles.row}>
-              <TextInput
-                value={newName}
-                onChangeText={setNewName}
-                placeholder="用户名（如 demo）"
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
-              />
-              <Button title="创建" onPress={createUser} loading={creating} style={{ minWidth: 96 }} />
-            </View>
-          </Card>
-
-          {/* 选择已有用户 */}
-          <Card style={styles.sectionCard}>
-            <Text style={styles.cardTitle}>选择用户</Text>
-            {users.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
-            <View style={styles.userList}>
-              {(users.data?.users ?? []).map((u) => (
-                <Pressable
-                  key={u.id}
-                  onPress={() => select(u)}
-                  style={({ pressed }) => [
-                    styles.userChip,
-                    { backgroundColor: user?.id === u.id ? colors.oddsActiveBg : colors.oddsBg, opacity: pressed ? 0.8 : 1 },
-                  ]}
-                >
-                  <Text style={[styles.userChipText, { color: user?.id === u.id ? colors.secondary : colors.text }]}>
-                    #{u.id} {u.name} · ¥{u.balance}
-                  </Text>
-                </Pressable>
-              ))}
+              <Pressable onPress={auth.logout} hitSlop={8} style={styles.logoutBtn}>
+                <Text style={styles.logoutText}>退出登录</Text>
+              </Pressable>
             </View>
           </Card>
 
           {/* 充值 */}
-          {user && (
-            <Card style={styles.sectionCard}>
-              <Text style={styles.cardTitle}>充值</Text>
-              <View style={styles.row}>
-                <TextInput
-                  value={depositAmt}
-                  onChangeText={setDepositAmt}
-                  keyboardType="numeric"
-                  placeholderTextColor={colors.textMuted}
-                  style={styles.input}
-                />
-                <Button title="充值" onPress={deposit} loading={depositing} style={{ minWidth: 96 }} />
-              </View>
-            </Card>
-          )}
+          <Card style={styles.sectionCard}>
+            <Text style={styles.cardTitle}>充值</Text>
+            <View style={styles.row}>
+              <TextInput
+                value={depositAmt}
+                onChangeText={setDepositAmt}
+                keyboardType="numeric"
+                placeholderTextColor={colors.textMuted}
+                style={styles.input}
+              />
+              <Button title="充值" onPress={deposit} loading={depositing} style={{ minWidth: 96 }} />
+            </View>
+          </Card>
 
           {msg && <FlashMsg msg={msg} />}
 
           {/* 客户偏好 (CRM) */}
-          {user && (
-            <Card style={styles.sectionCard}>
-              <Text style={styles.cardTitle}>❤️ 偏好设置（CRM）</Text>
-              <TextInput
-                value={favTeam}
-                onChangeText={setFavTeam}
-                placeholder={prefs.data?.preferences.favorite_team ?? '喜欢的球队（如 Arsenal）'}
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
-              />
-              <Pressable onPress={() => setOptIn(!optIn)} style={styles.optRow}>
-                <View style={[styles.checkbox, { backgroundColor: optIn ? colors.secondary : 'transparent' }]}>
-                  {optIn && <Text style={{ color: '#fff', fontSize: 12 }}>✓</Text>}
-                </View>
-                <Text style={{ color: colors.textSecondary, fontSize: fontSize.md, marginLeft: spacing.sm }}>
-                  接收营销推送
-                </Text>
-              </Pressable>
-              <Button title={savingPrefs ? '保存中…' : '保存偏好'} onPress={savePreferences} loading={savingPrefs} />
-            </Card>
-          )}
+          <Card style={styles.sectionCard}>
+            <Text style={styles.cardTitle}>❤️ 偏好设置（CRM）</Text>
+            <TextInput
+              value={favTeam}
+              onChangeText={setFavTeam}
+              placeholder={prefs.data?.preferences.favorite_team ?? '喜欢的球队（如 Arsenal）'}
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+            />
+            <Pressable onPress={() => setOptIn(!optIn)} style={styles.optRow}>
+              <View style={[styles.checkbox, { backgroundColor: optIn ? colors.secondary : 'transparent' }]}>
+                {optIn && <Text style={{ color: '#fff', fontSize: 12 }}>✓</Text>}
+              </View>
+              <Text style={{ color: colors.textSecondary, fontSize: fontSize.md, marginLeft: spacing.sm }}>
+                接收营销推送
+              </Text>
+            </Pressable>
+            <Button title={savingPrefs ? '保存中…' : '保存偏好'} onPress={savePreferences} loading={savingPrefs} />
+          </Card>
 
           {/* 投注记录 */}
           <SectionTitle style={styles.recordTitle}>📋 投注记录</SectionTitle>
           {bets.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
-          {!bets.loading && (bets.data?.bets ?? []).length === 0 && <EmptyState text="暂无投注记录" />}
+          {!bets.loading && (bets.data?.bets ?? []).length === 0 && <EmptyState text="暂无投注记录，去赛事页下第一注" />}
           {(bets.data?.bets ?? []).map((b) => (
             <Card key={b.id} style={styles.betRow}>
               <View style={{ flex: 1 }}>
@@ -232,12 +249,21 @@ export default function AccountScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 120 },
+  // 登录页
+  brand: { alignItems: 'center', marginTop: spacing.xl, marginBottom: spacing.xl },
+  brandTitle: { color: colors.text, fontSize: 28, fontWeight: font.bold, letterSpacing: 1 },
+  brandSub: { color: colors.textSecondary, fontSize: fontSize.md, marginTop: spacing.sm },
+  authCard: { paddingVertical: spacing.lg },
+  authTitle: { color: colors.text, fontSize: fontSize.xl, fontWeight: font.bold },
+  authSub: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 4, marginBottom: spacing.lg },
+  switchText: { color: colors.secondary, fontSize: fontSize.md, textAlign: 'center', marginTop: spacing.lg, fontWeight: font.bold },
+  // 已登录
   userCard: { marginBottom: spacing.lg },
   userRow: { flexDirection: 'row', alignItems: 'center' },
   userName: { color: colors.text, fontSize: fontSize.xl, fontWeight: font.bold },
   balance: { color: colors.success, fontSize: fontSize.lg, fontWeight: font.bold, marginTop: 4 },
-  switch: { color: colors.secondary, fontSize: fontSize.md, fontWeight: font.bold },
-  noUser: { color: colors.textSecondary, fontSize: fontSize.md },
+  logoutBtn: { borderWidth: 1, borderColor: colors.danger, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  logoutText: { color: colors.danger, fontSize: fontSize.sm, fontWeight: font.bold },
   sectionCard: { marginBottom: spacing.lg },
   cardTitle: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: font.regular, marginBottom: spacing.md, textTransform: 'uppercase', letterSpacing: 0.5 },
   row: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
@@ -251,9 +277,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSize.md,
   },
-  userList: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  userChip: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 8 },
-  userChipText: { fontSize: fontSize.sm, fontWeight: font.regular },
   recordTitle: { marginTop: spacing.sm },
   betRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   betMain: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },

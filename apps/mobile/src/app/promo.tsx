@@ -28,7 +28,7 @@ export default function PromoScreen() {
 
   const claim = async (p: Promotion) => {
     if (!user) {
-      setMsg({ kind: 'err', text: '请先在「我的」页选择用户' });
+      setMsg({ kind: 'err', text: '请先到「我的」页登录' });
       return;
     }
     setBusyId(p.id);
