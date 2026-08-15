@@ -75,6 +75,46 @@ export interface SettleResponse {
   totalRefund: number;
 }
 
+/* ---- CMS (Step 15) ---- */
+export interface Content {
+  id: number;
+  title: string;
+  type: 'announcement' | 'promotion' | 'article';
+  body: string;
+  status: 'draft' | 'published';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContentsResponse {
+  count: number;
+  contents: Content[];
+}
+
+/* ---- CRM (Step 16) ---- */
+export interface Promotion {
+  id: number;
+  title: string;
+  description: string;
+  bonus_type: 'deposit_bonus' | 'free_bet';
+  bonus_value: number;
+  min_deposit: number;
+  status: 'active' | 'expired';
+  start_at: string | null;
+  end_at: string | null;
+  created_at: string;
+}
+
+export interface PromotionsResponse {
+  count: number;
+  promotions: Promotion[];
+}
+
+export interface UserPreferences {
+  favorite_team: string | null;
+  marketing_opt_in: boolean;
+}
+
 export const TYPE_LABELS: Record<string, string> = {
   '1x2': '胜平负',
   ah: '让球',

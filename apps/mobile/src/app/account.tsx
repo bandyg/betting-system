@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api, useUsers, useCurrentUser, useBets, SEL_LABELS, MATCH_STATUS_LABELS } from '@betting/core';
+import { api, useUsers, useCurrentUser, useBets, usePreferences, SEL_LABELS, MATCH_STATUS_LABELS } from '@betting/core';
 import type { Bet } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
@@ -25,6 +25,10 @@ export default function AccountScreen() {
   const [depositAmt, setDepositAmt] = useState('1000');
   const [depositing, setDepositing] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const prefs = usePreferences(user?.id);
+  const [favTeam, setFavTeam] = useState('');
+  const [optIn, setOptIn] = useState(true);
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
   const createUser = async () => {
     if (!newName.trim()) {
@@ -69,6 +73,29 @@ export default function AccountScreen() {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
     } finally {
       setDepositing(false);
+    }
+  };
+
+  const savePreferences = async () => {
+    if (!user) {
+      setMsg({ kind: 'err', text: '先选择/创建用户' });
+      return;
+    }
+    setSavingPrefs(true);
+    setMsg(null);
+    try {
+      const res = await api.updatePreferences(user.id, {
+        favorite_team: favTeam.trim() || null,
+        marketing_opt_in: optIn,
+      });
+      setFavTeam(res.preferences.favorite_team ?? '');
+      setOptIn(res.preferences.marketing_opt_in);
+      setMsg({ kind: 'ok', text: '✅ 偏好已保存' });
+      prefs.refresh();
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setSavingPrefs(false);
     }
   };
 
@@ -151,6 +178,29 @@ export default function AccountScreen() {
 
           {msg && <FlashMsg msg={msg} />}
 
+          {/* 客户偏好 (CRM) */}
+          {user && (
+            <Card style={styles.sectionCard}>
+              <Text style={styles.cardTitle}>❤️ 偏好设置（CRM）</Text>
+              <TextInput
+                value={favTeam}
+                onChangeText={setFavTeam}
+                placeholder={prefs.data?.preferences.favorite_team ?? '喜欢的球队（如 Arsenal）'}
+                placeholderTextColor={colors.textMuted}
+                style={styles.input}
+              />
+              <Pressable onPress={() => setOptIn(!optIn)} style={styles.optRow}>
+                <View style={[styles.checkbox, { backgroundColor: optIn ? colors.secondary : 'transparent' }]}>
+                  {optIn && <Text style={{ color: '#fff', fontSize: 12 }}>✓</Text>}
+                </View>
+                <Text style={{ color: colors.textSecondary, fontSize: fontSize.md, marginLeft: spacing.sm }}>
+                  接收营销推送
+                </Text>
+              </Pressable>
+              <Button title={savingPrefs ? '保存中…' : '保存偏好'} onPress={savePreferences} loading={savingPrefs} />
+            </Card>
+          )}
+
           {/* 投注记录 */}
           <SectionTitle style={styles.recordTitle}>📋 投注记录</SectionTitle>
           {bets.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
@@ -210,4 +260,6 @@ const styles = StyleSheet.create({
   betSub: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
   betStatus: { fontSize: fontSize.sm, fontWeight: font.bold },
   betPayout: { color: colors.success, fontSize: fontSize.sm, marginTop: 2 },
+  optRow: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.md },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
 });

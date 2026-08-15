@@ -9,7 +9,12 @@ export type {
   User,
   MatchesResponse,
   UsersResponse,
-  BetsResponse
+  BetsResponse,
+  Content,
+  ContentsResponse,
+  Promotion,
+  PromotionsResponse,
+  UserPreferences
 } from './types';
 export {
   TYPE_LABELS,
@@ -23,6 +28,9 @@ export {
   useBets,
   useCurrentUser,
   useBetSlip,
-  placeBetItems
+  placeBetItems,
+  useContents,
+  usePromotions,
+  usePreferences
 } from './hooks';
 export type { BetSlipItem, BetSlipState, CurrentUserState, PlaceBetResult } from './hooks';

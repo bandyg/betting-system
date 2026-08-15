@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
-import type { Bet, Match, User, MatchesResponse, UsersResponse, BetsResponse } from './types';
+import type {
+  Bet,
+  Match,
+  User,
+  MatchesResponse,
+  UsersResponse,
+  BetsResponse,
+  ContentsResponse,
+  PromotionsResponse,
+  UserPreferences
+} from './types';
 
 /** 通用异步数据 hook：加载 + 刷新 + 错误 */
 export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []) {
@@ -40,6 +50,18 @@ export function useUsers() {
 
 export function useBets(userId?: number) {
   return useAsync<BetsResponse>(() => api.listBets(userId), [userId]);
+}
+
+export function useContents(status?: 'published' | 'draft') {
+  return useAsync<ContentsResponse>(() => api.listContents(status), [status]);
+}
+
+export function usePromotions(status?: 'active' | 'expired') {
+  return useAsync<PromotionsResponse>(() => api.listPromotions(status), [status]);
+}
+
+export function usePreferences(userId?: number | null) {
+  return useAsync<{ preferences: UserPreferences }>(() => api.getPreferences(userId!), [userId]);
 }
 
 export interface CurrentUserState {

@@ -8,7 +8,12 @@ import type {
   User,
   MatchesResponse,
   UsersResponse,
-  BetsResponse
+  BetsResponse,
+  Content,
+  ContentsResponse,
+  Promotion,
+  PromotionsResponse,
+  UserPreferences
 } from './types';
 
 /**
@@ -82,7 +87,45 @@ export const api = {
       body: JSON.stringify({ homeScore, awayScore })
     }),
   settleMatch: (matchId: number) =>
-    request<SettleResponse>(`/matches/${matchId}/settle`, { method: 'POST' })
+    request<SettleResponse>(`/matches/${matchId}/settle`, { method: 'POST' }),
+  // CMS
+  createContent: (title: string, type: string, body: string) =>
+    request<{ content: Content }>('/cms/contents', {
+      method: 'POST',
+      body: JSON.stringify({ title, type, body })
+    }),
+  listContents: (status?: 'published' | 'draft') =>
+    request<ContentsResponse>(status ? `/cms/contents?status=${status}` : '/cms/contents'),
+  publishContent: (id: number) =>
+    request<{ content: Content }>(`/cms/contents/${id}/publish`, { method: 'POST' }),
+  // CRM
+  createPromotion: (data: {
+    title: string;
+    description: string;
+    bonus_type: string;
+    bonus_value: number;
+    min_deposit?: number;
+  }) =>
+    request<{ promotion: Promotion }>('/crm/promotions', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  listPromotions: (status?: 'active' | 'expired') =>
+    request<PromotionsResponse>(status ? `/crm/promotions?status=${status}` : '/crm/promotions'),
+  claimPromotion: (promotionId: number, userId: number) =>
+    request<{ claimed: boolean; promotion: Promotion }>(`/crm/promotions/${promotionId}/claim`, {
+      method: 'POST',
+      body: JSON.stringify({ userId })
+    }),
+  checkClaim: (promotionId: number, userId: number) =>
+    request<{ claimed: boolean }>(`/crm/promotions/${promotionId}/claims?userId=${userId}`),
+  getPreferences: (userId: number) =>
+    request<{ preferences: UserPreferences }>(`/users/${userId}/preferences`),
+  updatePreferences: (userId: number, data: { favorite_team?: string | null; marketing_opt_in?: boolean }) =>
+    request<{ preferences: UserPreferences }>(`/users/${userId}/preferences`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
 };
 
 export type {

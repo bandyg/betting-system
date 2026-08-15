@@ -197,6 +197,60 @@ export function OddsButton({
   );
 }
 
+/* ---------------- PromotionCard (CRM 促销卡片) ---------------- */
+export function PromotionCard({
+  title,
+  description,
+  bonusLabel,
+  claimed,
+  onClaim,
+}: {
+  title: string;
+  description: string;
+  bonusLabel: string;
+  claimed?: boolean;
+  onClaim?: () => void;
+}) {
+  const t = useTheme();
+  return (
+    <Card glass style={styles.promoCard}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.promoTitle}>{title}</Text>
+        <Text style={styles.promoDesc}>{description}</Text>
+        <View style={styles.promoBonus}>
+          <Text style={styles.promoBonusText}>{bonusLabel}</Text>
+        </View>
+      </View>
+      {claimed ? (
+        <View style={[styles.promoClaimed, { borderColor: t.success }]}>
+          <Text style={{ color: t.success, fontSize: fontSize.sm, fontWeight: font.bold }}>已领取 ✓</Text>
+        </View>
+      ) : (
+        <Pressable
+          onPress={onClaim}
+          style={({ pressed }) => [
+            styles.promoClaimBtn,
+            { backgroundColor: t.gradientStart, opacity: pressed ? 0.8 : 1 },
+          ]}
+        >
+          <Text style={{ color: '#fff', fontSize: fontSize.sm, fontWeight: font.bold }}>领取</Text>
+        </Pressable>
+      )}
+    </Card>
+  );
+}
+
+/* ---------------- Banner (CMS 公告) ---------------- */
+export function Banner({ text }: { text: string }) {
+  const t = useTheme();
+  return (
+    <View style={[styles.banner, { backgroundColor: 'rgba(124,58,237,0.15)', borderColor: t.borderStrong }]}>
+      <Text style={styles.bannerIcon}>📢</Text>
+      <Text style={styles.bannerText}>{text}</Text>
+    </View>
+  );
+}
+
 /* ---------------- SectionTitle ---------------- */
 export function SectionTitle({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
   const t = useTheme();
@@ -317,6 +371,58 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
   },
+  promoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  promoTitle: {
+    color: '#F4F6FF',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  promoDesc: {
+    color: '#9AA3C0',
+    fontSize: 13,
+    marginTop: 4,
+  },
+  promoBonus: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(6,182,212,0.15)',
+  },
+  promoBonusText: {
+    color: '#06B6D4',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  promoClaimBtn: {
+    marginLeft: 12,
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  promoClaimed: {
+    marginLeft: 12,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  bannerIcon: { fontSize: 16, marginRight: 8 },
+  bannerText: { color: '#F4F6FF', fontSize: 13, flex: 1 },
 });
 
 export type { ViewStyle, TextStyle };
