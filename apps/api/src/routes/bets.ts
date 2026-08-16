@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { requireAuth } from './middleware.js';
+import { checkRisk } from '../risk.js';
 
 export const betsRouter = Router();
 
@@ -72,6 +73,12 @@ betsRouter.post('/bets', requireAuth, (req, res) => {
     .get(mid, sel) as { price: number } | undefined;
   if (!oddsRow) {
     return res.status(400).json({ error: `selection "${sel}" not available on this market` });
+  }
+
+  // 风控校验：单笔上/下限 + 赔率范围 + 日累计（扣款前拦截）
+  const riskErr = checkRisk({ stake: stakeNum, price: oddsRow.price, userId: uid });
+  if (riskErr) {
+    return res.status(400).json({ error: riskErr });
   }
 
   const acc = db
