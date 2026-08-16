@@ -55,6 +55,42 @@ export function migrate(db: Database.Database): void {
     db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'");
   }
 
+  // 迁移：markets.status CHECK 加 'suspended'（SQLite 不能改 CHECK，需重建表）
+  // 注意：不能 ALTER TABLE markets RENAME TO markets_old —— 即使 foreign_keys=OFF，
+  //   RENAME 仍会把 odds/bets 的外键引用改写为指向 markets_old，drop 后留下悬空引用。
+  //   正确顺序：CREATE 新表 → COPY → DROP 旧表 → RENAME 新表为原名（被引用表从未改名）。
+  const marketsSql = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='markets'")
+    .get() as { sql: string } | undefined;
+  if (marketsSql && !marketsSql.sql.includes('suspended')) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      CREATE TABLE markets_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        match_id INTEGER NOT NULL REFERENCES matches(id),
+        type TEXT NOT NULL CHECK (type IN ('1x2', 'ah', 'ou')),
+        line REAL,
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'suspended', 'settled')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO markets_new (id, match_id, type, line, status, created_at)
+        SELECT id, match_id, type, line, status, created_at FROM markets;
+      DROP TABLE markets;
+      ALTER TABLE markets_new RENAME TO markets;
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_markets_match ON markets(match_id)');
+    db.pragma('foreign_keys = ON');
+  }
+
+  // 迁移：默认风控限额单行（id=1）
+  const rl = db.prepare('SELECT id FROM risk_limits WHERE id = 1').get();
+  if (!rl) {
+    db.prepare(
+      `INSERT INTO risk_limits (id, min_stake, max_stake, min_odds, max_odds, max_daily_stake)
+       VALUES (1, 1, 100000, 1.01, 1000, 500000)`,
+    ).run();
+  }
+
   // 默认 admin 账号（admin / admin123），不存在则创建
   const admin = db.prepare("SELECT id FROM users WHERE name = 'admin'").get() as { id: number } | undefined;
   if (!admin) {

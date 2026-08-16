@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS markets (
   match_id INTEGER NOT NULL REFERENCES matches(id),
   type TEXT NOT NULL CHECK (type IN ('1x2', 'ah', 'ou')),
   line REAL,               -- handicap (ah) or total (ou); NULL for 1x2
-  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'settled')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'suspended', 'settled')),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -121,4 +121,16 @@ CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ============ Risk Limits (Step 21) ============
+-- 单行配置表（id 恒为 1）：下注金额上/下限、赔率合法范围、用户日累计 stake 上限
+CREATE TABLE IF NOT EXISTS risk_limits (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  min_stake REAL NOT NULL DEFAULT 1,
+  max_stake REAL NOT NULL DEFAULT 100000,
+  min_odds REAL NOT NULL DEFAULT 1.01,
+  max_odds REAL NOT NULL DEFAULT 1000,
+  max_daily_stake REAL NOT NULL DEFAULT 500000,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
