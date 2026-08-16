@@ -12,7 +12,7 @@ type MarketRow = {
   match_id: number;
   type: '1x2' | 'ah' | 'ou';
   line: number | null;
-  status: 'open' | 'settled';
+  status: 'open' | 'suspended' | 'settled';
   created_at: string;
 };
 
@@ -123,4 +123,104 @@ marketsRouter.get('/markets/:id', (req, res) => {
     .prepare('SELECT selection, price FROM odds WHERE market_id = ? ORDER BY id')
     .all(id);
   res.json({ market: { ...market, odds } });
+});
+
+// ============ 交易工具（Step 24，仅 admin）============
+
+// PUT /markets/:id/odds — 调赔：更新部分或全部 selection 的赔率（admin）
+// body: { odds: { <selection>: price, ... } }
+marketsRouter.put('/markets/:id/odds', requireAuth, requireRole('admin'), (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'invalid market id' });
+  }
+  const market = db.prepare('SELECT * FROM markets WHERE id = ?').get(id) as MarketRow | undefined;
+  if (!market) {
+    return res.status(404).json({ error: 'market not found' });
+  }
+  if (market.status === 'settled') {
+    return res.status(409).json({ error: 'cannot update odds on a settled market' });
+  }
+
+  const { odds } = req.body ?? {};
+  if (typeof odds !== 'object' || odds === null || Array.isArray(odds)) {
+    return res.status(400).json({ error: 'odds must be an object like { home: 2.5, draw: 3.1 }' });
+  }
+  const entries = Object.entries(odds as Record<string, unknown>);
+  if (entries.length === 0) {
+    return res.status(400).json({ error: 'odds must contain at least one selection' });
+  }
+  const allowed = SELECTIONS[market.type as MarketType];
+  const updates: Array<{ selection: string; price: number }> = [];
+  for (const [selection, price] of entries) {
+    if (!allowed.includes(selection)) {
+      return res
+        .status(400)
+        .json({ error: `selection "${selection}" not valid for ${market.type}; allowed: ${allowed.join(', ')}` });
+    }
+    const numPrice = Number(price);
+    if (!Number.isFinite(numPrice) || numPrice <= 1) {
+      return res.status(400).json({ error: `price for "${selection}" must be a number > 1` });
+    }
+    updates.push({ selection, price: numPrice });
+  }
+
+  // 校验每个 selection 在该市场真实存在，再批量更新
+  const existing = db
+    .prepare('SELECT selection FROM odds WHERE market_id = ?')
+    .all(id) as { selection: string }[];
+  const existingSet = new Set(existing.map((e) => e.selection));
+  for (const u of updates) {
+    if (!existingSet.has(u.selection)) {
+      return res.status(400).json({ error: `selection "${u.selection}" not available on this market` });
+    }
+  }
+
+  const stmt = db.prepare('UPDATE odds SET price = ? WHERE market_id = ? AND selection = ?');
+  db.transaction(() => {
+    for (const u of updates) {
+      stmt.run(u.price, id, u.selection);
+    }
+  })();
+
+  const oddsRows = db
+    .prepare('SELECT selection, price FROM odds WHERE market_id = ? ORDER BY id')
+    .all(id);
+  res.json({ market: { ...market, odds: oddsRows } });
+});
+
+// POST /markets/:id/suspend — 挂盘（open → suspended，仅 admin）
+marketsRouter.post('/markets/:id/suspend', requireAuth, requireRole('admin'), (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'invalid market id' });
+  }
+  const market = db.prepare('SELECT * FROM markets WHERE id = ?').get(id) as MarketRow | undefined;
+  if (!market) {
+    return res.status(404).json({ error: 'market not found' });
+  }
+  if (market.status !== 'open') {
+    return res.status(409).json({ error: `market is ${market.status}, can only suspend an open market` });
+  }
+  db.prepare("UPDATE markets SET status = 'suspended' WHERE id = ?").run(id);
+  const updated = db.prepare('SELECT * FROM markets WHERE id = ?').get(id) as MarketRow;
+  res.json({ market: updated });
+});
+
+// POST /markets/:id/resume — 开盘（suspended → open，仅 admin）
+marketsRouter.post('/markets/:id/resume', requireAuth, requireRole('admin'), (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'invalid market id' });
+  }
+  const market = db.prepare('SELECT * FROM markets WHERE id = ?').get(id) as MarketRow | undefined;
+  if (!market) {
+    return res.status(404).json({ error: 'market not found' });
+  }
+  if (market.status !== 'suspended') {
+    return res.status(409).json({ error: `market is ${market.status}, can only resume a suspended market` });
+  }
+  db.prepare("UPDATE markets SET status = 'open' WHERE id = ?").run(id);
+  const updated = db.prepare('SELECT * FROM markets WHERE id = ?').get(id) as MarketRow;
+  res.json({ market: updated });
 });
