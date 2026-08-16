@@ -78,15 +78,11 @@ accountsRouter.get('/users/:id', requireAuth, (req, res) => {
 });
 
 // POST /users/:id/deposit — top up balance, record transaction
-// 登录用户可给自己充值；给他人充值仅 admin
-accountsRouter.post('/users/:id/deposit', requireAuth, (req, res) => {
+// 仅 admin 直充（运营特权）。普通用户充值请走 POST /payments/deposit（支付通道）
+accountsRouter.post('/users/:id/deposit', requireAuth, requireRole('admin'), (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'invalid user id' });
-  }
-  const me = res.locals.user as { id: number; role: string };
-  if (me.role !== 'admin' && me.id !== id) {
-    return res.status(403).json({ error: '只能给自己充值，给他人充值需要管理员权限' });
   }
   const amount = Number(req.body?.amount);
   if (!Number.isFinite(amount) || amount <= 0) {

@@ -134,3 +134,21 @@ CREATE TABLE IF NOT EXISTS risk_limits (
   max_daily_stake REAL NOT NULL DEFAULT 500000,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- 支付通道：充值订单（PAM 支付通道模块）
+CREATE TABLE IF NOT EXISTS payment_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_no TEXT NOT NULL UNIQUE,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  provider TEXT NOT NULL CHECK (provider IN ('mock', 'nowpayments')),
+  amount REAL NOT NULL CHECK (amount > 0),
+  currency TEXT NOT NULL DEFAULT 'USD',
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'paid', 'failed', 'expired')),
+  provider_order_id TEXT,
+  pay_url TEXT,
+  paid_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_user ON payment_orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON payment_orders(status);
