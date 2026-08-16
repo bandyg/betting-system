@@ -15,7 +15,8 @@ export type {
   Promotion,
   PromotionsResponse,
   UserPreferences,
-  RiskLimits
+  RiskLimits,
+  PaymentOrder
 } from './types';
 export {
   TYPE_LABELS,
@@ -23,9 +24,10 @@ export {
   MATCH_STATUS_LABELS,
   MARKET_STATUS_LABELS,
   RISK_FIELDS,
-  RISK_FIELD_LABELS
+  RISK_FIELD_LABELS,
+  PAYMENT_STATUS_LABELS
 } from './types';
-export type { RiskField } from './types';
+export type { RiskField, PaymentOrderStatus } from './types';
 export {
   useAsync,
   useMatches,

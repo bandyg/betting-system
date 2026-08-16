@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api, useAuth, useBets, usePreferences, useUsers, useMatches, useRiskLimits, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS } from '@betting/core';
-import type { Bet, User, Market, RiskField } from '@betting/core';
+import { api, useAuth, useBets, usePreferences, useUsers, useMatches, useRiskLimits, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS, PAYMENT_STATUS_LABELS } from '@betting/core';
+import type { Bet, User, Market, RiskField, PaymentOrder } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
 function betLabel(b: Bet): string {
@@ -449,15 +449,33 @@ export default function AccountScreen() {
   const auth = useAuth();
   const { user } = auth;
   const bets = useBets(user?.id);
-  const [depositAmt, setDepositAmt] = useState('1000');
+  const [depositAmt, setDepositAmt] = useState('100');
   const [depositing, setDepositing] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState<PaymentOrder | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [orders, setOrders] = useState<PaymentOrder[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const prefs = usePreferences(user?.id);
   const [favTeam, setFavTeam] = useState('');
   const [optIn, setOptIn] = useState(true);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
-  const deposit = async () => {
+  const loadOrders = async () => {
+    if (!user) return;
+    setLoadingOrders(true);
+    try {
+      const res = await api.listPaymentOrders();
+      setOrders(res.orders);
+    } catch {
+      // 静默失败，不打断页面
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  /** 第一步：创建充值订单（走支付通道） */
+  const createOrder = async () => {
     if (!user) return;
     const amount = Number(depositAmt);
     if (!amount || amount <= 0) {
@@ -467,17 +485,38 @@ export default function AccountScreen() {
     setDepositing(true);
     setMsg(null);
     try {
-      const res = await api.deposit(user.id, amount);
-      setMsg({ kind: 'ok', text: `✅ 已充值 ¥${amount}，余额 ¥${res.account.balance}` });
-      bets.refresh();
-      // 刷新当前用户对象（余额等字段）
-      auth.update({ ...user, balance: res.account.balance });
+      const res = await api.createDepositOrder(amount);
+      setPendingOrder(res.order);
+      loadOrders();
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
     } finally {
       setDepositing(false);
     }
   };
+
+  /** 第二步：模拟支付（沙箱环境；真实渠道为跳转支付页） */
+  const doPay = async () => {
+    if (!pendingOrder) return;
+    setPaying(true);
+    setMsg(null);
+    try {
+      const res = await api.mockPay(pendingOrder.order_no, 'paid');
+      const balance = res.balance ?? user?.balance ?? 0;
+      setMsg({ kind: 'ok', text: `✅ 支付成功，已入账 ¥${pendingOrder.amount.toLocaleString()}，余额 ¥${balance.toLocaleString()}` });
+      setPendingOrder(null);
+      loadOrders();
+      // 刷新当前用户对象（余额等字段）
+      const fresh = await api.getUser(user!.id);
+      auth.update({ ...user!, ...fresh.user });
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const cancelOrder = () => setPendingOrder(null);
 
   const savePreferences = async () => {
     if (!user) return;
@@ -540,19 +579,63 @@ export default function AccountScreen() {
           {user.role === 'admin' && <AdminPanel />}
           {user.role === 'admin' && <TradingTools />}
 
-          {/* 充值 */}
+          {/* 充值（支付通道） */}
           <Card style={styles.sectionCard}>
             <Text style={styles.cardTitle}>充值</Text>
-            <View style={styles.row}>
-              <TextInput
-                value={depositAmt}
-                onChangeText={setDepositAmt}
-                keyboardType="numeric"
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
-              />
-              <Button title="充值" onPress={deposit} loading={depositing} style={{ minWidth: 96 }} />
-            </View>
+            {!pendingOrder ? (
+              <View>
+                <View style={styles.row}>
+                  <TextInput
+                    value={depositAmt}
+                    onChangeText={setDepositAmt}
+                    keyboardType="numeric"
+                    placeholderTextColor={colors.textMuted}
+                    style={styles.input}
+                  />
+                  <Button title="创建订单" onPress={createOrder} loading={depositing} style={{ minWidth: 96 }} />
+                </View>
+                <Text style={styles.hint}>金额 ¥1 ~ ¥100,000 · 支付通道：模拟沙箱（Mock）</Text>
+              </View>
+            ) : (
+              <View>
+                <View style={styles.orderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.orderNo}>订单 {pendingOrder.order_no}</Text>
+                    <Text style={styles.orderAmt}>¥{pendingOrder.amount.toLocaleString()} · {PAYMENT_STATUS_LABELS[pendingOrder.status]}</Text>
+                  </View>
+                  <Pressable onPress={cancelOrder} hitSlop={8}>
+                    <Text style={styles.cancelText}>取消</Text>
+                  </Pressable>
+                </View>
+                <Text style={styles.hint}>沙箱环境：点击「模拟支付」即完成支付并回调入账。</Text>
+                <Button title="💳 模拟支付" onPress={doPay} loading={paying} style={{ marginTop: spacing.sm }} />
+              </View>
+            )}
+          </Card>
+
+          {/* 充值订单历史 */}
+          <Card style={styles.sectionCard}>
+            <Text style={styles.cardTitle}>充值订单</Text>
+            {loadingOrders && orders.length === 0 ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.md }} />
+            ) : orders.length === 0 ? (
+              <Text style={styles.hint}>暂无充值订单</Text>
+            ) : (
+              orders.slice(0, 5).map((o) => (
+                <View key={o.id} style={styles.orderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.orderNo}>{o.order_no}</Text>
+                    <Text style={styles.hint}>{o.created_at} · {o.provider}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.orderAmt}>¥{o.amount.toLocaleString()}</Text>
+                    <Text style={[styles.orderStatus, { color: o.status === 'paid' ? colors.success : o.status === 'failed' ? colors.danger : colors.textSecondary }]}>
+                      {PAYMENT_STATUS_LABELS[o.status]}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
           </Card>
 
           {msg && <FlashMsg msg={msg} />}
@@ -664,4 +747,11 @@ const styles = StyleSheet.create({
   betPayout: { color: colors.success, fontSize: fontSize.sm, marginTop: 2 },
   optRow: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.md },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
+  // 支付通道
+  hint: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: spacing.sm },
+  orderRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  orderNo: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
+  orderAmt: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 2 },
+  orderStatus: { fontSize: fontSize.sm, fontWeight: font.bold },
+  cancelText: { color: colors.danger, fontSize: fontSize.sm, fontWeight: font.bold },
 });

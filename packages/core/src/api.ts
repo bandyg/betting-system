@@ -14,7 +14,8 @@ import type {
   Promotion,
   PromotionsResponse,
   UserPreferences,
-  RiskLimits
+  RiskLimits,
+  PaymentOrder
 } from './types';
 
 /**
@@ -161,7 +162,24 @@ export const api = {
   suspendMarket: (marketId: number) =>
     request<{ market: Market }>(`/markets/${marketId}/suspend`, { method: 'POST' }),
   resumeMarket: (marketId: number) =>
-    request<{ market: Market }>(`/markets/${marketId}/resume`, { method: 'POST' })
+    request<{ market: Market }>(`/markets/${marketId}/resume`, { method: 'POST' }),
+  // payments (Step 27-30)
+  createDepositOrder: (amount: number, provider: string = 'mock', currency: string = 'USD') =>
+    request<{ order: PaymentOrder }>('/payments/deposit', {
+      method: 'POST',
+      body: JSON.stringify({ amount, provider, currency })
+    }),
+  mockPay: (orderNo: string, status: 'paid' | 'failed' = 'paid') =>
+    request<{ ok: boolean; order_no: string; status: string; balance?: number; idempotent?: boolean }>(
+      '/payments/mock/pay',
+      { method: 'POST', body: JSON.stringify({ order_no: orderNo, status }) }
+    ),
+  listPaymentOrders: (all = false) =>
+    request<{ orders: PaymentOrder[] }>(all ? '/payments/orders?all=1' : '/payments/orders'),
+  getPaymentOrder: (orderNo: string) =>
+    request<{ order: PaymentOrder }>(`/payments/orders/${orderNo}`),
+  listPaymentProviders: () =>
+    request<{ providers: { name: string; configured: boolean }[] }>('/payments/providers')
 };
 
 export type {

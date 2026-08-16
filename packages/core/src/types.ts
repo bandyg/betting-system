@@ -164,3 +164,27 @@ export const MATCH_STATUS_LABELS: Record<string, string> = {
   finished: '已结束',
   settled: '已结算'
 };
+
+// ── 支付通道 (PAM) ──
+export type PaymentOrderStatus = 'pending' | 'paid' | 'failed' | 'expired';
+
+export interface PaymentOrder {
+  id: number;
+  order_no: string;
+  user_id: number;
+  provider: string;
+  amount: number;
+  currency: string;
+  status: PaymentOrderStatus;
+  provider_order_id: string | null;
+  pay_url: string | null;
+  paid_at: string | null;
+  created_at: string;
+}
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentOrderStatus, string> = {
+  pending: '待支付',
+  paid: '已支付',
+  failed: '支付失败',
+  expired: '已过期',
+};
