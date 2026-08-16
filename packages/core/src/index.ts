@@ -1,4 +1,4 @@
-export { api, setApiBase, getApiBase } from './api';
+export { api, setApiBase, getApiBase, setAuthToken, getAuthToken } from './api';
 export type {
   Bet,
   Market,

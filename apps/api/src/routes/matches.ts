@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
+import { requireAuth, requireRole } from './middleware.js';
 
 export const matchesRouter = Router();
 
@@ -29,7 +30,8 @@ function getMatchDetail(id: number) {
 }
 
 // POST /matches — create a football match
-matchesRouter.post('/matches', (req, res) => {
+// POST /matches — create match（仅 admin）
+matchesRouter.post('/matches', requireAuth, requireRole('admin'), (req, res) => {
   const { homeTeam, awayTeam, kickoffTime } = req.body ?? {};
   if (typeof homeTeam !== 'string' || homeTeam.trim() === '') {
     return res.status(400).json({ error: 'homeTeam is required (non-empty string)' });

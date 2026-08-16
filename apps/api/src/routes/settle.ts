@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
+import { requireAuth, requireRole } from './middleware.js';
 
 export const settleRouter = Router();
 
@@ -57,9 +58,9 @@ function selectionOutcome(
   return 'void'; // push — refund stake
 }
 
-// POST /matches/:id/result — record final score, mark match finished
+// POST /matches/:id/result — record final score, mark match finished（仅 admin）
 // body: { homeScore, awayScore }
-settleRouter.post('/matches/:id/result', (req, res) => {
+settleRouter.post('/matches/:id/result', requireAuth, requireRole('admin'), (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'invalid match id' });
@@ -91,10 +92,10 @@ settleRouter.post('/matches/:id/result', (req, res) => {
   res.json({ match: updated });
 });
 
-// POST /matches/:id/settle — batch-settle all open markets of a finished match:
+// POST /matches/:id/settle — batch-settle all open markets of a finished match（仅 admin）
 //   winners get payout (balance += stake * price), losers get nothing, pushes get stake refund (void).
 //   All bets/markets/match move to settled inside one transaction.
-settleRouter.post('/matches/:id/settle', (req, res) => {
+settleRouter.post('/matches/:id/settle', requireAuth, requireRole('admin'), (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'invalid match id' });

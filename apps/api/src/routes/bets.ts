@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
+import { requireAuth } from './middleware.js';
 
 export const betsRouter = Router();
 
@@ -31,14 +32,11 @@ function getBetDetail(id: number) {
 }
 
 // POST /bets — place a bet: validate user/market/selection, check balance, deduct stake, create bet
-// body: { userId, marketId, selection, stake }
-betsRouter.post('/bets', (req, res) => {
-  const { userId, marketId, selection, stake } = req.body ?? {};
+// body: { marketId, selection, stake }（userId 从登录 token 取，不信任客户端传值）
+betsRouter.post('/bets', requireAuth, (req, res) => {
+  const uid = (res.locals.user as { id: number }).id;
+  const { marketId, selection, stake } = req.body ?? {};
 
-  const uid = Number(userId);
-  if (!Number.isInteger(uid) || uid <= 0) {
-    return res.status(400).json({ error: 'userId is required (positive integer)' });
-  }
   const mid = Number(marketId);
   if (!Number.isInteger(mid) || mid <= 0) {
     return res.status(400).json({ error: 'marketId is required (positive integer)' });
@@ -113,23 +111,33 @@ betsRouter.post('/bets', (req, res) => {
 });
 
 // GET /bets?userId= — list bets (optionally filtered by user)
-betsRouter.get('/bets', (req, res) => {
+// 普通用户只能查自己的；admin 可查全部或任意用户
+betsRouter.get('/bets', requireAuth, (req, res) => {
+  const me = res.locals.user as { id: number; role: string };
   const q = req.query.userId;
+  let uid: number | undefined;
   if (q !== undefined) {
-    const uid = Number(q);
-    if (!Number.isInteger(uid) || uid <= 0) {
+    const parsed = Number(q);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
       return res.status(400).json({ error: 'userId must be a positive integer' });
     }
+    if (me.role !== 'admin' && parsed !== me.id) {
+      return res.status(403).json({ error: '只能查看自己的投注记录' });
+    }
+    uid = parsed;
+  } else if (me.role !== 'admin') {
+    uid = me.id;
   }
-  const rows = (q === undefined
+  const rows = (uid === undefined
     ? db.prepare('SELECT * FROM bets ORDER BY id DESC').all()
-    : db.prepare('SELECT * FROM bets WHERE user_id = ? ORDER BY id DESC').all(Number(q))) as BetRow[];
+    : db.prepare('SELECT * FROM bets WHERE user_id = ? ORDER BY id DESC').all(uid)) as BetRow[];
   const list = rows.map((b) => getBetDetail(b.id));
   res.json({ count: list.length, bets: list });
 });
 
-// GET /bets/:id — single bet detail
-betsRouter.get('/bets/:id', (req, res) => {
+// GET /bets/:id — single bet detail（普通用户只能看自己的）
+betsRouter.get('/bets/:id', requireAuth, (req, res) => {
+  const me = res.locals.user as { id: number; role: string };
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'invalid bet id' });
@@ -137,6 +145,9 @@ betsRouter.get('/bets/:id', (req, res) => {
   const bet = getBetDetail(id);
   if (!bet) {
     return res.status(404).json({ error: 'bet not found' });
+  }
+  if (me.role !== 'admin' && bet.user_id !== me.id) {
+    return res.status(403).json({ error: '只能查看自己的投注记录' });
   }
   res.json({ bet });
 });

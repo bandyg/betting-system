@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '@betting/core';
+import { api, setAuthToken } from '@betting/core';
 import type { Bet, Market, Match, SettleResponse, User } from '@betting/core';
 import { MATCH_STATUS_LABELS, SEL_LABELS, TYPE_LABELS } from '@betting/core';
 
@@ -11,6 +11,72 @@ function fmtTime(iso: string): string {
   return d.toLocaleString('zh-CN', { hour12: false });
 }
 
+/** 管理工具页登录条：admin 登录后所有请求自动带 Bearer token（localStorage 持久化） */
+function AdminLoginBar() {
+  const [token, setToken] = useState<string | null>(null);
+  const [name, setName] = useState('admin');
+  const [pw, setPw] = useState('');
+  const [msg, setMsg] = useState<Msg | null>(null);
+
+  useEffect(() => {
+    try {
+      const t = localStorage.getItem('betting.token');
+      if (t) {
+        setAuthToken(t);
+        setToken(t);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const login = async () => {
+    try {
+      const res = await api.login(name.trim(), pw);
+      setAuthToken(res.token);
+      try {
+        localStorage.setItem('betting.token', res.token);
+      } catch {
+        /* ignore */
+      }
+      setToken(res.token);
+      setMsg({ kind: 'ok', text: `✅ 已登录：${res.user.name}（${res.user.role}）` });
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
+  const logout = () => {
+    setAuthToken(null);
+    setToken(null);
+    try {
+      localStorage.removeItem('betting.token');
+    } catch {
+      /* ignore */
+    }
+    setMsg({ kind: 'ok', text: '已登出（管理操作需重新登录）' });
+  };
+
+  return (
+    <div style={{ background: '#1a1a2e', color: '#eee', padding: '10px 14px', borderRadius: 8, marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <strong>🔐 管理登录</strong>
+      {token ? (
+        <>
+          <span style={{ color: '#4ade80' }}>已登录（token 已保存）</span>
+          <button onClick={logout}>退出</button>
+        </>
+      ) : (
+        <>
+          <input placeholder="用户名" value={name} onChange={(e) => setName(e.target.value)} style={{ width: 110 }} />
+          <input placeholder="密码" type="password" value={pw} onChange={(e) => setPw(e.target.value)} style={{ width: 110 }} />
+          <button onClick={login}>登录</button>
+        </>
+      )}
+      {msg && <span style={{ color: msg.kind === 'ok' ? '#4ade80' : '#f87171' }}>{msg.text}</span>}
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <>
@@ -18,6 +84,7 @@ export default function App() {
         <h1>⚽ 投注系统 Demo</h1>
         <span className="sub">赛前固定赔率 · 下注 · 结算闭环</span>
       </header>
+      <AdminLoginBar />
       <div className="grid">
         <AccountsPanel />
         <MatchesPanel />

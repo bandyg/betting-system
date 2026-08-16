@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
+import { requireAuth, requireRole } from './middleware.js';
 
 export const marketsRouter = Router();
 
@@ -24,7 +25,8 @@ const SELECTIONS: Record<MarketType, string[]> = {
 
 // POST /matches/:id/markets — create market + odds in one call
 // body: { type: '1x2'|'ah'|'ou', line?: number, odds: { <selection>: price } }
-marketsRouter.post('/matches/:id/markets', (req, res) => {
+// POST /matches/:id/markets — create market + odds（仅 admin）
+marketsRouter.post('/matches/:id/markets', requireAuth, requireRole('admin'), (req, res) => {
   const matchId = Number(req.params.id);
   if (!Number.isInteger(matchId) || matchId <= 0) {
     return res.status(400).json({ error: 'invalid match id' });
