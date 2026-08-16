@@ -116,6 +116,35 @@ export interface UserPreferences {
   marketing_opt_in: boolean;
 }
 
+/* ---- Risk & Trading (Step 21-24) ---- */
+export interface RiskLimits {
+  id: number;
+  min_stake: number;
+  max_stake: number;
+  min_odds: number;
+  max_odds: number;
+  max_daily_stake: number;
+  updated_at: string;
+}
+
+export const RISK_FIELDS = ['min_stake', 'max_stake', 'min_odds', 'max_odds', 'max_daily_stake'] as const;
+export type RiskField = (typeof RISK_FIELDS)[number];
+
+export const RISK_FIELD_LABELS: Record<RiskField, string> = {
+  min_stake: '单笔下限 ¥',
+  max_stake: '单笔上限 ¥',
+  min_odds: '最低赔率',
+  max_odds: '最高赔率',
+  max_daily_stake: '日累计上限 ¥',
+};
+
+export const MARKET_STATUS_LABELS: Record<string, string> = {
+  open: '开放',
+  suspended: '已挂盘',
+  settled: '已结算',
+};
+
+
 export const TYPE_LABELS: Record<string, string> = {
   '1x2': '胜平负',
   ah: '让球',

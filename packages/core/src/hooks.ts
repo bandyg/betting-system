@@ -9,7 +9,8 @@ import type {
   BetsResponse,
   ContentsResponse,
   PromotionsResponse,
-  UserPreferences
+  UserPreferences,
+  RiskLimits
 } from './types';
 
 /** 通用异步数据 hook：加载 + 刷新 + 错误 */
@@ -68,6 +69,10 @@ export function usePreferences(userId?: number | null) {
         : Promise.resolve({ preferences: { favorite_team: null, marketing_opt_in: false } }),
     [userId],
   );
+}
+
+export function useRiskLimits() {
+  return useAsync<{ limits: RiskLimits }>(() => api.getRiskLimits());
 }
 
 export interface CurrentUserState {

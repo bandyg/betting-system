@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useMatches, useBetSlip, TYPE_LABELS, SEL_LABELS, MATCH_STATUS_LABELS } from '@betting/core';
+import { useMatches, useBetSlip, TYPE_LABELS, SEL_LABELS, MATCH_STATUS_LABELS, MARKET_STATUS_LABELS } from '@betting/core';
 import type { Match, OddsItem } from '@betting/core';
 import { Card, Screen, colors, radius, fontSize, font, spacing, shadows, SectionTitle, EmptyState } from '@betting/ui';
 
@@ -21,10 +21,12 @@ function formatKickoff(iso: string): string {
 function OddsRow({
   odds,
   matchId,
+  suspended,
   onPick,
 }: {
   odds: OddsItem[];
   matchId: number;
+  suspended: boolean;
   onPick: (marketId: number, selection: string, price: number, label: string) => void;
 }) {
   const { items } = useBetSlip();
@@ -36,17 +38,19 @@ function OddsRow({
         return (
           <Pressable
             key={o.selection}
+            disabled={suspended}
             onPress={() => onPick(matchId, o.selection, o.price, label)}
             style={({ pressed }) => [
               styles.oddsBtn,
               {
-                backgroundColor: active ? colors.oddsActiveBg : colors.oddsBg,
-                borderColor: active ? colors.oddsActiveBorder : colors.oddsBorder,
+                backgroundColor: suspended ? colors.oddsBg : active ? colors.oddsActiveBg : colors.oddsBg,
+                borderColor: suspended ? colors.border : active ? colors.oddsActiveBorder : colors.oddsBorder,
+                opacity: suspended ? 0.45 : 1,
                 transform: [{ scale: pressed ? 0.94 : 1 }],
               },
             ]}
           >
-            <Text style={styles.oddsLabel}>{label}</Text>
+            <Text style={styles.oddsLabel}>{suspended ? '已挂盘' : label}</Text>
             <Text style={styles.oddsPrice}>{o.price.toFixed(2)}</Text>
           </Pressable>
         );
@@ -69,8 +73,11 @@ function MarketBlock({
           <Text style={styles.marketTitle}>
             {TYPE_LABELS[m.type] ?? m.type}
             {m.line != null ? ` @${m.line}` : ''}
+            {m.status !== 'open' && (
+              <Text style={{ color: colors.warning }}> · {MARKET_STATUS_LABELS[m.status] ?? m.status}</Text>
+            )}
           </Text>
-          <OddsRow odds={m.odds} matchId={m.id} onPick={onPick} />
+          <OddsRow odds={m.odds} matchId={m.id} suspended={m.status !== 'open'} onPick={onPick} />
         </View>
       ))}
     </View>

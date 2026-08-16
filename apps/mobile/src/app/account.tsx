@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api, useAuth, useBets, usePreferences, useUsers, SEL_LABELS } from '@betting/core';
-import type { Bet, User } from '@betting/core';
+import { api, useAuth, useBets, usePreferences, useUsers, useMatches, useRiskLimits, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS } from '@betting/core';
+import type { Bet, User, Market, RiskField } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
 function betLabel(b: Bet): string {
@@ -219,6 +219,232 @@ function AdminPanel() {
   );
 }
 
+/** 交易工具面板：风控限额配置 + 调赔 + 挂盘/开盘（仅 role=admin 可见，Step 25） */
+function TradingTools() {
+  const matches = useMatches();
+  const limits = useRiskLimits();
+  const [limitInputs, setLimitInputs] = useState<Record<string, string>>({});
+  const [savingLimits, setSavingLimits] = useState(false);
+  const [matchId, setMatchId] = useState<number | null>(null);
+  const [marketId, setMarketId] = useState<number | null>(null);
+  const [oddsInputs, setOddsInputs] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const match = (matches.data?.matches ?? []).find((m) => m.id === matchId) ?? null;
+  const market = match?.markets.find((m) => m.id === marketId) ?? null;
+
+  // 限额表单默认值（数据加载后填充一次）
+  if (limits.data && Object.keys(limitInputs).length === 0) {
+    const next: Record<string, string> = {};
+    for (const f of RISK_FIELDS) next[f] = String(limits.data.limits[f]);
+    setLimitInputs(next);
+  }
+
+  const saveLimits = async () => {
+    const payload: Partial<Record<RiskField, number>> = {};
+    for (const f of RISK_FIELDS) {
+      const v = Number(limitInputs[f]);
+      if (!Number.isFinite(v) || v <= 0) {
+        setMsg({ kind: 'err', text: `${RISK_FIELD_LABELS[f]} 必须是正数` });
+        return;
+      }
+      payload[f] = v;
+    }
+    if (payload.min_stake! >= payload.max_stake!) {
+      setMsg({ kind: 'err', text: '单笔下限必须小于单笔上限' });
+      return;
+    }
+    if (payload.min_odds! >= payload.max_odds!) {
+      setMsg({ kind: 'err', text: '最低赔率必须小于最高赔率' });
+      return;
+    }
+    setSavingLimits(true);
+    setMsg(null);
+    try {
+      const res = await api.updateRiskLimits(payload);
+      const next: Record<string, string> = {};
+      for (const f of RISK_FIELDS) next[f] = String(res.limits[f]);
+      setLimitInputs(next);
+      limits.refresh();
+      setMsg({ kind: 'ok', text: '✅ 风控限额已保存，下注即时生效' });
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setSavingLimits(false);
+    }
+  };
+
+  const selectMarket = (m: Market) => {
+    setMarketId(m.id);
+    const next: Record<string, string> = {};
+    for (const o of m.odds) next[o.selection] = String(o.price);
+    setOddsInputs(next);
+  };
+
+  const applyOdds = async () => {
+    if (!marketId) {
+      setMsg({ kind: 'err', text: '先选择要调赔的市场' });
+      return;
+    }
+    const odds: Record<string, number> = {};
+    for (const [sel, raw] of Object.entries(oddsInputs)) {
+      const v = Number(raw);
+      if (!Number.isFinite(v) || v <= 1) {
+        setMsg({ kind: 'err', text: `赔率「${sel}」必须是大于 1 的数字` });
+        return;
+      }
+      odds[sel] = v;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      await api.updateOdds(marketId, odds);
+      matches.refresh();
+      setMsg({ kind: 'ok', text: '✅ 赔率已更新，前端即时刷新' });
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleSuspend = async () => {
+    if (!marketId || !market) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      if (market.status === 'open') {
+        await api.suspendMarket(marketId);
+        setMsg({ kind: 'ok', text: '✅ 已挂盘，用户下注将被拒绝' });
+      } else if (market.status === 'suspended') {
+        await api.resumeMarket(marketId);
+        setMsg({ kind: 'ok', text: '✅ 已恢复开盘' });
+      } else {
+        setMsg({ kind: 'err', text: `市场已 ${MARKET_STATUS_LABELS[market.status] ?? market.status}，不能挂盘/开盘` });
+        return;
+      }
+      matches.refresh();
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <SectionTitle style={styles.recordTitle}>📊 交易工具</SectionTitle>
+
+      {/* 风控限额 */}
+      <Card style={styles.sectionCard}>
+        <Text style={styles.cardTitle}>风控限额（下注即时生效）</Text>
+        {limits.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
+        {limits.error && <Text style={{ color: colors.danger, marginBottom: 8 }}>加载失败：{limits.error}</Text>}
+        <View style={styles.limitGrid}>
+          {RISK_FIELDS.map((f) => (
+            <View key={f} style={styles.limitField}>
+              <Text style={styles.limitLabel}>{RISK_FIELD_LABELS[f]}</Text>
+              <TextInput
+                value={limitInputs[f] ?? ''}
+                onChangeText={(t) => setLimitInputs((prev) => ({ ...prev, [f]: t }))}
+                keyboardType="numeric"
+                placeholderTextColor={colors.textMuted}
+                style={styles.limitInput}
+              />
+            </View>
+          ))}
+        </View>
+        <Button title={savingLimits ? '保存中…' : '保存限额'} onPress={saveLimits} loading={savingLimits} style={{ marginTop: spacing.sm }} />
+      </Card>
+
+      {/* 调赔 / 挂盘 */}
+      <Card style={styles.sectionCard}>
+        <Text style={styles.cardTitle}>调赔 / 挂盘</Text>
+        {matches.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
+        {matches.error && <Text style={{ color: colors.danger, marginBottom: 8 }}>加载失败：{matches.error}</Text>}
+
+        {/* 赛事选择 */}
+        <View style={styles.chipWrap}>
+          {(matches.data?.matches ?? []).map((m) => (
+            <Pressable
+              key={m.id}
+              onPress={() => {
+                setMatchId(m.id);
+                setMarketId(null);
+                setOddsInputs({});
+              }}
+              style={({ pressed }) => [
+                styles.chip,
+                { backgroundColor: matchId === m.id ? colors.oddsActiveBg : colors.oddsBg, opacity: pressed ? 0.8 : 1 },
+              ]}
+            >
+              <Text style={[styles.chipText, { color: matchId === m.id ? colors.secondary : colors.text }]}>
+                #{m.id} {m.home_team} vs {m.away_team}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* 市场选择 */}
+        {match && (
+          <View style={styles.chipWrap}>
+            {match.markets.map((mk) => (
+              <Pressable
+                key={mk.id}
+                onPress={() => selectMarket(mk)}
+                style={({ pressed }) => [
+                  styles.chip,
+                  { backgroundColor: marketId === mk.id ? colors.oddsActiveBg : colors.oddsBg, opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <Text style={[styles.chipText, { color: marketId === mk.id ? colors.secondary : colors.text }]}>
+                  {TYPE_LABELS[mk.type] ?? mk.type}
+                  {mk.line != null ? ` @${mk.line}` : ''} · {MARKET_STATUS_LABELS[mk.status] ?? mk.status}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {/* 调赔输入 */}
+        {market && (
+          <>
+            <View style={styles.limitGrid}>
+              {market.odds.map((o) => (
+                <View key={o.selection} style={styles.limitField}>
+                  <Text style={styles.limitLabel}>{SEL_LABELS[o.selection] ?? o.selection}</Text>
+                  <TextInput
+                    value={oddsInputs[o.selection] ?? String(o.price)}
+                    onChangeText={(t) => setOddsInputs((prev) => ({ ...prev, [o.selection]: t }))}
+                    keyboardType="numeric"
+                    placeholderTextColor={colors.textMuted}
+                    style={styles.limitInput}
+                  />
+                </View>
+              ))}
+            </View>
+            <View style={styles.row}>
+              <Button title={busy ? '处理中…' : '确认调赔'} onPress={applyOdds} loading={busy} style={{ flex: 1 }} />
+              <Button
+                title={market.status === 'open' ? '挂盘' : market.status === 'suspended' ? '开盘' : '—'}
+                onPress={toggleSuspend}
+                loading={busy}
+                disabled={market.status !== 'open' && market.status !== 'suspended'}
+                style={{ flex: 1, marginLeft: spacing.sm }}
+              />
+            </View>
+          </>
+        )}
+
+        {!match && !matches.loading && <EmptyState text="暂无赛事，先到管理面板/API 建赛" />}
+      </Card>
+
+      {msg && <FlashMsg msg={msg} />}
+    </>
+  );
+}
+
 export default function AccountScreen() {
   const auth = useAuth();
   const { user } = auth;
@@ -312,6 +538,7 @@ export default function AccountScreen() {
 
           {/* 管理面板（仅 admin） */}
           {user.role === 'admin' && <AdminPanel />}
+          {user.role === 'admin' && <TradingTools />}
 
           {/* 充值 */}
           <Card style={styles.sectionCard}>
@@ -414,6 +641,22 @@ const styles = StyleSheet.create({
   userList: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   userChip: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 8 },
   userChipText: { fontSize: fontSize.sm, fontWeight: font.regular },
+  // 交易工具
+  limitGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
+  limitField: { flexBasis: '46%', flexGrow: 1 },
+  limitLabel: { color: colors.textSecondary, fontSize: fontSize.xs, marginBottom: 4 },
+  limitInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    color: colors.text,
+    fontSize: fontSize.md,
+  },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+  chip: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 8 },
+  chipText: { fontSize: fontSize.sm, fontWeight: font.regular },
   betRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   betMain: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
   betSub: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },

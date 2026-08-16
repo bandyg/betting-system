@@ -14,13 +14,18 @@ export type {
   ContentsResponse,
   Promotion,
   PromotionsResponse,
-  UserPreferences
+  UserPreferences,
+  RiskLimits
 } from './types';
 export {
   TYPE_LABELS,
   SEL_LABELS,
-  MATCH_STATUS_LABELS
+  MATCH_STATUS_LABELS,
+  MARKET_STATUS_LABELS,
+  RISK_FIELDS,
+  RISK_FIELD_LABELS
 } from './types';
+export type { RiskField } from './types';
 export {
   useAsync,
   useMatches,
@@ -33,6 +38,7 @@ export {
   usePromotions,
   usePreferences,
   useAuth,
-  restoreSession
+  restoreSession,
+  useRiskLimits
 } from './hooks';
 export type { BetSlipItem, BetSlipState, CurrentUserState, AuthState, PlaceBetResult } from './hooks';

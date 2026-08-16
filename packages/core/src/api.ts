@@ -13,7 +13,8 @@ import type {
   ContentsResponse,
   Promotion,
   PromotionsResponse,
-  UserPreferences
+  UserPreferences,
+  RiskLimits
 } from './types';
 
 /**
@@ -144,7 +145,23 @@ export const api = {
     request<{ preferences: UserPreferences }>(`/users/${userId}/preferences`, {
       method: 'PUT',
       body: JSON.stringify(data)
-    })
+    }),
+  // risk & trading (Step 21-24)
+  getRiskLimits: () => request<{ limits: RiskLimits }>('/risk/limits'),
+  updateRiskLimits: (data: Partial<Record<'min_stake' | 'max_stake' | 'min_odds' | 'max_odds' | 'max_daily_stake', number>>) =>
+    request<{ limits: RiskLimits }>('/risk/limits', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+  updateOdds: (marketId: number, odds: Record<string, number>) =>
+    request<{ market: Market }>(`/markets/${marketId}/odds`, {
+      method: 'PUT',
+      body: JSON.stringify({ odds })
+    }),
+  suspendMarket: (marketId: number) =>
+    request<{ market: Market }>(`/markets/${marketId}/suspend`, { method: 'POST' }),
+  resumeMarket: (marketId: number) =>
+    request<{ market: Market }>(`/markets/${marketId}/resume`, { method: 'POST' })
 };
 
 export type {
