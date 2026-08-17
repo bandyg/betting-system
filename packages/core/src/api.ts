@@ -15,7 +15,11 @@ import type {
   PromotionsResponse,
   UserPreferences,
   RiskLimits,
-  PaymentOrder
+  PaymentOrder,
+  DashboardStats,
+  TrendPoint,
+  HotMatch,
+  UserAnalytics
 } from './types';
 
 /**
@@ -179,7 +183,12 @@ export const api = {
   getPaymentOrder: (orderNo: string) =>
     request<{ order: PaymentOrder }>(`/payments/orders/${orderNo}`),
   listPaymentProviders: () =>
-    request<{ providers: { name: string; configured: boolean }[] }>('/payments/providers')
+    request<{ providers: { name: string; configured: boolean }[] }>('/payments/providers'),
+  // analytics (Step 31-34)
+  getAnalyticsDashboard: () => request<{ dashboard: DashboardStats }>('/analytics/dashboard'),
+  getAnalyticsTrends: (days = 14) => request<{ trends: TrendPoint[] }>(`/analytics/trends?days=${days}`),
+  getAnalyticsHotMatches: (limit = 10) => request<{ matches: HotMatch[] }>(`/analytics/hot-matches?limit=${limit}`),
+  getAnalyticsUsers: (limit = 10) => request<{ users: UserAnalytics[] }>(`/analytics/users?limit=${limit}`)
 };
 
 export type {

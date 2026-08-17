@@ -188,3 +188,39 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentOrderStatus, string> = {
   failed: '支付失败',
   expired: '已过期',
 };
+
+// ── Data Analytics (Step 31-34) ──
+export interface DashboardStats {
+  totalBetStake: number; // 总投注额
+  totalBets: number; // 总下注数
+  totalPayout: number; // 总派彩
+  netRevenue: number; // 净收入 = 总投注 - 总派彩
+  activeUsers: number; // 活跃用户（有下注）
+  totalUsers: number; // 总用户数
+  totalDeposits: number; // 总充值额
+}
+
+export interface TrendPoint {
+  date: string; // YYYY-MM-DD
+  stake: number; // 当日下注额
+  bets: number; // 当日下注数
+  payout: number; // 当日派彩额
+}
+
+export interface HotMatch {
+  matchId: number;
+  homeTeam: string;
+  awayTeam: string;
+  stake: number; // 投注额
+  bets: number; // 下注数
+}
+
+export interface UserAnalytics {
+  userId: number;
+  name: string;
+  stake: number; // 累计投注额
+  payout: number; // 累计派彩
+  net: number; // 盈亏 = payout - stake
+  bets: number; // 下注数
+  deposits: number; // 累计充值
+}

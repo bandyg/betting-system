@@ -16,7 +16,11 @@ export type {
   PromotionsResponse,
   UserPreferences,
   RiskLimits,
-  PaymentOrder
+  PaymentOrder,
+  DashboardStats,
+  TrendPoint,
+  HotMatch,
+  UserAnalytics
 } from './types';
 export {
   TYPE_LABELS,
@@ -41,6 +45,10 @@ export {
   usePreferences,
   useAuth,
   restoreSession,
-  useRiskLimits
+  useRiskLimits,
+  useAnalyticsDashboard,
+  useAnalyticsTrends,
+  useAnalyticsHotMatches,
+  useAnalyticsUsers
 } from './hooks';
 export type { BetSlipItem, BetSlipState, CurrentUserState, AuthState, PlaceBetResult } from './hooks';

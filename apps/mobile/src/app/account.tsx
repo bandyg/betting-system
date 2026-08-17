@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api, useAuth, useBets, usePreferences, useUsers, useMatches, useRiskLimits, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS, PAYMENT_STATUS_LABELS } from '@betting/core';
-import type { Bet, User, Market, RiskField, PaymentOrder } from '@betting/core';
+import { api, useAuth, useBets, usePreferences, useUsers, useMatches, useRiskLimits, useAnalyticsDashboard, useAnalyticsTrends, useAnalyticsHotMatches, useAnalyticsUsers, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS, PAYMENT_STATUS_LABELS } from '@betting/core';
+import type { Bet, User, Market, RiskField, PaymentOrder, DashboardStats, TrendPoint, HotMatch, UserAnalytics } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
 function betLabel(b: Bet): string {
@@ -445,6 +445,132 @@ function TradingTools() {
   );
 }
 
+/** 格式化金额：¥1,234.56 */
+function fmtMoney(v: number | undefined | null): string {
+  return `¥${(v ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+}
+
+/** 报表面板：仪表盘卡片 + 趋势 + 热门赛事 + 用户画像（仅 role=admin 可见，Step 33） */
+function AnalyticsPanel() {
+  const dash = useAnalyticsDashboard();
+  const trends = useAnalyticsTrends(14);
+  const hot = useAnalyticsHotMatches(5);
+  const users = useAnalyticsUsers(5);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refreshAll = async () => {
+    setRefreshing(true);
+    await Promise.all([dash.refresh(), trends.refresh(), hot.refresh(), users.refresh()]);
+    setRefreshing(false);
+  };
+
+  const d: DashboardStats | null = dash.data?.dashboard ?? null;
+  const trendList: TrendPoint[] = trends.data?.trends ?? [];
+  const hotList: HotMatch[] = hot.data?.matches ?? [];
+  const userList: UserAnalytics[] = users.data?.users ?? [];
+
+  const statCards: { label: string; value: string; color: string }[] = [
+    { label: '总投注额', value: d ? fmtMoney(d.totalBetStake) : '—', color: colors.text },
+    { label: '总下注数', value: d ? String(d.totalBets) : '—', color: colors.text },
+    { label: '总派彩', value: d ? fmtMoney(d.totalPayout) : '—', color: colors.success },
+    { label: '净收入', value: d ? fmtMoney(d.netRevenue) : '—', color: d && d.netRevenue < 0 ? colors.danger : colors.text },
+    { label: '活跃用户', value: d ? String(d.activeUsers) : '—', color: colors.text },
+    { label: '总用户', value: d ? String(d.totalUsers) : '—', color: colors.text },
+    { label: '总充值', value: d ? fmtMoney(d.totalDeposits) : '—', color: colors.secondary },
+  ];
+
+  const maxStake = Math.max(...trendList.map((t) => t.stake), 1);
+
+  return (
+    <>
+      <SectionTitle style={styles.recordTitle}>📊 报表（Data Analytics）</SectionTitle>
+
+      {/* 仪表盘卡片 */}
+      <Card style={styles.sectionCard}>
+        <View style={styles.rowBetween}>
+          <Text style={styles.cardTitle}>运营总览</Text>
+          <Pressable onPress={refreshAll} hitSlop={8}>
+            <Text style={{ color: colors.secondary, fontSize: fontSize.sm, fontWeight: font.bold }}>
+              {refreshing ? '刷新中…' : '🔄 刷新'}
+            </Text>
+          </Pressable>
+        </View>
+        {dash.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
+        {dash.error && <Text style={{ color: colors.danger, marginBottom: 8 }}>加载失败：{dash.error}</Text>}
+        <View style={styles.statGrid}>
+          {statCards.map((s) => (
+            <View key={s.label} style={styles.statCard}>
+              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                <Text style={{ color: s.color }}>{s.value}</Text>
+              </Text>
+              <Text style={styles.statLabel}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      {/* 近 14 天趋势（简版条形图） */}
+      <Card style={styles.sectionCard}>
+        <Text style={styles.cardTitle}>近 14 天投注/派彩趋势</Text>
+        {trends.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
+        {trends.error && <Text style={{ color: colors.danger, marginBottom: 8 }}>加载失败：{trends.error}</Text>}
+        {!trends.loading && !trends.error && trendList.length === 0 && <EmptyState text="暂无趋势数据" />}
+        {trendList.length > 0 && (
+          <View>
+            {trendList.map((t) => (
+              <View key={t.date} style={styles.trendRow}>
+                <Text style={styles.trendDate}>{t.date.slice(5)}</Text>
+                <View style={styles.trendBarWrap}>
+                  <View style={[styles.trendBar, { width: `${Math.max((t.stake / maxStake) * 100, 2)}%`, backgroundColor: colors.secondary }]} />
+                </View>
+                <Text style={styles.trendVal}>{t.stake > 0 ? fmtMoney(t.stake) : '—'}</Text>
+                <Text style={styles.trendSub}>{t.bets}注</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </Card>
+
+      {/* 热门赛事 Top 5 */}
+      <Card style={styles.sectionCard}>
+        <Text style={styles.cardTitle}>热门赛事 Top 5（按下注额）</Text>
+        {hot.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
+        {hot.error && <Text style={{ color: colors.danger, marginBottom: 8 }}>加载失败：{hot.error}</Text>}
+        {!hot.loading && !hot.error && hotList.length === 0 && <EmptyState text="暂无赛事投注数据" />}
+        {hotList.map((m, i) => (
+          <View key={m.matchId} style={styles.listRow}>
+            <Text style={styles.rankBadge}>#{i + 1}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.listMain}>{m.homeTeam} vs {m.awayTeam}</Text>
+              <Text style={styles.listSub}>{m.bets} 注</Text>
+            </View>
+            <Text style={styles.listValue}>{fmtMoney(m.stake)}</Text>
+          </View>
+        ))}
+      </Card>
+
+      {/* 用户画像 Top 5 */}
+      <Card style={styles.sectionCard}>
+        <Text style={styles.cardTitle}>用户画像 Top 5（按下注额）</Text>
+        {users.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
+        {users.error && <Text style={{ color: colors.danger, marginBottom: 8 }}>加载失败：{users.error}</Text>}
+        {!users.loading && !users.error && userList.length === 0 && <EmptyState text="暂无用户投注数据" />}
+        {userList.map((u) => (
+          <View key={u.userId} style={styles.listRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.listMain}>#{u.userId} {u.name}</Text>
+              <Text style={styles.listSub}>投注 {fmtMoney(u.stake)} · 充值 {fmtMoney(u.deposits)} · {u.bets} 注</Text>
+            </View>
+            <Text style={[styles.listValue, { color: u.net >= 0 ? colors.success : colors.danger }]}>
+              盈亏 {u.net >= 0 ? '+' : ''}{fmtMoney(u.net)}
+            </Text>
+          </View>
+        ))}
+      </Card>
+    </>
+  );
+}
+
 export default function AccountScreen() {
   const auth = useAuth();
   const { user } = auth;
@@ -578,6 +704,7 @@ export default function AccountScreen() {
           {/* 管理面板（仅 admin） */}
           {user.role === 'admin' && <AdminPanel />}
           {user.role === 'admin' && <TradingTools />}
+          {user.role === 'admin' && <AnalyticsPanel />}
 
           {/* 充值（支付通道） */}
           <Card style={styles.sectionCard}>
@@ -754,4 +881,30 @@ const styles = StyleSheet.create({
   orderAmt: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 2 },
   orderStatus: { fontSize: fontSize.sm, fontWeight: font.bold },
   cancelText: { color: colors.danger, fontSize: fontSize.sm, fontWeight: font.bold },
+  // 报表 (Step 33)
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  statCard: {
+    flexBasis: '30%',
+    flexGrow: 1,
+    backgroundColor: 'rgba(19,26,46,0.6)',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  statValue: { color: colors.text, fontSize: fontSize.lg, fontWeight: font.bold },
+  statLabel: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 4 },
+  trendRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  trendDate: { color: colors.textSecondary, fontSize: fontSize.xs, width: 36 },
+  trendBarWrap: { flex: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: radius.sm, overflow: 'hidden', marginHorizontal: spacing.sm },
+  trendBar: { height: '100%', borderRadius: radius.sm },
+  trendVal: { color: colors.text, fontSize: fontSize.xs, fontWeight: font.bold, minWidth: 64, textAlign: 'right' },
+  trendSub: { color: colors.textMuted, fontSize: fontSize.xs, width: 32, textAlign: 'right' },
+  listRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  rankBadge: { color: colors.secondary, fontSize: fontSize.sm, fontWeight: font.bold, width: 32 },
+  listMain: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
+  listSub: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
+  listValue: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: font.bold },
 });

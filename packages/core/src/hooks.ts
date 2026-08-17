@@ -10,7 +10,11 @@ import type {
   ContentsResponse,
   PromotionsResponse,
   UserPreferences,
-  RiskLimits
+  RiskLimits,
+  DashboardStats,
+  TrendPoint,
+  HotMatch,
+  UserAnalytics
 } from './types';
 
 /** 通用异步数据 hook：加载 + 刷新 + 错误 */
@@ -73,6 +77,24 @@ export function usePreferences(userId?: number | null) {
 
 export function useRiskLimits() {
   return useAsync<{ limits: RiskLimits }>(() => api.getRiskLimits());
+}
+
+// ---- Data Analytics (Step 31-34) ----
+
+export function useAnalyticsDashboard() {
+  return useAsync<{ dashboard: DashboardStats }>(() => api.getAnalyticsDashboard());
+}
+
+export function useAnalyticsTrends(days = 14) {
+  return useAsync<{ trends: TrendPoint[] }>(() => api.getAnalyticsTrends(days), [days]);
+}
+
+export function useAnalyticsHotMatches(limit = 10) {
+  return useAsync<{ matches: HotMatch[] }>(() => api.getAnalyticsHotMatches(limit), [limit]);
+}
+
+export function useAnalyticsUsers(limit = 10) {
+  return useAsync<{ users: UserAnalytics[] }>(() => api.getAnalyticsUsers(limit), [limit]);
 }
 
 export interface CurrentUserState {
