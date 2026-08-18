@@ -139,6 +139,7 @@ export default function MatchesScreen() {
 
         {!loading && !error && (
           <FlatList
+            removeClippedSubviews={false}
             data={data?.matches ?? []}
             keyExtractor={(m) => String(m.id)}
             contentContainerStyle={styles.listContent}

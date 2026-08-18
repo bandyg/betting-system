@@ -54,6 +54,7 @@ export default function SlipScreen() {
         {slip.items.length > 0 && (
           <>
             <FlatList
+              removeClippedSubviews={false}
               data={slip.items}
               keyExtractor={(i) => `${i.marketId}-${i.selection}`}
               contentContainerStyle={styles.listContent}

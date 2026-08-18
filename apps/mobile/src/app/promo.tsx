@@ -94,6 +94,7 @@ export default function PromoScreen() {
 
         {!promos.loading && (
           <FlatList
+            removeClippedSubviews={false}
             data={promos.data?.promotions ?? []}
             keyExtractor={(p) => String(p.id)}
             contentContainerStyle={styles.listContent}

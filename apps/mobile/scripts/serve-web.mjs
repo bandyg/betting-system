@@ -31,7 +31,7 @@ function serveStatic(req, res, pathname) {
     file = join(DIST, 'index.html');
   }
   const ext = extname(file);
-  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
   createReadStream(file).pipe(res);
 }
 
