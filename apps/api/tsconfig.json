@@ -13,5 +13,9 @@
     "declaration": false,
     "sourceMap": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "src/feeds/__verify*.ts",
+    "src/feeds/demo_seed.ts"
+  ]
 }

@@ -146,7 +146,7 @@ export function normalizeTheOddsMatch(raw: TheOddsMatch): IngestMatch {
 
 /** Generic dispatch: currently 'theodds' (and alias 'mock' → same shape for testing). */
 export function normalizeVendorMatch(raw: unknown, vendor: string): IngestMatch {
-  if (vendor === 'theodds' || vendor === 'mock') {
+  if (vendor === 'theodds' || vendor === 'the-odds-api' || vendor === 'mock') {
     return normalizeTheOddsMatch(raw as TheOddsMatch);
   }
   throw new Error(`unknown feed vendor: ${vendor}`);
