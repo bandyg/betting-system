@@ -37,6 +37,10 @@ CREATE TABLE IF NOT EXISTS matches (
     CHECK (status IN ('scheduled', 'finished', 'settled')),
   home_score INTEGER,
   away_score INTEGER,
+  external_id TEXT,                 -- supplier match id (feed)
+  source TEXT NOT NULL DEFAULT 'manual',  -- 'manual' | 'the-odds-api' | ...
+  sport TEXT,
+  league TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -46,6 +50,8 @@ CREATE TABLE IF NOT EXISTS markets (
   type TEXT NOT NULL CHECK (type IN ('1x2', 'ah', 'ou')),
   line REAL,               -- handicap (ah) or total (ou); NULL for 1x2
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'suspended', 'settled')),
+  external_id TEXT,                 -- deterministic compound `<match-ext>:<type>[:<line>]`
+  source TEXT NOT NULL DEFAULT 'manual',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -152,3 +158,14 @@ CREATE TABLE IF NOT EXISTS payment_orders (
 );
 CREATE INDEX IF NOT EXISTS idx_payment_orders_user ON payment_orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON payment_orders(status);
+
+-- feed 拉取可观测性日志（外部 Sportsbook 数据源接入，P1）
+CREATE TABLE IF NOT EXISTS feed_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider TEXT,
+  requested_at TEXT NOT NULL DEFAULT (datetime('now')),
+  status TEXT,
+  matches_seen INTEGER,
+  matches_upserted INTEGER,
+  errors TEXT
+);

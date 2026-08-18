@@ -102,6 +102,31 @@ export function migrate(db: Database.Database): void {
     // 已存在则确保角色是 admin
     db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(admin.id);
   }
+
+  // 迁移（P1 feed 接入）：matches / markets 加供应商溯源字段 + feed_log 表（幂等）
+  const addCol = (table: string, name: string, ddl: string) => {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (!cols.some((c) => c.name === name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  };
+  addCol('matches', 'external_id', "external_id TEXT");
+  addCol('matches', 'source', "source TEXT NOT NULL DEFAULT 'manual'");
+  addCol('matches', 'sport', "sport TEXT");
+  addCol('matches', 'league', "league TEXT");
+  addCol('markets', 'external_id', "external_id TEXT");
+  addCol('markets', 'source', "source TEXT NOT NULL DEFAULT 'manual'");
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_matches_ext ON matches(external_id) WHERE external_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_markets_ext ON markets(external_id) WHERE external_id IS NOT NULL;
+    CREATE TABLE IF NOT EXISTS feed_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      provider TEXT,
+      requested_at TEXT NOT NULL DEFAULT (datetime('now')),
+      status TEXT,
+      matches_seen INTEGER,
+      matches_upserted INTEGER,
+      errors TEXT
+    );
+  `);
 }
 
 // Ensure schema exists on import (idempotent)
