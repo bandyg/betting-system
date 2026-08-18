@@ -224,3 +224,26 @@ export interface UserAnalytics {
   bets: number; // 下注数
   deposits: number; // 累计充值
 }
+
+// ── Feed 数据源管理 (P3) ──
+export type FeedHealth = 'ok' | 'error' | 'disabled';
+
+export interface FeedLogEntry {
+  id: number;
+  provider: string | null;
+  requested_at: string;
+  status: string | null;
+  matches_seen: number | null;
+  matches_upserted: number | null;
+  errors: string | null;
+}
+
+export interface FeedStatus {
+  manual: boolean;
+  lastSync: string | null;
+  lastProvider: string | null;
+  health: FeedHealth;
+  lastError: string | null;
+  feedMatchCount: number;
+  feedLog: FeedLogEntry[];
+}

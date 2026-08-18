@@ -5,8 +5,31 @@
 //   FEED_API_KEY=...         provider key (the-odds-api / RapidAPI key)
 //   FEED_INTERVAL_MIN=10     poll minutes (free-tier friendly, default 10)
 import type { Database } from 'better-sqlite3';
+import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { createTheOddsClient } from './provider.js';
 import { ingestVendorUpdate } from './ingest.js';
+
+// Feed secrets/knobs live OUTSIDE the repo (so the API key is never committed):
+//   ~/.betting-feed.env  →  FEED_API_KEY / FEED_ENABLED / FEED_INTERVAL_MIN / FEED_SPORT_KEY / FEED_PROVIDER
+const FEED_ENV = join(homedir(), '.betting-feed.env');
+
+function loadSecretsFile(): Record<string, string> {
+  if (!existsSync(FEED_ENV)) return {};
+  try {
+    const out: Record<string, string> = {};
+    for (const raw of readFileSync(FEED_ENV, 'utf8').split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eq = line.indexOf('=');
+      if (eq > 0) out[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
 
 export interface FeedConfig {
   enabled: boolean;
@@ -17,13 +40,21 @@ export interface FeedConfig {
 }
 
 export function readFeedConfig(env: NodeJS.ProcessEnv = process.env): FeedConfig {
+  const s = loadSecretsFile(); // file is fallback; process.env wins
+  const enabled = (env.FEED_ENABLED ?? s.FEED_ENABLED) === '1';
   return {
-    enabled: env.FEED_ENABLED === '1',
-    provider: env.FEED_PROVIDER ?? 'the-odds-api',
-    apiKey: env.FEED_API_KEY ?? '',
-    intervalMin: Number(env.FEED_INTERVAL_MIN ?? '10'),
-    sportKey: env.FEED_SPORT_KEY ?? 'soccer_epl',
+    enabled,
+    provider: env.FEED_PROVIDER ?? s.FEED_PROVIDER ?? 'the-odds-api',
+    apiKey: env.FEED_API_KEY || s.FEED_API_KEY || '',
+    intervalMin: Number(env.FEED_INTERVAL_MIN ?? s.FEED_INTERVAL_MIN ?? '10'),
+    sportKey: env.FEED_SPORT_KEY ?? s.FEED_SPORT_KEY ?? 'soccer_epl',
   };
+}
+
+/** 手动模式：settings.feed_manual='true' 时调度器每轮跳过拉取（admin 面板开关，无需重启进程） */
+export function isManualMode(db: Database): boolean {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'feed_manual'").get() as { value: string } | undefined;
+  return row?.value === 'true';
 }
 
 /** One poll cycle: fetch provider → ingest → return result. Never throws (records feed_log error). */
@@ -57,6 +88,10 @@ export function startFeedScheduler(db: Database, cfg: FeedConfig, log = console)
   let stopped = false;
   const tick = async () => {
     if (stopped) return;
+    if (isManualMode(db)) {
+      log.log('[feed] manual mode, skip');
+      return;
+    }
     const r = await pollOnce(db, cfg);
     log.log(`[feed] poll: ${r.ok ? 'ok' : 'error'}`, r.detail);
   };

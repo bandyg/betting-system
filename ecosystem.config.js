@@ -33,5 +33,16 @@ module.exports = {
       max_restarts: 10,
       restart_delay: 2000,
     },
+    {
+      // 外部 Sportsbook 资料源 feed worker（独立进程，feed 挂了不影响主 API）
+      // 密钥与环境旋钮在 repo 外的 ~/.betting-feed.env（见 scheduler.ts loadSecretsFile），勿在此提交 key
+      name: 'betting-feed-worker',
+      cwd: __dirname + '/apps/api',
+      script: 'dist/feeds/worker.js',
+      interpreter: 'node',
+      env: { NODE_ENV: 'production' },
+      max_restarts: 10,
+      restart_delay: 2000,
+    },
   ],
 };

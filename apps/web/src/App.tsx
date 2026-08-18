@@ -93,6 +93,7 @@ export default function App() {
         <BettingPanel />
         <SettlePanel />
       </div>
+      <FeedPanel />
       <BetsPanel />
     </>
   );
@@ -487,6 +488,144 @@ function SettlePanel() {
           </tbody>
         </table>
       )}
+    </section>
+  );
+}
+
+/* ---------------- 数据源管理 ---------------- */
+
+type FeedLogEntry = {
+  id: number;
+  provider: string | null;
+  requested_at: string;
+  status: string | null;
+  matches_seen: number | null;
+  matches_upserted: number | null;
+  errors: string | null;
+};
+
+type FeedStatus = {
+  manual: boolean;
+  lastSync: string | null;
+  lastProvider: string | null;
+  health: 'ok' | 'error' | 'disabled';
+  lastError: string | null;
+  feedMatchCount: number;
+  feedLog: FeedLogEntry[];
+};
+
+const FEED_HEALTH_LABELS: Record<string, string> = {
+  ok: '正常',
+  error: '错误',
+  disabled: '未启用',
+};
+
+function FeedPanel() {
+  const [status, setStatus] = useState<FeedStatus | null>(null);
+  const [msg, setMsg] = useState<Msg | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await api.getFeedStatus();
+      setStatus(res);
+    } catch (e) {
+      setMsg({ kind: 'err', text: String(e) });
+    }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const toggle = async () => {
+    if (!status) return;
+    setBusy(true);
+    try {
+      const res = await api.toggleFeedManual(!status.manual);
+      setMsg({ kind: 'ok', text: `模式已切换 → ${res.manual ? 'Manual（手动开盘）' : 'Feed（自动拉取）'}` });
+      await refresh();
+    } catch (e) {
+      setMsg({ kind: 'err', text: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ingest = async () => {
+    setBusy(true);
+    try {
+      const res = await api.ingestFeedNow();
+      if (res.ok) {
+        const d = res.detail as { seen?: number; inserted?: number; updated?: number; error?: string };
+        setMsg({ kind: 'ok', text: `拉取成功：seen ${d.seen ?? 0}，inserted ${d.inserted ?? 0}，updated ${d.updated ?? 0}` });
+      } else {
+        const d = res.detail as { error?: string };
+        setMsg({ kind: 'err', text: `拉取失败：${d.error ?? 'unknown'}` });
+      }
+      await refresh();
+    } catch (e) {
+      setMsg({ kind: 'err', text: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const healthColor =
+    status?.health === 'ok' ? '#4ade80'
+    : status?.health === 'error' ? '#f87171'
+    : '#9ca3af';
+
+  return (
+    <section className="card">
+      <h2>📡 数据源管理</h2>
+      <div className="row">
+        <span className="muted">模式：</span>
+        <span className="badge scheduled">{status ? (status.manual ? 'Manual（手动开盘）' : 'Feed（自动拉取）') : '—'}</span>
+        <span className="muted">健康状态：</span>
+        <span className="badge" style={{ color: healthColor, borderColor: healthColor }}>
+          {status ? (FEED_HEALTH_LABELS[status.health] ?? status.health) : '—'}
+        </span>
+        <span className="muted">Feed 来源场数：</span>
+        <strong>{status?.feedMatchCount ?? 0}</strong>
+      </div>
+      <div className="row">
+        <span className="muted">最后同步：</span>
+        <span>{status?.lastSync ? fmtTime(status.lastSync) : '—'}</span>
+        {status?.lastProvider && <span className="muted">（{status.lastProvider}）</span>}
+      </div>
+      {status?.lastError && (
+        <div className="row">
+          <span className="muted">最近错误：</span>
+          <span style={{ color: '#f87171' }}>{status.lastError}</span>
+        </div>
+      )}
+      <div className="row">
+        <button onClick={ingest} disabled={busy}>⚡ 立即拉取</button>
+        <button onClick={toggle} className="ghost" disabled={busy || !status}>
+          {status?.manual ? '切换为 Feed' : '切换为 Manual'}
+        </button>
+        <button onClick={refresh} className="ghost small">↻ 刷新</button>
+      </div>
+      {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
+      <h3>最近 feed 拉取记录</h3>
+      <table>
+        <thead>
+          <tr><th>时间</th><th>状态</th><th>seen</th><th>upserted</th><th>errors</th></tr>
+        </thead>
+        <tbody>
+          {(status?.feedLog ?? []).map((l) => (
+            <tr key={l.id}>
+              <td className="mono">{fmtTime(l.requested_at)}</td>
+              <td><span className={`badge ${l.status === 'ok' ? 'open' : 'settled'}`}>{l.status ?? '—'}</span></td>
+              <td>{l.matches_seen ?? 0}</td>
+              <td>{l.matches_upserted ?? 0}</td>
+              <td className="mono">{l.errors ?? '—'}</td>
+            </tr>
+          ))}
+          {(status?.feedLog ?? []).length === 0 && (
+            <tr><td colSpan={5} className="muted">暂无拉取记录</td></tr>
+          )}
+        </tbody>
+      </table>
     </section>
   );
 }

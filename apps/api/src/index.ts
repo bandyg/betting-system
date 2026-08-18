@@ -11,6 +11,7 @@ import { crmRouter } from './routes/crm.js';
 import { riskRouter } from './routes/risk.js';
 import { paymentsRouter } from './routes/payments.js';
 import { analyticsRouter } from './routes/analytics.js';
+import { feedRouter } from './routes/feed.js';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4100);
@@ -33,6 +34,7 @@ app.use('/api', crmRouter);
 app.use('/api', riskRouter);
 app.use('/api', paymentsRouter);
 app.use('/api', analyticsRouter);
+app.use('/api', feedRouter);
 
 app.listen(PORT, () => {
   console.log(`[betting-api] listening on :${PORT}`);

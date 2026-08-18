@@ -127,6 +127,10 @@ export function migrate(db: Database.Database): void {
       errors TEXT
     );
   `);
+
+  // 迁移（P3）：settings 键值表 + feed_manual 默认值（手动开盘模式，admin 面板可切换，无需重启）
+  db.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('feed_manual', 'true')`).run();
 }
 
 // Ensure schema exists on import (idempotent)

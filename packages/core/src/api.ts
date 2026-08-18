@@ -19,7 +19,8 @@ import type {
   DashboardStats,
   TrendPoint,
   HotMatch,
-  UserAnalytics
+  UserAnalytics,
+  FeedStatus
 } from './types';
 
 /**
@@ -188,7 +189,15 @@ export const api = {
   getAnalyticsDashboard: () => request<{ dashboard: DashboardStats }>('/analytics/dashboard'),
   getAnalyticsTrends: (days = 14) => request<{ trends: TrendPoint[] }>(`/analytics/trends?days=${days}`),
   getAnalyticsHotMatches: (limit = 10) => request<{ matches: HotMatch[] }>(`/analytics/hot-matches?limit=${limit}`),
-  getAnalyticsUsers: (limit = 10) => request<{ users: UserAnalytics[] }>(`/analytics/users?limit=${limit}`)
+  getAnalyticsUsers: (limit = 10) => request<{ users: UserAnalytics[] }>(`/analytics/users?limit=${limit}`),
+  // feed 数据源管理 (P3)
+  getFeedStatus: () => request<FeedStatus>('/admin/feed/status'),
+  toggleFeedManual: (manual: boolean) =>
+    request<{ manual: boolean }>('/admin/feed/toggle', {
+      method: 'POST',
+      body: JSON.stringify({ manual })
+    }),
+  ingestFeedNow: () => request<{ ok: boolean; detail: unknown }>('/admin/feed/ingest', { method: 'POST' })
 };
 
 export type {

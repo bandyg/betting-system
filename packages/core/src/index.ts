@@ -20,7 +20,10 @@ export type {
   DashboardStats,
   TrendPoint,
   HotMatch,
-  UserAnalytics
+  UserAnalytics,
+  FeedStatus,
+  FeedLogEntry,
+  FeedHealth
 } from './types';
 export {
   TYPE_LABELS,
