@@ -89,7 +89,10 @@ CREATE TABLE IF NOT EXISTS contents (
   title TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('announcement', 'promotion', 'article')),
   body TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+  status TEXT NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft', 'scheduled', 'published', 'archived')),
+  publish_at TEXT,                  -- 定时发布时间（scheduled 状态必填；到时自动转 published）
+  archived_at TEXT,                 -- 归档时间（archived 状态）
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

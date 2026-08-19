@@ -101,12 +101,16 @@ export interface LeaguesResponse {
 }
 
 /* ---- CMS (Step 15) ---- */
+export type ContentStatus = 'draft' | 'scheduled' | 'published' | 'archived';
+
 export interface Content {
   id: number;
   title: string;
   type: 'announcement' | 'promotion' | 'article';
   body: string;
-  status: 'draft' | 'published';
+  status: ContentStatus;
+  publish_at: string | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -115,6 +119,13 @@ export interface ContentsResponse {
   count: number;
   contents: Content[];
 }
+
+export const CONTENT_STATUS_LABELS: Record<ContentStatus, string> = {
+  draft: '草稿',
+  scheduled: '定时',
+  published: '已发布',
+  archived: '已归档',
+};
 
 /* ---- CRM (Step 16) ---- */
 export interface Promotion {

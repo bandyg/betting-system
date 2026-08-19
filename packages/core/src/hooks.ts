@@ -71,7 +71,7 @@ export function useBets(userId?: number) {
   return useAsync<BetsResponse>(() => api.listBets(userId), [userId]);
 }
 
-export function useContents(status?: 'published' | 'draft') {
+export function useContents(status?: 'published' | 'draft' | 'scheduled' | 'archived') {
   return useAsync<ContentsResponse>(() => api.listContents(status), [status]);
 }
 

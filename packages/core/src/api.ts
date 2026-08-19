@@ -135,15 +135,26 @@ export const api = {
   settleMatch: (matchId: number) =>
     request<SettleResponse>(`/matches/${matchId}/settle`, { method: 'POST' }),
   // CMS
-  createContent: (title: string, type: string, body: string) =>
+  createContent: (title: string, type: string, body: string, publish_at?: string | null) =>
     request<{ content: Content }>('/cms/contents', {
       method: 'POST',
-      body: JSON.stringify({ title, type, body })
+      body: JSON.stringify({ title, type, body, publish_at })
     }),
-  listContents: (status?: 'published' | 'draft') =>
+  updateContent: (id: number, data: { title?: string; type?: string; body?: string; publish_at?: string | null }) =>
+    request<{ content: Content }>(`/cms/contents/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+  listContents: (status?: 'published' | 'draft' | 'scheduled' | 'archived') =>
     request<ContentsResponse>(status ? `/cms/contents?status=${status}` : '/cms/contents'),
   publishContent: (id: number) =>
     request<{ content: Content }>(`/cms/contents/${id}/publish`, { method: 'POST' }),
+  unpublishContent: (id: number) =>
+    request<{ content: Content }>(`/cms/contents/${id}/unpublish`, { method: 'POST' }),
+  archiveContent: (id: number) =>
+    request<{ content: Content }>(`/cms/contents/${id}/archive`, { method: 'POST' }),
+  restoreContent: (id: number) =>
+    request<{ content: Content }>(`/cms/contents/${id}/restore`, { method: 'POST' }),
   // CRM
   createPromotion: (data: {
     title: string;

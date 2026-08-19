@@ -93,6 +93,33 @@ export function migrate(db: Database.Database): void {
     ).run();
   }
 
+  // 迁移：contents.status CHECK 扩展 'scheduled'/'archived'（SQLite 不能改 CHECK，需重建表；方法同 markets）
+  const contentsSql = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='contents'")
+    .get() as { sql: string } | undefined;
+  if (contentsSql && !contentsSql.sql.includes('archived')) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      CREATE TABLE contents_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        type TEXT NOT NULL CHECK (type IN ('announcement', 'promotion', 'article')),
+        body TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'draft'
+          CHECK (status IN ('draft', 'scheduled', 'published', 'archived')),
+        publish_at TEXT,
+        archived_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO contents_new (id, title, type, body, status, created_at, updated_at)
+        SELECT id, title, type, body, status, created_at, updated_at FROM contents;
+      DROP TABLE contents;
+      ALTER TABLE contents_new RENAME TO contents;
+    `);
+    db.pragma('foreign_keys = ON');
+  }
+
   // 默认 admin 账号（admin / admin123），不存在则创建
   const admin = db.prepare("SELECT id FROM users WHERE name = 'admin'").get() as { id: number } | undefined;
   if (!admin) {
