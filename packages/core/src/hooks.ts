@@ -345,4 +345,13 @@ export async function placeBetItems(userId: number, items: BetSlipItem[]): Promi
   return results;
 }
 
+/** 提交串关（整单一次下注，stake 为整单金额） */
+export async function placeParlayItems(items: BetSlipItem[], stake: number): Promise<PlaceBetResult> {
+  const res = await api.placeParlay(
+    items.map((i) => ({ marketId: i.marketId, selection: i.selection })),
+    stake,
+  );
+  return { bet: res.bet, balance: res.account.balance };
+}
+
 export type { Match, User };

@@ -124,6 +124,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ userId, marketId, selection, stake })
     }),
+  placeParlay: (
+    legs: Array<{ marketId: number; selection: string }>,
+    stake: number
+  ) =>
+    request<{ bet: Bet; account: { balance: number } }>('/bets/parlay', {
+      method: 'POST',
+      body: JSON.stringify({ legs, stake })
+    }),
   listBets: (userId?: number) =>
     request<BetsResponse>(userId ? `/bets?userId=${userId}` : '/bets'),
   // settle

@@ -74,6 +74,7 @@ settleRouter.post('/matches/:id/settle', requireAuth, requireRole('admin'), (req
   res.json({
     match: matchAfter,
     summary: result.summary,
+    parlaySummary: result.parlaySummary,
     totalPayout: result.totalPayout,
     totalRefund: result.totalRefund,
   });

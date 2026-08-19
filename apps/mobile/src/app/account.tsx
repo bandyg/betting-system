@@ -7,7 +7,10 @@ import type { Bet, User, Market, RiskField, PaymentOrder, Withdrawal, DashboardS
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
 function betLabel(b: Bet): string {
-  return `${SEL_LABELS[b.selection] ?? b.selection} @${b.price.toFixed(2)}`;
+  if (b.bet_type === 'parlay' && b.legs && b.legs.length > 0) {
+    return `${b.legs.length} 串 @${b.price.toFixed(2)}`;
+  }
+  return `${SEL_LABELS[b.selection ?? ''] ?? b.selection} @${b.price.toFixed(2)}`;
 }
 
 function statusColor(status: string): string {

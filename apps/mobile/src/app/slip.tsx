@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useBetSlip, useCurrentUser, useBets, placeBetItems } from '@betting/core';
+import { useBetSlip, useCurrentUser, useBets, placeBetItems, placeParlayItems } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, EmptyState, SectionTitle } from '@betting/ui';
 
 export default function SlipScreen() {
@@ -9,6 +9,7 @@ export default function SlipScreen() {
   const { user } = useCurrentUser();
   const bets = useBets(user?.id);
   const [stake, setStake] = useState('100');
+  const [parlay, setParlay] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
@@ -26,12 +27,22 @@ export default function SlipScreen() {
       setMsg({ kind: 'err', text: '请输入有效金额' });
       return;
     }
+    if (parlay && slip.items.length < 2) {
+      setMsg({ kind: 'err', text: '串关至少需要 2 个选择' });
+      return;
+    }
     setSubmitting(true);
     setMsg(null);
     try {
-      const results = await placeBetItems(user.id, slip.items.map((i) => ({ ...i, stake: amount })));
-      setMsg({ kind: 'ok', text: `✅ 下注成功 ${results.length} 单，余额 ¥${results[results.length - 1].balance}` });
+      if (parlay) {
+        const result = await placeParlayItems(slip.items, amount);
+        setMsg({ kind: 'ok', text: `✅ 串关下注成功（${slip.items.length} 串），余额 ¥${result.balance}` });
+      } else {
+        const results = await placeBetItems(user.id, slip.items.map((i) => ({ ...i, stake: amount })));
+        setMsg({ kind: 'ok', text: `✅ 下注成功 ${results.length} 单，余额 ¥${results[results.length - 1].balance}` });
+      }
       slip.clear();
+      setParlay(false);
       bets.refresh();
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
@@ -39,6 +50,10 @@ export default function SlipScreen() {
       setSubmitting(false);
     }
   };
+
+  const combinedOdds = slip.items.reduce((s, i) => s * i.price, 1);
+  const totalStake = Number(stake || 0) * (parlay ? 1 : slip.items.length);
+  const projectedPayout = parlay ? totalStake * combinedOdds : slip.items.reduce((s, i) => s + Number(stake || 0) * i.price, 0);
 
   return (
     <Screen>
@@ -72,8 +87,21 @@ export default function SlipScreen() {
             />
 
             <View style={styles.footer}>
+              {slip.items.length >= 2 && (
+                <Pressable style={styles.parlayToggle} onPress={() => setParlay(!parlay)}>
+                  <View style={[styles.parlayBox, parlay && styles.parlayBoxOn]}>
+                    {parlay && <Text style={styles.parlayCheck}>✓</Text>}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.parlayLabel}>串关模式（{slip.items.length} 串）</Text>
+                    <Text style={styles.parlaySub}>
+                      {parlay ? `连乘赔率 @${combinedOdds.toFixed(2)} · 整单金额` : '所有选择合成一注，任一失败整单输'}
+                    </Text>
+                  </View>
+                </Pressable>
+              )}
               <View style={styles.stakeRow}>
-                <Text style={styles.stakeLabel}>每单金额</Text>
+                <Text style={styles.stakeLabel}>{parlay ? '串关金额' : '每单金额'}</Text>
                 <TextInput
                   value={stake}
                   onChangeText={setStake}
@@ -83,12 +111,14 @@ export default function SlipScreen() {
                 />
               </View>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryText}>共 {slip.items.length} 单 · 预估回报</Text>
+                <Text style={styles.summaryText}>
+                  {parlay ? `串关 ${slip.items.length} 场 · 预估回报` : `共 ${slip.items.length} 单 · 预估回报`}
+                </Text>
                 <Text style={styles.payout}>
-                  ¥{(slip.items.reduce((s, i) => s + Number(stake || 0) * i.price, 0)).toLocaleString()}
+                  ¥{projectedPayout.toLocaleString()}
                 </Text>
               </View>
-              <Button title={submitting ? '提交中…' : `确认下注 ¥${(Number(stake || 0) * slip.items.length).toLocaleString()}`} onPress={submit} loading={submitting} />
+              <Button title={submitting ? '提交中…' : `确认下注 ¥${totalStake.toLocaleString()}`} onPress={submit} loading={submitting} />
               {!user && <Text style={styles.hint}>⚠️ 未登录，下注前请到「我的」页登录</Text>}
             </View>
           </>
@@ -125,4 +155,18 @@ const styles = StyleSheet.create({
   summaryText: { color: colors.textSecondary, fontSize: fontSize.sm },
   payout: { color: colors.success, fontSize: fontSize.xl, fontWeight: font.bold },
   hint: { color: colors.warning, fontSize: fontSize.sm, marginTop: spacing.sm, textAlign: 'center' },
+  parlayToggle: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  parlayBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  parlayBoxOn: { backgroundColor: colors.secondary, borderColor: colors.secondary },
+  parlayCheck: { color: colors.text, fontSize: fontSize.sm, fontWeight: font.bold },
+  parlayLabel: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
+  parlaySub: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 2 },
 });

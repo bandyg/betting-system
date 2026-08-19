@@ -37,13 +37,29 @@ export interface Match {
 export interface Bet {
   id: number;
   user_id: number;
-  market_id: number;
-  selection: string;
+  market_id: number | null;
+  selection: string | null;
+  bet_type: 'single' | 'parlay';
   stake: number;
   price: number;
   potential_payout: number;
   status: string;
   created_at: string;
+  market?: Market | null;
+  legs?: BetLeg[];
+}
+
+export interface BetLeg {
+  id: number;
+  market_id: number;
+  selection: string;
+  price: number;
+  status: string;
+  settled_at: string | null;
+  match_id: number;
+  home_team: string;
+  away_team: string;
+  kickoff_time: string;
 }
 
 export interface MatchesResponse {

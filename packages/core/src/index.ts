@@ -65,6 +65,7 @@ export {
   useCurrentUser,
   useBetSlip,
   placeBetItems,
+  placeParlayItems,
   useContents,
   usePromotions,
   usePreferences,

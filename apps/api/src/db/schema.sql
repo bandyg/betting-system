@@ -67,9 +67,10 @@ CREATE TABLE IF NOT EXISTS odds (
 CREATE TABLE IF NOT EXISTS bets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id),
-  market_id INTEGER NOT NULL REFERENCES markets(id),
-  selection TEXT NOT NULL,
-  price REAL NOT NULL CHECK (price > 1),
+  market_id INTEGER REFERENCES markets(id), -- 单注必填；串关为 NULL（legs 存 bet_legs）
+  selection TEXT, -- 单注必填；串关为 NULL
+  bet_type TEXT NOT NULL DEFAULT 'single' CHECK (bet_type IN ('single', 'parlay')),
+  price REAL NOT NULL CHECK (price > 1), -- 单注=该注赔率；串关=各 leg 赔率连乘
   stake REAL NOT NULL CHECK (stake > 0),
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'won', 'lost', 'void')),
   potential_payout REAL NOT NULL,
@@ -77,10 +78,23 @@ CREATE TABLE IF NOT EXISTS bets (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- 串关腿：每腿关联一个市场/选择；结算时逐腿判定，全腿结算完才整体派彩
+CREATE TABLE IF NOT EXISTS bet_legs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  bet_id INTEGER NOT NULL REFERENCES bets(id),
+  market_id INTEGER NOT NULL REFERENCES markets(id),
+  selection TEXT NOT NULL,
+  price REAL NOT NULL CHECK (price > 1),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'won', 'lost', 'void')),
+  settled_at TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_matches_status ON matches(status);
 CREATE INDEX IF NOT EXISTS idx_markets_match ON markets(match_id);
 CREATE INDEX IF NOT EXISTS idx_bets_user ON bets(user_id);
 CREATE INDEX IF NOT EXISTS idx_bets_market ON bets(market_id);
+CREATE INDEX IF NOT EXISTS idx_bet_legs_bet ON bet_legs(bet_id);
+CREATE INDEX IF NOT EXISTS idx_bet_legs_market ON bet_legs(market_id);
 CREATE INDEX IF NOT EXISTS idx_tx_account ON transactions(account_id);
 
 -- ============ CMS (Step 15) ============

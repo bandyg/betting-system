@@ -166,6 +166,38 @@ addCol('matches', 'external_id', "external_id TEXT");
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('feed_auto_settle', 'true')`).run();
   // 迁移（CRM VIP）：users 表加 vip_tier 栏位（旧库无此列时补齐，幂等）
   addCol('users', 'vip_tier', "vip_tier TEXT NOT NULL DEFAULT 'bronze'");
+
+  // 迁移（SPORTBOOK 串关）：bets 表加 bet_type + market_id/selection 可空（SQLite 不能改 NOT NULL，需重建表；方法同 markets）
+  const betsSql = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='bets'")
+    .get() as { sql: string } | undefined;
+  if (betsSql && !betsSql.sql.includes('bet_type')) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      CREATE TABLE bets_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        market_id INTEGER REFERENCES markets(id),
+        selection TEXT,
+        bet_type TEXT NOT NULL DEFAULT 'single' CHECK (bet_type IN ('single', 'parlay')),
+        price REAL NOT NULL CHECK (price > 1),
+        stake REAL NOT NULL CHECK (stake > 0),
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'won', 'lost', 'void')),
+        potential_payout REAL NOT NULL,
+        settled_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO bets_new (id, user_id, market_id, selection, bet_type, price, stake, status, potential_payout, settled_at, created_at)
+        SELECT id, user_id, market_id, selection, 'single', price, stake, status, potential_payout, settled_at, created_at FROM bets;
+      DROP TABLE bets;
+      ALTER TABLE bets_new RENAME TO bets;
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_bets_user ON bets(user_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_bets_market ON bets(market_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_bet_legs_bet ON bet_legs(bet_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_bet_legs_market ON bet_legs(market_id)');
+    db.pragma('foreign_keys = ON');
+  }
 }
 
 // Ensure schema exists on import (idempotent)
