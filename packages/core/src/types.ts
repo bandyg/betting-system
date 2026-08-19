@@ -28,6 +28,9 @@ export interface Match {
   status: string;
   home_score: number | null;
   away_score: number | null;
+  sport: string | null;
+  league: string | null;
+  source: string;
   markets: Market[];
 }
 
@@ -74,6 +77,27 @@ export interface SettleResponse {
   summary: SettleSummaryItem[];
   totalPayout: number;
   totalRefund: number;
+}
+
+
+// ---- Multi-sport (SPORTBOOK) ----
+export interface LeagueInfo {
+  league: string;
+  count: number;
+}
+
+export interface SportInfo {
+  sport: string;
+  leagues: LeagueInfo[];
+}
+
+export interface SportsResponse {
+  sports: SportInfo[];
+}
+
+export interface LeaguesResponse {
+  sport: string | null;
+  leagues: LeagueInfo[];
 }
 
 /* ---- CMS (Step 15) ---- */

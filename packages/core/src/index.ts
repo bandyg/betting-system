@@ -30,7 +30,11 @@ export type {
   SupportTicketList,
   SupportStatus,
   SupportPriority,
-  SupportCategoryKey
+  SupportCategoryKey,
+  SportInfo,
+  LeagueInfo,
+  SportsResponse,
+  LeaguesResponse
 } from './types';
 export {
   TYPE_LABELS,
@@ -63,6 +67,8 @@ export {
   useAnalyticsTrends,
   useAnalyticsHotMatches,
   useAnalyticsUsers,
-  useSupportTickets
+  useSupportTickets,
+  useSports,
+  useLeagues
 } from './hooks';
 export type { BetSlipItem, BetSlipState, CurrentUserState, AuthState, PlaceBetResult } from './hooks';

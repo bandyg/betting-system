@@ -15,7 +15,10 @@ import type {
   TrendPoint,
   HotMatch,
   UserAnalytics,
-  SupportTicketList
+  SupportTicketList,
+  SportsResponse,
+  LeaguesResponse,
+  SportInfo
 } from './types';
 
 /** 通用异步数据 hook：加载 + 刷新 + 错误 */
@@ -46,8 +49,16 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 
 // ---- 业务 hooks ----
 
-export function useMatches() {
-  return useAsync<MatchesResponse>(() => api.listMatches());
+export function useMatches(params?: { sport?: string; league?: string; status?: string }) {
+  return useAsync<MatchesResponse>(() => api.listMatches(params), [params?.sport, params?.league, params?.status]);
+}
+
+export function useSports() {
+  return useAsync<SportsResponse>(() => api.getSports());
+}
+
+export function useLeagues(sport?: string) {
+  return useAsync<LeaguesResponse>(() => api.getLeagues(sport), [sport]);
 }
 
 export function useUsers() {

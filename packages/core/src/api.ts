@@ -24,7 +24,9 @@ import type {
   SupportCategory,
   SupportMessage,
   SupportTicket,
-  SupportTicketList
+  SupportTicketList,
+  SportsResponse,
+  LeaguesResponse
 } from './types';
 
 /**
@@ -86,7 +88,17 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ amount }) }
     ),
   // matches & markets
-  listMatches: () => request<MatchesResponse>('/matches'),
+  listMatches: (params?: { sport?: string; league?: string; status?: string }) => {
+    const qs: string[] = [];
+    if (params?.sport) qs.push(`sport=${encodeURIComponent(params.sport)}`);
+    if (params?.league) qs.push(`league=${encodeURIComponent(params.league)}`);
+    if (params?.status) qs.push(`status=${encodeURIComponent(params.status)}`);
+    return request<MatchesResponse>(`/matches${qs.length ? `?${qs.join('&')}` : ''}`);
+  },
+  // sports
+  getSports: () => request<SportsResponse>('/sports'),
+  getLeagues: (sport?: string) =>
+    request<LeaguesResponse>(sport ? `/leagues?sport=${encodeURIComponent(sport)}` : '/leagues'),
   createMatch: (homeTeam: string, awayTeam: string, kickoffTime: string) =>
     request<{ match: Match }>('/matches', {
       method: 'POST',
