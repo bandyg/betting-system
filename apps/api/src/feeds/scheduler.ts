@@ -69,6 +69,7 @@ async function pollOnceSingle(
 ): Promise<{ ok: boolean; detail: unknown; sportKey: string }> {
   const client = createTheOddsClient();
   try {
+    // 'upcoming' 萬能端點：一次請求回傳所有運動的 live + 近期場次（免費額度友好）。
     const raw = await client.pendingMatches(sportKey, cfg.apiKey);
     const res = ingestVendorUpdate(db, raw, cfg.provider, { overwriteManualOdds: false, sportKey });
     return { ok: !res.error, detail: res, sportKey };
@@ -88,12 +89,15 @@ export async function pollOnce(
 ): Promise<{ ok: boolean; detail: unknown; scores?: { ok: boolean; detail: unknown } }> {
   const results: Array<{ ok: boolean; detail: unknown; sportKey: string }> = [];
 
+  const isUpcoming = cfg.sportKeys.includes('upcoming');
+  const keys = isUpcoming ? ['upcoming'] : cfg.sportKeys;
+
   // Poll odds for each sport key
-  for (const sk of cfg.sportKeys) {
+  for (const sk of keys) {
     const r = await pollOnceSingle(db, cfg, sk);
     results.push(r);
     // Small delay between sport requests to be nice to the API
-    if (cfg.sportKeys.indexOf(sk) < cfg.sportKeys.length - 1) {
+    if (keys.indexOf(sk) < keys.length - 1) {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
@@ -106,7 +110,7 @@ export async function pollOnce(
   // Poll scores for each sport key
   const scoresResults: Array<{ ok: boolean; detail: unknown; sportKey: string }> = [];
   const client = createTheOddsClient();
-  for (const sk of cfg.sportKeys) {
+  for (const sk of keys) {
     try {
       const rawScores = await client.scores(sk, cfg.apiKey);
       const res = ingestScores(db, rawScores, cfg.provider);

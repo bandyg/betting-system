@@ -15,14 +15,28 @@ export function mapSportKey(sportKey: string): { sport: string; league: string }
     basketball_nba:          { sport: 'basketball', league: 'NBA' },
     basketball_ncaab:        { sport: 'basketball', league: 'NCAAB' },
     basketball_euroleague:   { sport: 'basketball', league: 'Euroleague' },
+    basketball_wnba:         { sport: 'basketball', league: 'WNBA' },
     tennis_atp:              { sport: 'tennis',    league: 'ATP' },
     tennis_wta:              { sport: 'tennis',    league: 'WTA' },
     baseball_mlb:            { sport: 'baseball',  league: 'MLB' },
+    baseball_kbo:            { sport: 'baseball',  league: 'KBO' },
+    baseball_npb:            { sport: 'baseball',  league: 'NPB' },
     icehockey_nhl:           { sport: 'icehockey', league: 'NHL' },
     mma_mixed_martial_arts:  { sport: 'mma',       league: 'UFC' },
     boxing_boxing:           { sport: 'boxing',    league: 'Boxing' },
     americanfootball_nfl:    { sport: 'football',  league: 'NFL' },
     americanfootball_ncaaf:  { sport: 'football',  league: 'NCAAF' },
+    cricket_test_match:      { sport: 'cricket',   league: 'Test Match' },
+    tennis_atp_cincinnati_open: { sport: 'tennis', league: 'ATP Cincinnati' },
+    tennis_wta_cincinnati_open: { sport: 'tennis', league: 'WTA Cincinnati' },
+    soccer_china_superleague: { sport: 'soccer',    league: 'CSL' },
+    soccer_usa_mls:          { sport: 'soccer',    league: 'MLS' },
+    soccer_japan_j_league:   { sport: 'soccer',    league: 'J.League' },
+    soccer_korea_kleague1:   { sport: 'soccer',    league: 'K League 1' },
+    soccer_netherlands_eredivisie: { sport: 'soccer', league: 'Eredivisie' },
+    soccer_portugal_primeira_liga: { sport: 'soccer', league: 'Primeira Liga' },
+    soccer_turkey_super_league: { sport: 'soccer',  league: 'Süper Lig' },
+    soccer_brazil_campeonato: { sport: 'soccer',    league: 'Brasileirão' },
   };
   if (map[sportKey]) return map[sportKey];
   const parts = sportKey.split('_');
@@ -102,6 +116,7 @@ export interface TheOddsOutcome { name: string; price: number; point?: number }
 export interface TheOddsMarket { key: 'h2h' | 'spreads' | 'totals'; outcomes: TheOddsOutcome[] }
 export interface TheOddsMatch {
   id: string;
+  sport_key?: string;
   sport_title?: string;
   home_team: string;
   away_team: string;
@@ -124,10 +139,10 @@ export function normalizeTheOddsMatch(raw: TheOddsMatch, sportKey?: string): Ing
   const h2h = byKey.get('h2h')?.outcomes ?? [];
   const price = (sel: string): number | null => {
     const o = h2h.find((x) => (match(x.name) ?? x.name.toLowerCase()) === sel);
-    return o ? o.price : null;
+    return o && o.price > 1 ? o.price : null;
   };
   const ph = price('home');
-  const pd = h2h.find((x) => x.name.toLowerCase() === 'draw')?.price ?? null;
+  const pd = h2h.find((x) => x.name.toLowerCase() === 'draw' && x.price > 1)?.price ?? null;
   const pa = price('away');
   if (ph != null && pa != null) {
     markets.push({ type: '1x2', line: null, priceHome: ph, priceDraw: pd, priceAway: pa, live: false, suspended: false, settled: false });
@@ -163,7 +178,7 @@ export function normalizeTheOddsMatch(raw: TheOddsMatch, sportKey?: string): Ing
     home: raw.home_team,
     away: raw.away_team,
     kickoff: new Date(raw.commence_time).toISOString(),
-    ...(sportKey ? mapSportKey(sportKey) : { sport: 'soccer', league: raw.sport_title ?? undefined }),
+    ...(raw.sport_key ? mapSportKey(raw.sport_key) : sportKey ? mapSportKey(sportKey) : { sport: 'soccer', league: raw.sport_title ?? undefined }),
     markets,
     finalHome,
     finalAway,
