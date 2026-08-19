@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { api, useAuth, useBets, usePreferences, useUsers, useMatches, useRiskLimits, useAnalyticsDashboard, useAnalyticsTrends, useAnalyticsHotMatches, useAnalyticsUsers, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS, PAYMENT_STATUS_LABELS } from '@betting/core';
 import type { Bet, User, Market, RiskField, PaymentOrder, DashboardStats, TrendPoint, HotMatch, UserAnalytics } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
@@ -574,6 +575,7 @@ function AnalyticsPanel() {
 export default function AccountScreen() {
   const auth = useAuth();
   const { user } = auth;
+  const router = useRouter();
   const bets = useBets(user?.id);
   const [depositAmt, setDepositAmt] = useState('100');
   const [depositing, setDepositing] = useState(false);
@@ -699,6 +701,17 @@ export default function AccountScreen() {
                 <Text style={styles.logoutText}>退出登录</Text>
               </Pressable>
             </View>
+          </Card>
+
+          {/* 联系客服（Step 4-5） */}
+          <Card style={styles.sectionCard} glass>
+            <Pressable onPress={() => router.push('/support')} style={({ pressed }) => [styles.supportRow, { opacity: pressed ? 0.8 : 1 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.supportTitle}>🎫 联系客服</Text>
+                <Text style={styles.hint}>工单系统 · 充值/投注/账户问题随时提交</Text>
+              </View>
+              <Text style={{ color: colors.secondary, fontSize: fontSize.md, fontWeight: font.bold }}>›</Text>
+            </Pressable>
           </Card>
 
           {/* 管理面板（仅 admin） */}
@@ -829,6 +842,8 @@ const styles = StyleSheet.create({
   switchText: { color: colors.secondary, fontSize: fontSize.md, textAlign: 'center', marginTop: spacing.lg, fontWeight: font.bold },
   // 已登录
   userCard: { marginBottom: spacing.lg },
+  supportRow: { flexDirection: 'row', alignItems: 'center' },
+  supportTitle: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
   userRow: { flexDirection: 'row', alignItems: 'center' },
   userName: { color: colors.text, fontSize: fontSize.xl, fontWeight: font.bold },
   balance: { color: colors.success, fontSize: fontSize.lg, fontWeight: font.bold, marginTop: 4 },

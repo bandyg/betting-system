@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, setAuthToken } from '@betting/core';
-import type { Bet, Market, Match, SettleResponse, User } from '@betting/core';
-import { MATCH_STATUS_LABELS, SEL_LABELS, TYPE_LABELS } from '@betting/core';
+import type { Bet, Market, Match, SettleResponse, User, SupportCategory, SupportMessage, SupportStatus, SupportTicket } from '@betting/core';
+import { MATCH_STATUS_LABELS, SEL_LABELS, TYPE_LABELS, SUPPORT_STATUS_LABELS, SUPPORT_PRIORITY_LABELS, SUPPORT_STATUS_TRANSITIONS } from '@betting/core';
 
 interface Msg { kind: 'ok' | 'err'; text: string }
 
@@ -12,7 +12,7 @@ function fmtTime(iso: string): string {
 }
 
 /** 管理工具页登录条：admin 登录后所有请求自动带 Bearer token（localStorage 持久化） */
-function AdminLoginBar() {
+function AdminLoginBar({ onRole }: { onRole: (role: string) => void }) {
   const [token, setToken] = useState<string | null>(null);
   const [name, setName] = useState('admin');
   const [pw, setPw] = useState('');
@@ -24,6 +24,8 @@ function AdminLoginBar() {
       if (t) {
         setAuthToken(t);
         setToken(t);
+        const r = localStorage.getItem('betting.role');
+        if (r) onRole(r);
       }
     } catch {
       /* ignore */
@@ -36,10 +38,12 @@ function AdminLoginBar() {
       setAuthToken(res.token);
       try {
         localStorage.setItem('betting.token', res.token);
+        localStorage.setItem('betting.role', res.user.role ?? 'user');
       } catch {
         /* ignore */
       }
       setToken(res.token);
+      onRole(res.user.role ?? 'user');
       setMsg({ kind: 'ok', text: `✅ 已登录：${res.user.name}（${res.user.role}）` });
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
@@ -51,9 +55,11 @@ function AdminLoginBar() {
     setToken(null);
     try {
       localStorage.removeItem('betting.token');
+      localStorage.removeItem('betting.role');
     } catch {
       /* ignore */
     }
+    onRole('');
     setMsg({ kind: 'ok', text: '已登出（管理操作需重新登录）' });
   };
 
@@ -78,13 +84,15 @@ function AdminLoginBar() {
 }
 
 export default function App() {
+  const [role, setRole] = useState('');
+  const isSupport = role === 'admin' || role === 'support';
   return (
     <>
       <header className="top">
         <h1>⚽ 投注系统 Demo</h1>
         <span className="sub">赛前固定赔率 · 下注 · 结算闭环</span>
       </header>
-      <AdminLoginBar />
+      <AdminLoginBar onRole={setRole} />
       <div className="grid">
         <AccountsPanel />
         <MatchesPanel />
@@ -95,6 +103,7 @@ export default function App() {
       </div>
       <FeedPanel />
       <BetsPanel />
+      {isSupport && <SupportPanel />}
     </>
   );
 }
@@ -711,6 +720,226 @@ function BetsPanel() {
           ))}
         </tbody>
       </table>
+    </section>
+  );
+}
+
+/* ---------------- 工单/客服 (Step 4-5) ---------------- */
+
+const PAGE_SIZE = 10;
+
+function SupportPanel() {
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [total, setTotal] = useState(0);
+  const [status, setStatus] = useState('');
+  const [category, setCategory] = useState('');
+  const [userName, setUserName] = useState('');
+  const [userId, setUserId] = useState<number | undefined>(undefined);
+  const [page, setPage] = useState(1);
+  const [categories, setCategories] = useState<SupportCategory[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [detail, setDetail] = useState<{ ticket: SupportTicket; messages: SupportMessage[] } | null>(null);
+  const [reply, setReply] = useState('');
+  const [msg, setMsg] = useState<Msg | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setBusy(true);
+    try {
+      const res = await api.adminListTickets({
+        status: status || undefined,
+        category: category || undefined,
+        userId,
+        page,
+        pageSize: PAGE_SIZE,
+      });
+      setTickets(res.tickets);
+      setTotal(res.total);
+    } catch (e) {
+      setMsg({ kind: 'err', text: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  }, [status, category, userId, page]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    api.listSupportCategories().then((r) => setCategories(r.categories)).catch(() => {});
+    api.listUsers().then((r) => setUsers(r.users)).catch(() => {});
+  }, []);
+
+  const applyUserName = () => {
+    const name = userName.trim();
+    if (!name) { setUserId(undefined); setPage(1); return; }
+    const u = users.find((x) => x.name === name);
+    if (!u) { setMsg({ kind: 'err', text: `未找到用户「${name}」` }); setUserId(undefined); return; }
+    setUserId(u.id);
+    setPage(1);
+  };
+
+  const categoryLabel = (key: string) => categories.find((c) => c.key === key)?.label ?? key;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const openDetail = async (t: SupportTicket) => {
+    setMsg(null);
+    try {
+      const res = await api.adminGetTicket(t.id);
+      setDetail(res);
+    } catch (e) {
+      setMsg({ kind: 'err', text: String(e) });
+    }
+  };
+
+  const sendReply = async () => {
+    if (!detail) return;
+    if (!reply.trim()) { setMsg({ kind: 'err', text: '请输入回复内容' }); return; }
+    setBusy(true);
+    try {
+      await api.adminReplyTicket(detail.ticket.id, reply.trim());
+      setReply('');
+      await openDetail(detail.ticket);
+      await refresh();
+    } catch (e) {
+      setMsg({ kind: 'err', text: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changeStatus = async (target: SupportStatus) => {
+    if (!detail) return;
+    setBusy(true);
+    try {
+      await api.adminSetTicketStatus(detail.ticket.id, target);
+      await openDetail(detail.ticket);
+      await refresh();
+    } catch (e) {
+      setMsg({ kind: 'err', text: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const canReply = detail ? !['resolved', 'closed'].includes(detail.ticket.status) : false;
+  const nextStatuses: SupportStatus[] = detail ? (SUPPORT_STATUS_TRANSITIONS[detail.ticket.status] ?? []) : [];
+
+  return (
+    <section className="card">
+      <h2>🎫 工单/客服</h2>
+
+      <div className="row">
+        <label>状态</label>
+        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+          <option value="">全部</option>
+          {Object.entries(SUPPORT_STATUS_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+        <label>分类</label>
+        <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
+          <option value="">全部</option>
+          {categories.map((c) => (
+            <option key={c.key} value={c.key}>{c.label}</option>
+          ))}
+        </select>
+        <label>使用者名</label>
+        <input
+          className="wide"
+          placeholder="按用户名筛选（回车应用）"
+          value={userName}
+          onChange={(e) => setUserName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') applyUserName(); }}
+          style={{ maxWidth: 200 }}
+        />
+        <button onClick={applyUserName} className="ghost small">筛选</button>
+        <button onClick={refresh} className="ghost small">↻ 刷新</button>
+      </div>
+
+      {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
+
+      <table>
+        <thead>
+          <tr>
+            <th>id</th><th>用户</th><th>主题</th><th>分类</th><th>优先级</th>
+            <th>状态</th><th>创建时间</th><th>更新时间</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tickets.map((t) => (
+            <tr key={t.id}>
+              <td className="mono">#{t.id}</td>
+              <td>{t.user_name ?? `#${t.user_id}`}</td>
+              <td>{t.subject}</td>
+              <td>{categoryLabel(t.category)}</td>
+              <td>{SUPPORT_PRIORITY_LABELS[t.priority] ?? t.priority}</td>
+              <td><span className={`badge ${t.status}`}>{SUPPORT_STATUS_LABELS[t.status] ?? t.status}</span></td>
+              <td className="mono">{fmtTime(t.created_at)}</td>
+              <td className="mono">{fmtTime(t.updated_at)}</td>
+              <td><button className="ghost small" onClick={() => openDetail(t)}>詳情</button></td>
+            </tr>
+          ))}
+          {tickets.length === 0 && (
+            <tr><td colSpan={9} className="muted">暂无工单</td></tr>
+          )}
+        </tbody>
+      </table>
+
+      <div className="row">
+        <button className="ghost small" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>← 上一页</button>
+        <span className="muted">第 {page} / {totalPages} 页 · 共 {total} 条</span>
+        <button className="ghost small" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>下一页 →</button>
+      </div>
+
+      {detail && (
+        <div style={{ marginTop: 16, borderTop: '1px solid #26304d', paddingTop: 16 }}>
+          <h3>工单 #{detail.ticket.id} · {detail.ticket.subject}
+            <span className={`badge ${detail.ticket.status}`} style={{ marginLeft: 8 }}>
+              {SUPPORT_STATUS_LABELS[detail.ticket.status] ?? detail.ticket.status}
+            </span>
+          </h3>
+          <div className="muted" style={{ marginBottom: 12 }}>
+            {detail.ticket.user_name ?? `#${detail.ticket.user_id}`} · {categoryLabel(detail.ticket.category)} · 优先级 {SUPPORT_PRIORITY_LABELS[detail.ticket.priority] ?? detail.ticket.priority} · 创建 {fmtTime(detail.ticket.created_at)}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+            <div style={{ alignSelf: 'flex-start', maxWidth: '80%', background: '#0f1420', border: '1px solid #26304d', borderRadius: 10, padding: '8px 12px' }}>
+              <div className="muted" style={{ marginBottom: 4 }}>🧑 用户（工单内容）</div>
+              {detail.ticket.body}
+            </div>
+            {detail.messages.map((m) => {
+              const isAgent = m.author_role === 'agent';
+              return (
+                <div key={m.id} style={{ alignSelf: isAgent ? 'flex-end' : 'flex-start', maxWidth: '80%', background: isAgent ? '#1f3a1f' : '#0f1420', border: isAgent ? '1px solid #1f6b3d' : '1px solid #26304d', borderRadius: 10, padding: '8px 12px' }}>
+                  <div className="muted" style={{ marginBottom: 4 }}>
+                    {isAgent ? '🛠 客服' : '🧑 用户'} · {fmtTime(m.created_at)}
+                  </div>
+                  {m.content}
+                </div>
+              );
+            })}
+          </div>
+
+          {canReply && (
+            <div className="row">
+              <input className="wide" placeholder="回复用户…" value={reply} onChange={(e) => setReply(e.target.value)} />
+              <button onClick={sendReply} disabled={busy}>发送回复</button>
+            </div>
+          )}
+
+          <div className="row">
+            <span className="muted">变更状态：</span>
+            {nextStatuses.length === 0
+              ? <span className="muted">（工单已完结）</span>
+              : nextStatuses.map((s) => (
+                  <button key={s} className="ghost small" onClick={() => changeStatus(s)} disabled={busy}>
+                    → {SUPPORT_STATUS_LABELS[s] ?? s}
+                  </button>
+                ))}
+            <button className="ghost small" style={{ marginLeft: 'auto' }} onClick={() => setDetail(null)}>← 返回列表</button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

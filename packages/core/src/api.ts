@@ -20,7 +20,11 @@ import type {
   TrendPoint,
   HotMatch,
   UserAnalytics,
-  FeedStatus
+  FeedStatus,
+  SupportCategory,
+  SupportMessage,
+  SupportTicket,
+  SupportTicketList
 } from './types';
 
 /**
@@ -203,7 +207,51 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ auto })
     }),
-  ingestFeedNow: () => request<{ ok: boolean; detail: unknown; scores?: { ok: boolean; detail: unknown } | null }>('/admin/feed/ingest', { method: 'POST' })
+  ingestFeedNow: () => request<{ ok: boolean; detail: unknown; scores?: { ok: boolean; detail: unknown } | null }>('/admin/feed/ingest', { method: 'POST' }),
+  // customer support 工单 (Step 4-5)
+  listSupportCategories: () =>
+    request<{ categories: SupportCategory[] }>('/support/categories'),
+  createSupportTicket: (data: { category: string; subject: string; body: string; priority?: string }) =>
+    request<{ ticket: SupportTicket }>('/support/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  listSupportTickets: (params?: { status?: string; category?: string; page?: number; pageSize?: number }) => {
+    const qs: string[] = [];
+    if (params?.status) qs.push(`status=${encodeURIComponent(params.status)}`);
+    if (params?.category) qs.push(`category=${encodeURIComponent(params.category)}`);
+    if (params?.page) qs.push(`page=${params.page}`);
+    if (params?.pageSize) qs.push(`pageSize=${params.pageSize}`);
+    return request<SupportTicketList>(`/support/tickets${qs.length ? `?${qs.join('&')}` : ''}`);
+  },
+  getSupportTicket: (id: number) =>
+    request<{ ticket: SupportTicket; messages: SupportMessage[] }>(`/support/tickets/${id}`),
+  replySupportTicket: (id: number, content: string) =>
+    request<{ message: SupportMessage; ticket: { id: number; status: string } }>(`/support/tickets/${id}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+  adminListTickets: (params?: { status?: string; category?: string; userId?: number; page?: number; pageSize?: number }) => {
+    const qs: string[] = [];
+    if (params?.status) qs.push(`status=${encodeURIComponent(params.status)}`);
+    if (params?.category) qs.push(`category=${encodeURIComponent(params.category)}`);
+    if (params?.userId) qs.push(`userId=${params.userId}`);
+    if (params?.page) qs.push(`page=${params.page}`);
+    if (params?.pageSize) qs.push(`pageSize=${params.pageSize}`);
+    return request<SupportTicketList>(`/admin/support/tickets${qs.length ? `?${qs.join('&')}` : ''}`);
+  },
+  adminGetTicket: (id: number) =>
+    request<{ ticket: SupportTicket; messages: SupportMessage[] }>(`/admin/support/tickets/${id}`),
+  adminReplyTicket: (id: number, content: string) =>
+    request<{ message: SupportMessage; ticket: { id: number; status: string } }>(`/admin/support/tickets/${id}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+  adminSetTicketStatus: (id: number, status: string) =>
+    request<{ ticket: SupportTicket }>(`/admin/support/tickets/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
 };
 
 export type {
@@ -213,5 +261,9 @@ export type {
   OddsItem,
   SettleResponse,
   SettleSummaryItem,
-  User
+  User,
+  SupportCategory,
+  SupportMessage,
+  SupportTicket,
+  SupportTicketList
 } from './types';

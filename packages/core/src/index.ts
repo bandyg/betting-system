@@ -23,7 +23,14 @@ export type {
   UserAnalytics,
   FeedStatus,
   FeedLogEntry,
-  FeedHealth
+  FeedHealth,
+  SupportCategory,
+  SupportMessage,
+  SupportTicket,
+  SupportTicketList,
+  SupportStatus,
+  SupportPriority,
+  SupportCategoryKey
 } from './types';
 export {
   TYPE_LABELS,
@@ -32,7 +39,10 @@ export {
   MARKET_STATUS_LABELS,
   RISK_FIELDS,
   RISK_FIELD_LABELS,
-  PAYMENT_STATUS_LABELS
+  PAYMENT_STATUS_LABELS,
+  SUPPORT_STATUS_LABELS,
+  SUPPORT_PRIORITY_LABELS,
+  SUPPORT_STATUS_TRANSITIONS
 } from './types';
 export type { RiskField, PaymentOrderStatus } from './types';
 export {
@@ -52,6 +62,7 @@ export {
   useAnalyticsDashboard,
   useAnalyticsTrends,
   useAnalyticsHotMatches,
-  useAnalyticsUsers
+  useAnalyticsUsers,
+  useSupportTickets
 } from './hooks';
 export type { BetSlipItem, BetSlipState, CurrentUserState, AuthState, PlaceBetResult } from './hooks';

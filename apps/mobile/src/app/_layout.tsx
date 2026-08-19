@@ -42,6 +42,7 @@ export default function RootLayout() {
           <Tabs.Screen name="promo" options={{ title: '促销', tabBarIcon: () => <EmojiIcon emoji="🎁" /> }} />
           <Tabs.Screen name="slip" options={{ title: '下注单', tabBarIcon: () => <EmojiIcon emoji="🎫" /> }} />
           <Tabs.Screen name="account" options={{ title: '我的', tabBarIcon: () => <EmojiIcon emoji="👤" /> }} />
+          <Tabs.Screen name="support" options={{ href: null }} />
         </Tabs>
       </ThemeProvider>
     </SafeAreaProvider>

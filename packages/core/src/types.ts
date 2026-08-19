@@ -225,6 +225,72 @@ export interface UserAnalytics {
   deposits: number; // 累计充值
 }
 
+// ── Customer Support 工单 (Step 4-5) ──
+export type SupportStatus = 'open' | 'in_progress' | 'waiting_user' | 'resolved' | 'closed';
+export type SupportPriority = 'low' | 'normal' | 'high' | 'urgent';
+export type SupportCategoryKey = 'deposit_withdrawal' | 'betting' | 'account' | 'technical' | 'other';
+
+export interface SupportCategory {
+  key: SupportCategoryKey;
+  label: string;
+}
+
+export interface SupportTicket {
+  id: number;
+  user_id: number;
+  category: SupportCategoryKey;
+  subject: string;
+  body: string;
+  priority: SupportPriority;
+  status: SupportStatus;
+  closed_by: number | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  user_name?: string;
+}
+
+export interface SupportMessage {
+  id: number;
+  ticket_id: number;
+  author_user_id: number;
+  author_role: 'user' | 'agent';
+  content: string;
+  created_at: string;
+}
+
+export interface SupportTicketList {
+  count: number;
+  total: number;
+  page: number;
+  pageSize: number;
+  tickets: SupportTicket[];
+}
+
+export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = {
+  open: '待处理',
+  in_progress: '处理中',
+  waiting_user: '等待用户',
+  resolved: '已解决',
+  closed: '已关闭',
+};
+
+export const SUPPORT_PRIORITY_LABELS: Record<SupportPriority, string> = {
+  low: '低',
+  normal: '普通',
+  high: '高',
+  urgent: '紧急',
+};
+
+/** 工单状态合法流转白名单（与后端 support.ts STATUS_TRANSITIONS 一致） */
+export const SUPPORT_STATUS_TRANSITIONS: Record<SupportStatus, SupportStatus[]> = {
+  open: ['in_progress', 'waiting_user', 'resolved', 'closed'],
+  in_progress: ['waiting_user', 'resolved', 'closed'],
+  waiting_user: ['in_progress', 'resolved', 'closed'],
+  resolved: ['closed'],
+  closed: [],
+};
+
 // ── Feed 数据源管理 (P3) ──
 export type FeedHealth = 'ok' | 'error' | 'disabled';
 

@@ -63,6 +63,10 @@ th { color: #8b95b5; font-weight: 600; font-size: 12px; }
 .badge.finished { background: #3a3a12; color: #ffe07c; }
 .badge.settled { background: #1f3a1f; color: #8ce08c; }
 .badge.open { background: #12335a; color: #7cc0ff; }
+.badge.in_progress { background: #12335a; color: #7cc0ff; }
+.badge.waiting_user { background: #3a3a12; color: #ffe07c; }
+.badge.resolved { background: #1f3a1f; color: #8ce08c; }
+.badge.closed { background: #2a3350; color: #9ca3af; }
 
 .odds-chip {
   display: inline-block; background: #0f1420; border: 1px solid #2a3350;

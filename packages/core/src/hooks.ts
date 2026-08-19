@@ -14,7 +14,8 @@ import type {
   DashboardStats,
   TrendPoint,
   HotMatch,
-  UserAnalytics
+  UserAnalytics,
+  SupportTicketList
 } from './types';
 
 /** 通用异步数据 hook：加载 + 刷新 + 错误 */
@@ -95,6 +96,17 @@ export function useAnalyticsHotMatches(limit = 10) {
 
 export function useAnalyticsUsers(limit = 10) {
   return useAsync<{ users: UserAnalytics[] }>(() => api.getAnalyticsUsers(limit), [limit]);
+}
+
+// ---- Customer Support 工单 (Step 4-5) ----
+
+export function useSupportTickets(params?: { status?: string; category?: string; page?: number; pageSize?: number }) {
+  return useAsync<SupportTicketList>(() => api.listSupportTickets(params), [
+    params?.status,
+    params?.category,
+    params?.page,
+    params?.pageSize,
+  ]);
 }
 
 export interface CurrentUserState {
