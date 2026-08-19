@@ -112,6 +112,7 @@ export interface Content {
   publish_at: string | null;
   archived_at: string | null;
   view_count: number;
+  locale: string;
   created_at: string;
   updated_at: string;
 }

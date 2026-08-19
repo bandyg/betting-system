@@ -177,6 +177,27 @@ st, res = call("GET", "/cms/contents?status=published")
 pub_ids = {c["id"] for c in res.get("contents", [])}
 check("归档内容不在公开列表", tmp_id not in pub_ids, f"id={tmp_id}")
 
+# 12. 多语言 locale
+st, res = call("POST", "/cms/contents", token=admin_tok, body={
+    "title": "English Announcement", "type": "announcement", "body": "Hello",
+    "locale": "en",
+})
+en_id = res.get("content", {}).get("id")
+check("创建 en 内容 → locale=en", st == 201 and res.get("content", {}).get("locale") == "en", f"id={en_id}")
+st, res = call("POST", "/cms/contents", token=admin_tok, body={"title": "中文公告2", "type": "announcement", "body": "你好"})
+zh2_id = res.get("content", {}).get("id")
+check("默认 locale=zh", st == 201 and res.get("content", {}).get("locale") == "zh", f"id={zh2_id}")
+st, res = call("POST", f"/cms/contents/{en_id}/publish", token=admin_tok)
+st, res = call("POST", f"/cms/contents/{zh2_id}/publish", token=admin_tok)
+st, res = call("GET", "/cms/contents?status=published&locale=en")
+en_ids = {c["id"] for c in res.get("contents", [])}
+check("locale=en 过滤只含 en 内容", en_id in en_ids and zh2_id not in en_ids and draft_id not in en_ids, f"en={en_ids}")
+st, res = call("GET", "/cms/contents?status=published&locale=zh")
+zh_ids = {c["id"] for c in res.get("contents", [])}
+check("locale=zh 过滤只含 zh 内容", zh2_id in zh_ids and en_id not in zh_ids, f"zh={zh_ids}")
+st, res = call("PUT", f"/cms/contents/{zh2_id}", token=admin_tok, body={"locale": "en", "title": "Changed to EN"})
+check("编辑改 locale → en", st == 200 and res.get("content", {}).get("locale") == "en" and res.get("content", {}).get("title") == "Changed to EN", f"st={st}")
+
 passed = sum(1 for _, ok in results if ok)
 print(f"\n== 结果: {passed}/{len(results)} PASS ==")
 sys.exit(0 if passed == len(results) else 1)

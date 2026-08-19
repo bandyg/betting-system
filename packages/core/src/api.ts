@@ -135,18 +135,23 @@ export const api = {
   settleMatch: (matchId: number) =>
     request<SettleResponse>(`/matches/${matchId}/settle`, { method: 'POST' }),
   // CMS
-  createContent: (title: string, type: string, body: string, publish_at?: string | null) =>
+  createContent: (title: string, type: string, body: string, publish_at?: string | null, locale?: string) =>
     request<{ content: Content }>('/cms/contents', {
       method: 'POST',
-      body: JSON.stringify({ title, type, body, publish_at })
+      body: JSON.stringify({ title, type, body, publish_at, locale })
     }),
-  updateContent: (id: number, data: { title?: string; type?: string; body?: string; publish_at?: string | null }) =>
+  updateContent: (id: number, data: { title?: string; type?: string; body?: string; publish_at?: string | null; locale?: string }) =>
     request<{ content: Content }>(`/cms/contents/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data)
     }),
-  listContents: (status?: 'published' | 'draft' | 'scheduled' | 'archived') =>
-    request<ContentsResponse>(status ? `/cms/contents?status=${status}` : '/cms/contents'),
+  listContents: (status?: 'published' | 'draft' | 'scheduled' | 'archived', locale?: string) => {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (locale) params.set('locale', locale);
+    const qs = params.toString();
+    return request<ContentsResponse>(qs ? `/cms/contents?${qs}` : '/cms/contents');
+  },
   publishContent: (id: number) =>
     request<{ content: Content }>(`/cms/contents/${id}/publish`, { method: 'POST' }),
   unpublishContent: (id: number) =>

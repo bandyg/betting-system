@@ -13,6 +13,7 @@ interface ContentRow {
   publish_at: string | null;
   archived_at: string | null;
   view_count: number;
+  locale: string;
   created_at: string;
   updated_at: string;
 }
@@ -41,9 +42,9 @@ function authRole(req: { headers: Record<string, string | string[] | undefined> 
   return row?.role ?? null;
 }
 
-/** POST /api/cms/contents — 创建内容（仅 admin）；body: { title, type, body?, publish_at? }，带 publish_at 则 scheduled */
+/** POST /api/cms/contents — 创建内容（仅 admin）；body: { title, type, body?, publish_at?, locale? }，带 publish_at 则 scheduled */
 cmsRouter.post('/cms/contents', requireAuth, requireRole('admin'), (req, res) => {
-  const { title, type, body, publish_at } = req.body ?? {};
+  const { title, type, body, publish_at, locale } = req.body ?? {};
   if (!title || typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'title is required' });
   }
@@ -54,20 +55,21 @@ cmsRouter.post('/cms/contents', requireAuth, requireRole('admin'), (req, res) =>
   if (pubAt && Number.isNaN(Date.parse(pubAt))) {
     return res.status(400).json({ error: 'publish_at 必须是合法时间字符串' });
   }
+  const loc = locale && typeof locale === 'string' ? locale.slice(0, 8) : 'zh';
   const status = pubAt ? 'scheduled' : 'draft';
   const stmt = db.prepare(
-    `INSERT INTO contents (title, type, body, status, publish_at) VALUES (?, ?, ?, ?, ?)`
+    `INSERT INTO contents (title, type, body, status, publish_at, locale) VALUES (?, ?, ?, ?, ?, ?)`
   );
-  const info = stmt.run(title.trim(), type, body ?? '', status, pubAt);
+  const info = stmt.run(title.trim(), type, body ?? '', status, pubAt, loc);
   const row = db.prepare('SELECT * FROM contents WHERE id = ?').get(info.lastInsertRowid) as ContentRow;
   res.status(201).json({ content: row });
 });
 
-/** GET /api/cms/contents?status=published|draft|scheduled|archived — 列表
- *  published 公开（先惰性触发定时发布，且过滤 publish_at 未到的 scheduled 不显示）；
+/** GET /api/cms/contents?status=published|draft|scheduled|archived&locale=zh — 列表
+ *  published 公开（先惰性触发定时发布）；locale 过滤可选；
  *  draft/scheduled/archived/全部 仅 admin */
 cmsRouter.get('/cms/contents', (req, res) => {
-  const { status } = req.query;
+  const { status, locale } = req.query;
   const role = authRole(req);
   if (status !== 'published') {
     if (role !== 'admin') {
@@ -75,11 +77,17 @@ cmsRouter.get('/cms/contents', (req, res) => {
     }
   }
   if (status === 'published') flushScheduled();
-  let rows: ContentRow[];
+  const locFilter = typeof locale === 'string' && locale.trim() ? locale.trim().slice(0, 8) : null;
+  const rows = db
+    .prepare(
+      locFilter
+        ? 'SELECT * FROM contents WHERE locale = ? ORDER BY updated_at DESC'
+        : 'SELECT * FROM contents ORDER BY updated_at DESC',
+    )
+    .all(...(locFilter ? [locFilter] : [])) as ContentRow[];
   if (typeof status === 'string' && (STATUSES as readonly string[]).includes(status)) {
-    rows = db.prepare('SELECT * FROM contents WHERE status = ? ORDER BY updated_at DESC').all(status) as ContentRow[];
-  } else {
-    rows = db.prepare('SELECT * FROM contents ORDER BY updated_at DESC').all() as ContentRow[];
+    const filtered = rows.filter((r) => r.status === status);
+    return res.json({ count: filtered.length, contents: filtered });
   }
   res.json({ count: rows.length, contents: rows });
 });
@@ -103,10 +111,11 @@ cmsRouter.put('/cms/contents/:id', requireAuth, requireRole('admin'), (req, res)
   const existing = db.prepare('SELECT * FROM contents WHERE id = ?').get(id) as ContentRow | undefined;
   if (!existing) return res.status(404).json({ error: 'content not found' });
 
-  const { title, type, body, publish_at } = req.body ?? {};
+  const { title, type, body, publish_at, locale } = req.body ?? {};
   const newTitle = title !== undefined ? String(title).trim() : existing.title;
   const newType = type !== undefined ? String(type) : existing.type;
   const newBody = body !== undefined ? String(body) : existing.body;
+  const newLocale = locale !== undefined ? String(locale).slice(0, 8) : existing.locale;
   let newStatus = existing.status;
   let newPubAt = existing.publish_at;
   if (publish_at !== undefined) {
@@ -127,8 +136,8 @@ cmsRouter.put('/cms/contents/:id', requireAuth, requireRole('admin'), (req, res)
   }
 
   db.prepare(
-    `UPDATE contents SET title = ?, type = ?, body = ?, status = ?, publish_at = ?, updated_at = datetime('now') WHERE id = ?`
-  ).run(newTitle, newType, newBody, newStatus, newPubAt, id);
+    `UPDATE contents SET title = ?, type = ?, body = ?, status = ?, publish_at = ?, locale = ?, updated_at = datetime('now') WHERE id = ?`
+  ).run(newTitle, newType, newBody, newStatus, newPubAt, newLocale, id);
   const row = db.prepare('SELECT * FROM contents WHERE id = ?').get(id) as ContentRow;
   res.json({ content: row });
 });

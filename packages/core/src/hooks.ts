@@ -71,8 +71,8 @@ export function useBets(userId?: number) {
   return useAsync<BetsResponse>(() => api.listBets(userId), [userId]);
 }
 
-export function useContents(status?: 'published' | 'draft' | 'scheduled' | 'archived') {
-  return useAsync<ContentsResponse>(() => api.listContents(status), [status]);
+export function useContents(status?: 'published' | 'draft' | 'scheduled' | 'archived', locale?: string) {
+  return useAsync<ContentsResponse>(() => api.listContents(status, locale), [status, locale]);
 }
 
 export function usePromotions(status?: 'active' | 'expired') {

@@ -14,7 +14,8 @@ function bonusLabel(p: Promotion): string {
 
 export default function PromoScreen() {
   const promos = usePromotions('active');
-  const contents = useContents('published');
+  const [locale, setLocale] = useState<string>('zh');
+  const contents = useContents('published', locale);
   const { user } = useCurrentUser();
   const [claimedIds, setClaimedIds] = useState<Set<number>>(new Set());
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
@@ -41,7 +42,7 @@ export default function PromoScreen() {
     setMsg(null);
     try {
       const pub = publishAt.trim() || null;
-      await api.createContent(contentTitle.trim(), 'announcement', contentBody.trim() || '', pub);
+      await api.createContent(contentTitle.trim(), 'announcement', contentBody.trim() || '', pub, locale);
       setContentTitle('');
       setContentBody('');
       setPublishAt('');
@@ -122,6 +123,22 @@ export default function PromoScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <SectionTitle>🎁 促销活动</SectionTitle>
+          <View style={styles.langRow}>
+            {['zh', 'en'].map((l) => (
+              <Pressable
+                key={l}
+                onPress={() => setLocale(l)}
+                style={({ pressed }) => [
+                  styles.langChip,
+                  { opacity: pressed ? 0.7 : 1, backgroundColor: locale === l ? colors.secondary : 'rgba(124,58,237,0.14)' },
+                ]}
+              >
+                <Text style={[styles.langChipText, { color: locale === l ? '#fff' : colors.textSecondary }]}>
+                  {l === 'zh' ? '中文' : 'EN'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
 
         {/* CMS 公告 banner（点按看全文） */}
@@ -270,7 +287,10 @@ export default function PromoScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  langRow: { flexDirection: 'row', gap: spacing.xs },
+  langChip: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  langChipText: { fontSize: fontSize.sm, fontWeight: font.bold },
   bannerWrap: { paddingHorizontal: spacing.lg, marginBottom: 4 },
   msgWrap: { paddingHorizontal: spacing.lg },
   listContent: { padding: spacing.lg, paddingBottom: 20 },

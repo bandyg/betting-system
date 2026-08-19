@@ -144,6 +144,7 @@ addCol('matches', 'external_id', "external_id TEXT");
   addCol('markets', 'external_id', "external_id TEXT");
   addCol('markets', 'source', "source TEXT NOT NULL DEFAULT 'manual'");
   addCol('contents', 'view_count', "view_count INTEGER NOT NULL DEFAULT 0");
+  addCol('contents', 'locale', "locale TEXT NOT NULL DEFAULT 'zh'");
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_matches_ext ON matches(external_id) WHERE external_id IS NOT NULL;
     CREATE INDEX IF NOT EXISTS idx_markets_ext ON markets(external_id) WHERE external_id IS NOT NULL;
