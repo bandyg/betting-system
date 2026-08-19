@@ -131,6 +131,8 @@ export function migrate(db: Database.Database): void {
   // 迁移（P3）：settings 键值表 + feed_manual 默认值（手动开盘模式，admin 面板可切换，无需重启）
   db.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('feed_manual', 'true')`).run();
+  // 迁移（P4）：feed_auto_settle 默认开启 — 完场比分入库后自动派彩（settleMatch 幂等，可安全重复执行）
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('feed_auto_settle', 'true')`).run();
 }
 
 // Ensure schema exists on import (idempotent)

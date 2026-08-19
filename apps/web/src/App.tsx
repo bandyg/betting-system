@@ -506,6 +506,7 @@ type FeedLogEntry = {
 
 type FeedStatus = {
   manual: boolean;
+  autoSettle: boolean;
   lastSync: string | null;
   lastProvider: string | null;
   health: 'ok' | 'error' | 'disabled';
@@ -556,11 +557,29 @@ function FeedPanel() {
       const res = await api.ingestFeedNow();
       if (res.ok) {
         const d = res.detail as { seen?: number; inserted?: number; updated?: number; error?: string };
-        setMsg({ kind: 'ok', text: `拉取成功：seen ${d.seen ?? 0}，inserted ${d.inserted ?? 0}，updated ${d.updated ?? 0}` });
+        const s = res.scores?.detail as { seen?: number; updated?: number; settled?: number; error?: string } | undefined;
+        const scoresTxt = s && res.scores?.ok
+          ? `；比分 seen ${s.seen ?? 0} / 更新 ${s.updated ?? 0} / 自动派彩 ${s.settled ?? 0}`
+          : '';
+        setMsg({ kind: 'ok', text: `拉取成功：seen ${d.seen ?? 0}，inserted ${d.inserted ?? 0}，updated ${d.updated ?? 0}${scoresTxt}` });
       } else {
         const d = res.detail as { error?: string };
         setMsg({ kind: 'err', text: `拉取失败：${d.error ?? 'unknown'}` });
       }
+      await refresh();
+    } catch (e) {
+      setMsg({ kind: 'err', text: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleAutoSettle = async () => {
+    if (!status) return;
+    setBusy(true);
+    try {
+      const res = await api.setFeedAutoSettle(!status.autoSettle);
+      setMsg({ kind: 'ok', text: `自动派彩 → ${res.auto ? '开（完场比分入库后自动结算）' : '关（需人工结算）'}` });
       await refresh();
     } catch (e) {
       setMsg({ kind: 'err', text: String(e) });
@@ -586,6 +605,10 @@ function FeedPanel() {
         </span>
         <span className="muted">Feed 来源场数：</span>
         <strong>{status?.feedMatchCount ?? 0}</strong>
+        <span className="muted">自动派彩：</span>
+        <span className="badge" style={{ color: status?.autoSettle ? '#4ade80' : '#9ca3af', borderColor: status?.autoSettle ? '#4ade80' : '#9ca3af' }}>
+          {status ? (status.autoSettle ? '开' : '关') : '—'}
+        </span>
       </div>
       <div className="row">
         <span className="muted">最后同步：</span>
@@ -602,6 +625,9 @@ function FeedPanel() {
         <button onClick={ingest} disabled={busy}>⚡ 立即拉取</button>
         <button onClick={toggle} className="ghost" disabled={busy || !status}>
           {status?.manual ? '切换为 Feed' : '切换为 Manual'}
+        </button>
+        <button onClick={toggleAutoSettle} className="ghost" disabled={busy || !status}>
+          {status?.autoSettle ? '关闭自动派彩' : '开启自动派彩'}
         </button>
         <button onClick={refresh} className="ghost small">↻ 刷新</button>
       </div>

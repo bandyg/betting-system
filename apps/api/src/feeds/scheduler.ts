@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createTheOddsClient } from './provider.js';
-import { ingestVendorUpdate } from './ingest.js';
+import { ingestVendorUpdate, ingestScores } from './ingest.js';
 
 // Feed secrets/knobs live OUTSIDE the repo (so the API key is never committed):
 //   ~/.betting-feed.env  →  FEED_API_KEY / FEED_ENABLED / FEED_INTERVAL_MIN / FEED_SPORT_KEY / FEED_PROVIDER
@@ -57,20 +57,42 @@ export function isManualMode(db: Database): boolean {
   return row?.value === 'true';
 }
 
-/** One poll cycle: fetch provider → ingest → return result. Never throws (records feed_log error). */
-export async function pollOnce(db: Database, cfg: FeedConfig): Promise<{ ok: boolean; detail: unknown }> {
+/** One poll cycle: fetch provider odds → ingest → fetch scores → auto-settle. Never throws. */
+export async function pollOnce(
+  db: Database,
+  cfg: FeedConfig,
+): Promise<{ ok: boolean; detail: unknown; scores?: { ok: boolean; detail: unknown } }> {
   const client = createTheOddsClient();
+
+  let oddsResult: { ok: boolean; detail: unknown };
   try {
     const raw = await client.pendingMatches(cfg.sportKey, cfg.apiKey);
     const res = ingestVendorUpdate(db, raw, cfg.provider, { overwriteManualOdds: false });
-    return { ok: !res.error, detail: res };
+    oddsResult = { ok: !res.error, detail: res };
   } catch (e) {
     db.prepare(
       `INSERT INTO feed_log (provider, requested_at, status, matches_seen, matches_upserted, errors)
        VALUES (?, datetime('now'), 'error', 0, 0, ?)`,
     ).run(cfg.provider, (e as Error).message);
-    return { ok: false, detail: { error: (e as Error).message } };
+    oddsResult = { ok: false, detail: { error: (e as Error).message } };
   }
+
+  if (!cfg.apiKey) return { ok: oddsResult.ok, detail: oddsResult.detail };
+
+  let scoresResult: { ok: boolean; detail: unknown };
+  try {
+    const rawScores = await client.scores(cfg.sportKey, cfg.apiKey);
+    const res = ingestScores(db, rawScores, cfg.provider);
+    scoresResult = { ok: true, detail: res };
+  } catch (e) {
+    db.prepare(
+      `INSERT INTO feed_log (provider, requested_at, status, matches_seen, matches_upserted, errors)
+       VALUES (?, datetime('now'), 'error', 0, 0, ?)`,
+    ).run(cfg.provider, (e as Error).message);
+    scoresResult = { ok: false, detail: { error: (e as Error).message } };
+  }
+
+  return { ok: oddsResult.ok, detail: oddsResult.detail, scores: scoresResult };
 }
 
 /** Start the periodic loop; returns a stop() handle. If disabled, logs and does not start. */

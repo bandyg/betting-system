@@ -197,7 +197,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ manual })
     }),
-  ingestFeedNow: () => request<{ ok: boolean; detail: unknown }>('/admin/feed/ingest', { method: 'POST' })
+  // feed 自动派彩开关 (P4)
+  setFeedAutoSettle: (auto: boolean) =>
+    request<{ auto: boolean }>('/admin/feed/auto-settle', {
+      method: 'POST',
+      body: JSON.stringify({ auto })
+    }),
+  ingestFeedNow: () => request<{ ok: boolean; detail: unknown; scores?: { ok: boolean; detail: unknown } | null }>('/admin/feed/ingest', { method: 'POST' })
 };
 
 export type {

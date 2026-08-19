@@ -240,6 +240,7 @@ export interface FeedLogEntry {
 
 export interface FeedStatus {
   manual: boolean;
+  autoSettle: boolean;
   lastSync: string | null;
   lastProvider: string | null;
   health: FeedHealth;
