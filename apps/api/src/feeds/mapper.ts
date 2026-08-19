@@ -3,6 +3,33 @@
 import type {
   IngestMarket, IngestMatch, MarketRow, MatchRowSets, OddsRow,
 } from './types.js';
+/** Map the-odds-api sport_key to our canonical sport + league. */
+export function mapSportKey(sportKey: string): { sport: string; league: string } {
+  const map: Record<string, { sport: string; league: string }> = {
+    soccer_epl:              { sport: 'soccer',    league: 'EPL' },
+    soccer_uefa_champs_league: { sport: 'soccer', league: 'Champions League' },
+    soccer_spain_la_liga:    { sport: 'soccer',    league: 'La Liga' },
+    soccer_germany_bundesliga: { sport: 'soccer',  league: 'Bundesliga' },
+    soccer_italy_serie_a:    { sport: 'soccer',    league: 'Serie A' },
+    soccer_france_ligue_one: { sport: 'soccer',    league: 'Ligue 1' },
+    basketball_nba:          { sport: 'basketball', league: 'NBA' },
+    basketball_ncaab:        { sport: 'basketball', league: 'NCAAB' },
+    basketball_euroleague:   { sport: 'basketball', league: 'Euroleague' },
+    tennis_atp:              { sport: 'tennis',    league: 'ATP' },
+    tennis_wta:              { sport: 'tennis',    league: 'WTA' },
+    baseball_mlb:            { sport: 'baseball',  league: 'MLB' },
+    icehockey_nhl:           { sport: 'icehockey', league: 'NHL' },
+    mma_mixed_martial_arts:  { sport: 'mma',       league: 'UFC' },
+    boxing_boxing:           { sport: 'boxing',    league: 'Boxing' },
+    americanfootball_nfl:    { sport: 'football',  league: 'NFL' },
+    americanfootball_ncaaf:  { sport: 'football',  league: 'NCAAF' },
+  };
+  if (map[sportKey]) return map[sportKey];
+  const parts = sportKey.split('_');
+  return { sport: parts[0] || 'unknown', league: parts.slice(1).join(' ').toUpperCase() || 'Unknown' };
+}
+
+
 
 /** Convert a vendor-agnostic match into insert-ready rows. `source` = who owns the rows. */
 export function toRows(m: IngestMatch, source = 'the-odds-api'): MatchRowSets {
@@ -84,7 +111,7 @@ export interface TheOddsMatch {
   completed?: boolean;
 }
 
-export function normalizeTheOddsMatch(raw: TheOddsMatch): IngestMatch {
+export function normalizeTheOddsMatch(raw: TheOddsMatch, sportKey?: string): IngestMatch {
   // designated book = 'pinnacle' if present else first; keeps odds stable across calls.
   const book = (raw.bookmakers ?? []).find((b) => b.key === 'pinnacle') ?? raw.bookmakers?.[0];
   const byKey = new Map(book?.markets.map((m) => [m.key, m]) ?? []);
@@ -136,8 +163,7 @@ export function normalizeTheOddsMatch(raw: TheOddsMatch): IngestMatch {
     home: raw.home_team,
     away: raw.away_team,
     kickoff: new Date(raw.commence_time).toISOString(),
-    league: raw.sport_title,
-    sport: 'soccer',
+    ...(sportKey ? mapSportKey(sportKey) : { sport: 'soccer', league: raw.sport_title ?? undefined }),
     markets,
     finalHome,
     finalAway,
@@ -145,9 +171,9 @@ export function normalizeTheOddsMatch(raw: TheOddsMatch): IngestMatch {
 }
 
 /** Generic dispatch: currently 'theodds' (and alias 'mock' → same shape for testing). */
-export function normalizeVendorMatch(raw: unknown, vendor: string): IngestMatch {
+export function normalizeVendorMatch(raw: unknown, vendor: string, sportKey?: string): IngestMatch {
   if (vendor === 'theodds' || vendor === 'the-odds-api' || vendor === 'mock') {
-    return normalizeTheOddsMatch(raw as TheOddsMatch);
+    return normalizeTheOddsMatch(raw as TheOddsMatch, sportKey);
   }
   throw new Error(`unknown feed vendor: ${vendor}`);
 }

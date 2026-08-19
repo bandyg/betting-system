@@ -1,8 +1,8 @@
 // __verify__.ts (P1) — runnable unit verification of mapper.ts using mock the-odds-api payloads.
 // No DB access. Run:  node --import tsx apps/api/src/feeds/__verify__.ts
 import assert from 'node:assert/strict';
-import { normalizeTheOddsMatch, toRows } from './mapper.js';
-import { prematch, finished, h2hOnly } from './mock.js';
+import { normalizeTheOddsMatch, toRows, mapSportKey } from './mapper.js';
+import { prematch, finished, h2hOnly, basketball, tennis } from './mock.js';
 
 let pass = 0;
 const fails: string[] = [];
@@ -98,6 +98,50 @@ check('h2hOnly: priceDraw not null; ah/ou absent', () => {
   const rows = toRows(normalizeTheOddsMatch(h2hOnly));
   const x12 = rows.markets[0];
   assert.equal(x12.odds.find((o) => o.selection === 'draw')!.price, 4.2);
+});
+
+
+// === Multi-sport tests ===
+
+check("basketball: normalize with sportKey=basketball_nba -> sport=basketball, league=NBA", () => {
+  const m = normalizeTheOddsMatch(basketball, "basketball_nba");
+  assert.equal(m.sport, "basketball");
+  assert.equal(m.league, "NBA");
+  assert.equal(m.home, "Los Angeles Lakers");
+  assert.equal(m.markets.length, 3);
+});
+
+check("basketball: h2h has no draw (2-way)", () => {
+  const m = normalizeTheOddsMatch(basketball, "basketball_nba");
+  const x12 = m.markets.find((x) => x.type === "1x2")!;
+  assert.equal(x12.priceDraw, null);
+});
+
+check("tennis: normalize with sportKey=tennis_atp -> sport=tennis, league=ATP", () => {
+  const m = normalizeTheOddsMatch(tennis, "tennis_atp");
+  assert.equal(m.sport, "tennis");
+  assert.equal(m.league, "ATP");
+  assert.equal(m.markets.length, 1);
+});
+
+check("mapSportKey: known keys map correctly", () => {
+  assert.deepEqual(mapSportKey("soccer_epl"), { sport: "soccer", league: "EPL" });
+  assert.deepEqual(mapSportKey("basketball_nba"), { sport: "basketball", league: "NBA" });
+  assert.deepEqual(mapSportKey("tennis_atp"), { sport: "tennis", league: "ATP" });
+  assert.deepEqual(mapSportKey("baseball_mlb"), { sport: "baseball", league: "MLB" });
+  assert.deepEqual(mapSportKey("icehockey_nhl"), { sport: "icehockey", league: "NHL" });
+});
+
+check("mapSportKey: unknown key falls back to split", () => {
+  const r = mapSportKey("cricket_ipl");
+  assert.equal(r.sport, "cricket");
+  assert.equal(r.league, "IPL");
+});
+
+check("soccer: normalize without sportKey defaults to sport=soccer", () => {
+  const m = normalizeTheOddsMatch(prematch);
+  assert.equal(m.sport, "soccer");
+  assert.equal(m.league, "English Premier League");
 });
 
 console.log(`\n== ${pass} passed, ${fails.length} failed ==`);

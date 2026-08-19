@@ -32,6 +32,49 @@ export const finished: TheOddsMatch = {
   completed: true,
 };
 
+
+/** Basketball (NBA) -- h2h + spreads + totals, no draw. */
+export const basketball: TheOddsMatch = {
+  id: "ext-bball-3001",
+  sport_title: "NBA",
+  home_team: "Los Angeles Lakers",
+  away_team: "Boston Celtics",
+  commence_time: "2026-08-21T02:00:00.000Z",
+  bookmakers: [
+    { key: "pinnacle", markets: [
+      { key: "h2h", outcomes: [
+        { name: "Los Angeles Lakers", price: 1.85 }, { name: "Boston Celtics", price: 2.05 },
+      ] },
+      { key: "spreads", outcomes: [
+        { name: "Los Angeles Lakers", price: 1.9, point: -3.5 }, { name: "Boston Celtics", price: 1.9, point: 3.5 },
+      ] },
+      { key: "totals", outcomes: [
+        { name: "Over", price: 1.9, point: 220.5 }, { name: "Under", price: 1.9, point: 220.5 },
+      ] },
+    ] },
+  ],
+  scores: null,
+  completed: false,
+};
+
+/** Tennis (ATP) -- h2h only (2-way). */
+export const tennis: TheOddsMatch = {
+  id: "ext-tennis-4001",
+  sport_title: "ATP",
+  home_team: "Carlos Alcaraz",
+  away_team: "Novak Djokovic",
+  commence_time: "2026-08-21T14:00:00.000Z",
+  bookmakers: [
+    { key: "pinnacle", markets: [
+      { key: "h2h", outcomes: [
+        { name: "Carlos Alcaraz", price: 1.55 }, { name: "Novak Djokovic", price: 2.50 },
+      ] },
+    ] },
+  ],
+  scores: null,
+  completed: false,
+};
+
 /** 1x2 only (no AH / O/U offered) — edge case for missing markets. */
 export const h2hOnly: TheOddsMatch = {
   id: 'ext-m-2002',

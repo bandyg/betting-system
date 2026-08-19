@@ -36,18 +36,22 @@ export interface FeedConfig {
   provider: string;      // vendor tag stored on rows
   apiKey: string;
   intervalMin: number;
-  sportKey: string;
+  sportKey: string;      // backward compat: first sport key
+  sportKeys: string[];   // all sport keys to poll
 }
 
 export function readFeedConfig(env: NodeJS.ProcessEnv = process.env): FeedConfig {
   const s = loadSecretsFile(); // file is fallback; process.env wins
   const enabled = (env.FEED_ENABLED ?? s.FEED_ENABLED) === '1';
+  const sportKeyRaw = env.FEED_SPORT_KEYS ?? s.FEED_SPORT_KEYS ?? env.FEED_SPORT_KEY ?? s.FEED_SPORT_KEY ?? 'soccer_epl';
+  const sportKeys = sportKeyRaw.split(',').map((k) => k.trim()).filter(Boolean);
   return {
     enabled,
     provider: env.FEED_PROVIDER ?? s.FEED_PROVIDER ?? 'the-odds-api',
     apiKey: env.FEED_API_KEY || s.FEED_API_KEY || '',
     intervalMin: Number(env.FEED_INTERVAL_MIN ?? s.FEED_INTERVAL_MIN ?? '10'),
-    sportKey: env.FEED_SPORT_KEY ?? s.FEED_SPORT_KEY ?? 'soccer_epl',
+    sportKey: sportKeys[0],
+    sportKeys,
   };
 }
 
@@ -57,42 +61,66 @@ export function isManualMode(db: Database): boolean {
   return row?.value === 'true';
 }
 
-/** One poll cycle: fetch provider odds → ingest → fetch scores → auto-settle. Never throws. */
+/** One poll cycle for a single sport key. Never throws. */
+async function pollOnceSingle(
+  db: Database,
+  cfg: FeedConfig,
+  sportKey: string,
+): Promise<{ ok: boolean; detail: unknown; sportKey: string }> {
+  const client = createTheOddsClient();
+  try {
+    const raw = await client.pendingMatches(sportKey, cfg.apiKey);
+    const res = ingestVendorUpdate(db, raw, cfg.provider, { overwriteManualOdds: false, sportKey });
+    return { ok: !res.error, detail: res, sportKey };
+  } catch (e) {
+    db.prepare(
+      `INSERT INTO feed_log (provider, requested_at, status, matches_seen, matches_upserted, errors)
+       VALUES (?, datetime('now'), 'error', 0, 0, ?)`,
+    ).run(cfg.provider, (e as Error).message);
+    return { ok: false, detail: { error: (e as Error).message }, sportKey };
+  }
+}
+
+/** One poll cycle: fetch provider odds for all sport keys → ingest → fetch scores → auto-settle. Never throws. */
 export async function pollOnce(
   db: Database,
   cfg: FeedConfig,
 ): Promise<{ ok: boolean; detail: unknown; scores?: { ok: boolean; detail: unknown } }> {
+  const results: Array<{ ok: boolean; detail: unknown; sportKey: string }> = [];
+
+  // Poll odds for each sport key
+  for (const sk of cfg.sportKeys) {
+    const r = await pollOnceSingle(db, cfg, sk);
+    results.push(r);
+    // Small delay between sport requests to be nice to the API
+    if (cfg.sportKeys.indexOf(sk) < cfg.sportKeys.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+
+  const allOddsOk = results.every((r) => r.ok);
+  const oddsResult = { ok: allOddsOk, detail: results };
+
+  if (!cfg.apiKey) return { ok: allOddsOk, detail: oddsResult.detail };
+
+  // Poll scores for each sport key
+  const scoresResults: Array<{ ok: boolean; detail: unknown; sportKey: string }> = [];
   const client = createTheOddsClient();
-
-  let oddsResult: { ok: boolean; detail: unknown };
-  try {
-    const raw = await client.pendingMatches(cfg.sportKey, cfg.apiKey);
-    const res = ingestVendorUpdate(db, raw, cfg.provider, { overwriteManualOdds: false });
-    oddsResult = { ok: !res.error, detail: res };
-  } catch (e) {
-    db.prepare(
-      `INSERT INTO feed_log (provider, requested_at, status, matches_seen, matches_upserted, errors)
-       VALUES (?, datetime('now'), 'error', 0, 0, ?)`,
-    ).run(cfg.provider, (e as Error).message);
-    oddsResult = { ok: false, detail: { error: (e as Error).message } };
+  for (const sk of cfg.sportKeys) {
+    try {
+      const rawScores = await client.scores(sk, cfg.apiKey);
+      const res = ingestScores(db, rawScores, cfg.provider);
+      scoresResults.push({ ok: true, detail: res, sportKey: sk });
+    } catch (e) {
+      db.prepare(
+        `INSERT INTO feed_log (provider, requested_at, status, matches_seen, matches_upserted, errors)
+         VALUES (?, datetime('now'), 'error', 0, 0, ?)`,
+      ).run(cfg.provider, (e as Error).message);
+      scoresResults.push({ ok: false, detail: { error: (e as Error).message }, sportKey: sk });
+    }
   }
 
-  if (!cfg.apiKey) return { ok: oddsResult.ok, detail: oddsResult.detail };
-
-  let scoresResult: { ok: boolean; detail: unknown };
-  try {
-    const rawScores = await client.scores(cfg.sportKey, cfg.apiKey);
-    const res = ingestScores(db, rawScores, cfg.provider);
-    scoresResult = { ok: true, detail: res };
-  } catch (e) {
-    db.prepare(
-      `INSERT INTO feed_log (provider, requested_at, status, matches_seen, matches_upserted, errors)
-       VALUES (?, datetime('now'), 'error', 0, 0, ?)`,
-    ).run(cfg.provider, (e as Error).message);
-    scoresResult = { ok: false, detail: { error: (e as Error).message } };
-  }
-
-  return { ok: oddsResult.ok, detail: oddsResult.detail, scores: scoresResult };
+  return { ok: oddsResult.ok, detail: oddsResult.detail, scores: { ok: scoresResults.every((r) => r.ok), detail: scoresResults } };
 }
 
 /** Start the periodic loop; returns a stop() handle. If disabled, logs and does not start. */
@@ -106,7 +134,7 @@ export function startFeedScheduler(db: Database, cfg: FeedConfig, log = console)
     return () => {};
   }
   const ms = Math.max(1, cfg.intervalMin) * 60_000;
-  log.log(`[feed] scheduled every ${cfg.intervalMin}m (sport=${cfg.sportKey})`);
+  log.log(`[feed] scheduled every ${cfg.intervalMin}m (sports=${cfg.sportKeys.join(',')})`);
   let stopped = false;
   const tick = async () => {
     if (stopped) return;

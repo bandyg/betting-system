@@ -75,7 +75,7 @@ export function ingestVendorUpdate(
   db: Database,
   rawMatches: unknown[],
   vendor: string,
-  opts: { overwriteManualOdds?: boolean } = {},
+  opts: { overwriteManualOdds?: boolean; sportKey?: string } = {},
 ): IngestResult & { error?: string } {
   try {
     const res = db.transaction(() => {
@@ -83,7 +83,7 @@ export function ingestVendorUpdate(
       let inserted = 0;
       let updated = 0;
       for (const raw of rawMatches) {
-        const ing = normalizeVendorMatch(raw, vendor);
+        const ing = normalizeVendorMatch(raw, vendor, opts.sportKey);
         const isNew = upsertMatch(db, toRows(ing, vendor), opts);
         if (isNew) inserted++; else updated++;
       }
