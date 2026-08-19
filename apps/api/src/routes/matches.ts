@@ -9,7 +9,7 @@ type MarketRow = {
   match_id: number;
   type: '1x2' | 'ah' | 'ou';
   line: number | null;
-  status: 'open' | 'settled';
+  status: 'open' | 'settled' | 'suspended';
   created_at: string;
 };
 
@@ -29,10 +29,9 @@ function getMatchDetail(id: number) {
   return { ...match, markets: loadMarkets(id) };
 }
 
-// POST /matches — create a football match
-// POST /matches — create match（仅 admin）
+// POST /matches — create match (admin only)
 matchesRouter.post('/matches', requireAuth, requireRole('admin'), (req, res) => {
-  const { homeTeam, awayTeam, kickoffTime } = req.body ?? {};
+  const { homeTeam, awayTeam, kickoffTime, sport, league } = req.body ?? {};
   if (typeof homeTeam !== 'string' || homeTeam.trim() === '') {
     return res.status(400).json({ error: 'homeTeam is required (non-empty string)' });
   }
@@ -43,17 +42,41 @@ matchesRouter.post('/matches', requireAuth, requireRole('admin'), (req, res) => 
     return res.status(400).json({ error: 'kickoffTime must be a valid ISO datetime string' });
   }
   const info = db
-    .prepare('INSERT INTO matches (home_team, away_team, kickoff_time) VALUES (?, ?, ?)')
-    .run(homeTeam.trim(), awayTeam.trim(), new Date(kickoffTime).toISOString());
+    .prepare('INSERT INTO matches (home_team, away_team, kickoff_time, sport, league) VALUES (?, ?, ?, ?, ?)')
+    .run(
+      homeTeam.trim(),
+      awayTeam.trim(),
+      new Date(kickoffTime).toISOString(),
+      typeof sport === 'string' && sport.trim() ? sport.trim() : null,
+      typeof league === 'string' && league.trim() ? league.trim() : null,
+    );
   const match = getMatchDetail(Number(info.lastInsertRowid));
   res.status(201).json({ match });
 });
 
-// GET /matches — list all matches with markets + odds
-matchesRouter.get('/matches', (_req, res) => {
-  const matches = db.prepare('SELECT * FROM matches ORDER BY kickoff_time, id').all() as Array<{
-    id: number;
-  }>;
+// GET /matches — list matches with optional filtering (sport/league/status)
+matchesRouter.get('/matches', (req, res) => {
+  const { sport, league, status } = req.query;
+
+  let sql = 'SELECT * FROM matches WHERE 1=1';
+  const params: unknown[] = [];
+
+  if (typeof sport === 'string' && sport.trim()) {
+    sql += ' AND sport = ?';
+    params.push(sport.trim());
+  }
+  if (typeof league === 'string' && league.trim()) {
+    sql += ' AND league = ?';
+    params.push(league.trim());
+  }
+  if (typeof status === 'string' && status.trim()) {
+    sql += ' AND status = ?';
+    params.push(status.trim());
+  }
+
+  sql += ' ORDER BY kickoff_time, id';
+
+  const matches = db.prepare(sql).all(...params) as Array<{ id: number }>;
   const list = matches.map((m) => getMatchDetail(m.id));
   res.json({ count: list.length, matches: list });
 });
