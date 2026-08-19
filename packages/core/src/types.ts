@@ -111,6 +111,7 @@ export interface Content {
   status: ContentStatus;
   publish_at: string | null;
   archived_at: string | null;
+  view_count: number;
   created_at: string;
   updated_at: string;
 }

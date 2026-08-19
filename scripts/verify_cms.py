@@ -101,7 +101,14 @@ check("admin 读草稿单条 → 200", st == 200 and res.get("content", {}).get(
 st, res = call("POST", f"/cms/contents/{draft_id}/publish", token=admin_tok)
 check("admin 发布 → published", st == 200 and res.get("content", {}).get("status") == "published", f"st={st}")
 st, res = call("GET", f"/cms/contents/{draft_id}")
+v1 = res.get("content", {}).get("view_count", -1)
 check("发布后匿名可读 → 200", st == 200 and res.get("content", {}).get("status") == "published", f"st={st}")
+st, res = call("GET", f"/cms/contents/{draft_id}")
+v2 = res.get("content", {}).get("view_count", -1)
+check("公开阅读自增 view_count", st == 200 and v2 == v1 + 1, f"v1={v1} v2={v2}")
+st, res = call("GET", f"/cms/contents/{draft_id}", token=admin_tok)
+v3 = res.get("content", {}).get("view_count", -1)
+check("admin 阅读也计入阅读量", st == 200 and v3 == v2 + 1, f"v2={v2} v3={v3}")
 
 # 5. 下架 → 匿名不可见；重复下架 409
 st, res = call("POST", f"/cms/contents/{draft_id}/unpublish", token=admin_tok)

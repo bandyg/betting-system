@@ -12,6 +12,7 @@ interface ContentRow {
   status: 'draft' | 'scheduled' | 'published' | 'archived';
   publish_at: string | null;
   archived_at: string | null;
+  view_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -83,12 +84,15 @@ cmsRouter.get('/cms/contents', (req, res) => {
   res.json({ count: rows.length, contents: rows });
 });
 
-/** GET /api/cms/contents/:id — 单条内容（published 公开；draft/scheduled/archived 仅 admin 可见） */
+/** GET /api/cms/contents/:id — 单条内容（published 公开，阅读自增 view_count；draft/scheduled/archived 仅 admin） */
 cmsRouter.get('/cms/contents/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM contents WHERE id = ?').get(Number(req.params.id)) as ContentRow | undefined;
   if (!row) return res.status(404).json({ error: 'content not found' });
   if (row.status !== 'published') {
     if (authRole(req) !== 'admin') return res.status(403).json({ error: '内容未发布，仅 admin 可见' });
+  } else {
+    db.prepare('UPDATE contents SET view_count = view_count + 1 WHERE id = ?').run(row.id);
+    row.view_count += 1;
   }
   res.json({ content: row });
 });

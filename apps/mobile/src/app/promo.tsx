@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api, usePromotions, useCurrentUser, useContents } from '@betting/core';
 import type { Content, Promotion } from '@betting/core';
-import { Screen, PromotionCard, Banner, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle } from '@betting/ui';
+import { Screen, PromotionCard, Banner, FlashMsg, MarkdownText, colors, radius, fontSize, font, spacing, SectionTitle } from '@betting/ui';
 
 function bonusLabel(p: Promotion): string {
   if (p.bonus_type === 'deposit_bonus') {
@@ -71,6 +71,7 @@ export default function PromoScreen() {
   };
 
   const adminContents = contents.data?.contents ?? [];
+  const [viewing, setViewing] = useState<Content | null>(null);
 
   const claim = async (p: Promotion) => {
     if (!user) {
@@ -123,12 +124,28 @@ export default function PromoScreen() {
           <SectionTitle>🎁 促销活动</SectionTitle>
         </View>
 
-        {/* CMS 公告 banner */}
+        {/* CMS 公告 banner（点按看全文） */}
         {(contents.data?.contents ?? []).slice(0, 2).map((c) => (
-          <View key={c.id} style={styles.bannerWrap}>
+          <Pressable key={c.id} onPress={() => setViewing(c)} style={styles.bannerWrap}>
             <Banner text={c.title} />
-          </View>
+          </Pressable>
         ))}
+
+        {/* 公告/文章列表 */}
+        {!contents.loading && (contents.data?.contents ?? []).length > 0 && (
+          <View style={styles.contentListWrap}>
+            <SectionTitle>📰 公告中心</SectionTitle>
+            {(contents.data?.contents ?? []).map((c) => (
+              <Pressable key={c.id} onPress={() => setViewing(c)} style={({ pressed }) => [styles.contentListItem, { opacity: pressed ? 0.7 : 1 }]}>
+                <Text style={styles.contentListTitle} numberOfLines={1}>
+                  {c.title}
+                  <Text style={styles.contentListType}>  [{c.type === 'promotion' ? '活动' : c.type === 'article' ? '文章' : '公告'}]</Text>
+                </Text>
+                <Text style={styles.contentListMeta}>👁 {c.view_count} 阅读{c.publish_at ? ` · ${c.publish_at}` : ''}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {msg && (
           <View style={styles.msgWrap}>
@@ -221,6 +238,31 @@ export default function PromoScreen() {
             )}
           </View>
         )}
+
+        {/* 内容详情弹窗（富文本正文） */}
+        <Modal visible={viewing !== null} transparent animationType="slide" onRequestClose={() => setViewing(null)}>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalSheet}>
+              {viewing && (
+                <>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>{viewing.title}</Text>
+                    <Pressable onPress={() => setViewing(null)} hitSlop={10} style={styles.modalClose}>
+                      <Text style={styles.modalCloseText}>✕</Text>
+                    </Pressable>
+                  </View>
+                  <Text style={styles.modalMeta}>
+                    {viewing.type === 'promotion' ? '活动' : viewing.type === 'article' ? '文章' : '公告'} · 👁 {viewing.view_count} 阅读
+                    {viewing.publish_at ? ` · ${viewing.publish_at}` : ''}
+                  </Text>
+                  <View style={styles.modalBody}>
+                    <MarkdownText body={viewing.body || '（暂无正文）'} />
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </Screen>
   );
@@ -257,4 +299,31 @@ const styles = StyleSheet.create({
   miniBtn: { backgroundColor: 'rgba(52,199,89,0.15)', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 6 },
   miniBtnDanger: { backgroundColor: 'rgba(255,69,58,0.15)', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 6 },
   miniBtnText: { color: colors.text, fontSize: fontSize.xs, fontWeight: font.bold },
+  contentListWrap: { paddingHorizontal: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.sm },
+  contentListItem: {
+    backgroundColor: 'rgba(19,26,46,0.6)',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  contentListTitle: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
+  contentListType: { color: colors.secondary, fontSize: fontSize.sm, fontWeight: font.regular },
+  contentListMeta: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 4 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: colors.bgElevated,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.lg,
+    paddingBottom: 40,
+    maxHeight: '85%',
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.sm },
+  modalTitle: { color: colors.text, fontSize: fontSize.lg, fontWeight: font.bold, flex: 1 },
+  modalClose: { marginLeft: spacing.md },
+  modalCloseText: { color: colors.textSecondary, fontSize: fontSize.lg },
+  modalMeta: { color: colors.textMuted, fontSize: fontSize.xs, marginBottom: spacing.md },
+  modalBody: { marginBottom: spacing.md },
 });
