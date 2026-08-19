@@ -99,10 +99,10 @@ export const api = {
   getSports: () => request<SportsResponse>('/sports'),
   getLeagues: (sport?: string) =>
     request<LeaguesResponse>(sport ? `/leagues?sport=${encodeURIComponent(sport)}` : '/leagues'),
-  createMatch: (homeTeam: string, awayTeam: string, kickoffTime: string) =>
+  createMatch: (homeTeam: string, awayTeam: string, kickoffTime: string, sport?: string, league?: string) =>
     request<{ match: Match }>('/matches', {
       method: 'POST',
-      body: JSON.stringify({ homeTeam, awayTeam, kickoffTime })
+      body: JSON.stringify({ homeTeam, awayTeam, kickoffTime, sport, league })
     }),
   createMarket: (
     matchId: number,

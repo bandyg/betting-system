@@ -205,6 +205,9 @@ function MatchesPanel() {
   const [home, setHome] = useState('Arsenal');
   const [away, setAway] = useState('Chelsea');
   const [kickoff, setKickoff] = useState('2026-08-20T15:00');
+  const [sport, setSport] = useState('');
+  const [league, setLeague] = useState('');
+  const [filterSport, setFilterSport] = useState('');
   const [msg, setMsg] = useState<Msg | null>(null);
   const [mktMatch, setMktMatch] = useState<number | ''>('');
   const [mktType, setMktType] = useState<'1x2' | 'ah' | 'ou'>('1x2');
@@ -227,7 +230,7 @@ function MatchesPanel() {
   const createMatch = async () => {
     if (!home.trim() || !away.trim()) { setMsg({ kind: 'err', text: '主客队名必填' }); return; }
     try {
-      const res = await api.createMatch(home.trim(), away.trim(), new Date(kickoff).toISOString());
+      const res = await api.createMatch(home.trim(), away.trim(), new Date(kickoff).toISOString(), sport || undefined, league || undefined);
       setMsg({ kind: 'ok', text: `赛事创建成功：#${res.match.id} ${res.match.home_team} vs ${res.match.away_team}` });
       await refresh();
     } catch (e) {
@@ -266,6 +269,7 @@ function MatchesPanel() {
 
   const label = (m: Match) => `${m.home_team} vs ${m.away_team} (${fmtTime(m.kickoff_time)})`;
   const scheduled = matches.filter((m) => m.status === 'scheduled');
+  const filteredMatches = filterSport ? matches.filter((m) => m.sport === filterSport) : matches;
 
   return (
     <section className="card">
@@ -294,14 +298,21 @@ function MatchesPanel() {
         {mktType === '1x2' && <input type="number" step="0.01" value={oddsC} onChange={(e) => setOddsC(e.target.value)} />}
         <button onClick={createMarket} className="ghost">添加市场</button>
       </div>
+      <select value={filterSport} onChange={(e) => setFilterSport(e.target.value)} style={{ fontSize: 12 }}>
+        <option value="">全部运动</option>
+        <option value="soccer">⚽ Soccer</option>
+        <option value="basketball">🏀 Basketball</option>
+        <option value="tennis">🎾 Tennis</option>
+        <option value="baseball">⚾ Baseball</option>
+      </select>
       <button onClick={refresh} className="ghost small">↻ 刷新赛事</button>
       {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
       <table>
         <thead>
-          <tr><th>赛事</th><th>开赛</th><th>状态</th><th>市场/赔率</th></tr>
+          <tr><th>赛事</th><th>运动</th><th>开赛</th><th>状态</th><th>市场/赔率</th></tr>
         </thead>
         <tbody>
-          {matches.map((m) => (
+          {filteredMatches.map((m) => (
             <tr key={m.id}>
               <td>
                 <strong>{m.home_team} vs {m.away_team}</strong>
