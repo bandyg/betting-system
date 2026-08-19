@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { requireAuth, requireRole } from './middleware.js';
+import { requireAuth, requireRole, type AuthedUser } from './middleware.js';
 
 export const crmRouter = Router();
 
@@ -146,4 +146,59 @@ crmRouter.put('/users/:id/preferences', requireAuth, (req, res) => {
   ).run(newTeam, newOptIn, userId);
   const row = db.prepare('SELECT * FROM user_preferences WHERE user_id = ?').get(userId) as PrefRow;
   res.json({ preferences: { favorite_team: row.favorite_team, marketing_opt_in: !!row.marketing_opt_in } });
+});
+
+/* ---------------- VIP 等级（CRM 忠诚度计划） ---------------- */
+
+interface VipTierRow {
+  tier: string;
+  min_lifetime_stake: number;
+  max_lifetime_stake: number | null;
+  cashback_rate: number;
+  fee_discount: number;
+  badge: string;
+  perks: string;
+}
+
+function listVipTiers(): VipTierRow[] {
+  return db.prepare('SELECT * FROM vip_tiers ORDER BY min_lifetime_stake').all() as VipTierRow[];
+}
+
+/** 用户累计投注额（settled 的 bet_stake 总额，不含 void 退款） */
+function lifetimeStake(userId: number): number {
+  const row = db.prepare(
+    `SELECT COALESCE(SUM(t.amount), 0) AS total FROM transactions t
+     JOIN accounts a ON a.id = t.account_id
+     WHERE a.user_id = ? AND t.type = 'bet_stake'`,
+  ).get(userId) as { total: number };
+  return row.total;
+}
+
+/** 根据累计投注额计算当前等级 + 下一级进度 */
+export function computeVip(userId: number): { tier: string; next: string | null; progress: number; stake: number; tiers: VipTierRow[] } {
+  const tiers = listVipTiers();
+  const stake = lifetimeStake(userId);
+  let current = tiers[0];
+  let next: VipTierRow | null = null;
+  for (const t of tiers) {
+    if (stake >= t.min_lifetime_stake) {
+      current = t;
+    } else {
+      next = t;
+      break;
+    }
+  }
+  const progress = next == null ? 1 : Math.min(1, Math.max(0, (stake - current.min_lifetime_stake) / (next.min_lifetime_stake - current.min_lifetime_stake)));
+  return { tier: current.tier, next: next?.tier ?? null, progress, stake, tiers };
+}
+
+/** GET /api/vip/tiers — 全部等级定义（登录用户可看，仅展示用） */
+crmRouter.get('/vip/tiers', requireAuth, (req, res) => {
+  res.json({ tiers: listVipTiers() });
+});
+
+/** GET /api/vip/me — 我的等级 + 升级进度 + 权益（登录用户） */
+crmRouter.get('/vip/me', requireAuth, (req, res) => {
+  const me = res.locals.user as AuthedUser;
+  res.json({ vip: computeVip(me.id) });
 });

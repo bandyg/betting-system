@@ -14,6 +14,8 @@ import type {
   Promotion,
   PromotionsResponse,
   UserPreferences,
+  VipTier,
+  MyVip,
   RiskLimits,
   PaymentOrder,
   DashboardStats,
@@ -168,6 +170,9 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(data)
     }),
+  // CRM VIP 等级
+  listVipTiers: () => request<{ tiers: VipTier[] }>('/vip/tiers'),
+  getMyVip: () => request<{ vip: MyVip }>('/vip/me'),
   // risk & trading (Step 21-24)
   getRiskLimits: () => request<{ limits: RiskLimits }>('/risk/limits'),
   updateRiskLimits: (data: Partial<Record<'min_stake' | 'max_stake' | 'min_odds' | 'max_odds' | 'max_daily_stake', number>>) =>

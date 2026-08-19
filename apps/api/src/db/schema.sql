@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL UNIQUE,
   password TEXT NOT NULL DEFAULT '',
   role TEXT NOT NULL DEFAULT 'user',
+  vip_tier TEXT NOT NULL DEFAULT 'bronze',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -200,3 +201,21 @@ CREATE TABLE IF NOT EXISTS support_messages (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_support_messages_ticket ON support_messages(ticket_id);
+
+-- ============ CRM VIP 等級（忠誠度計劃） ============
+CREATE TABLE IF NOT EXISTS vip_tiers (
+  tier TEXT PRIMARY KEY,
+  min_lifetime_stake REAL NOT NULL DEFAULT 0,  -- 累計投注額門檻（不含退款）
+  max_lifetime_stake REAL,                    -- 下一等級門檻（最高級為 NULL）
+  cashback_rate REAL NOT NULL DEFAULT 0,      -- 每週現金返水比例
+  fee_discount REAL NOT NULL DEFAULT 0,       -- 提現手續費折扣 0~1
+  badge TEXT NOT NULL DEFAULT '',              -- 徽章 emoji
+  perks TEXT NOT NULL DEFAULT '',              -- 權益說明
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+INSERT OR IGNORE INTO vip_tiers (tier, min_lifetime_stake, max_lifetime_stake, cashback_rate, fee_discount, badge, perks) VALUES
+  ('bronze',  0,     5000,   0.00, 0.00, '🥉', 'VIP 等級 1：新人起步，享有基礎服務'),
+  ('silver',  5000, 50000,  0.01, 0.05, '🥈', 'VIP 等級 2：1% 每周現金返水，5% 提現費折扣'),
+  ('gold',    50000, 200000, 0.02, 0.10, '🥇', 'VIP 等級 3：2% 每周現金返水，10% 提現費折扣，專屬客服通道'),
+  ('platinum', 200000, 500000, 0.03, 0.20, '💎', 'VIP 等級 4：3% 每周現金返水，20% 提現費折扣，專屬客戶經理'),
+  ('diamond',  500000, NULL,   0.05, 0.30, '👑', 'VIP 等級 5：5% 每周現金返水，30% 提現費折扣，全部優先通道');

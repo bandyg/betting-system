@@ -140,6 +140,25 @@ export interface UserPreferences {
   marketing_opt_in: boolean;
 }
 
+/* ---- CRM VIP 等级（忠诚度计划） ---- */
+export interface VipTier {
+  tier: string;
+  min_lifetime_stake: number;
+  max_lifetime_stake: number | null;
+  cashback_rate: number;
+  fee_discount: number;
+  badge: string;
+  perks: string;
+}
+
+export interface MyVip {
+  tier: string;
+  next: string | null;
+  progress: number;
+  stake: number;
+  tiers: VipTier[];
+}
+
 /* ---- Risk & Trading (Step 21-24) ---- */
 export interface RiskLimits {
   id: number;

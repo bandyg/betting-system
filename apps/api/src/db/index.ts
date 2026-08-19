@@ -135,6 +135,8 @@ export function migrate(db: Database.Database): void {
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('feed_manual', 'true')`).run();
   // 迁移（P4）：feed_auto_settle 默认开启 — 完场比分入库后自动派彩（settleMatch 幂等，可安全重复执行）
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('feed_auto_settle', 'true')`).run();
+  // 迁移（CRM VIP）：users 表加 vip_tier 栏位（旧库无此列时补齐，幂等）
+  addCol('users', 'vip_tier', "vip_tier TEXT NOT NULL DEFAULT 'bronze'");
 }
 
 // Ensure schema exists on import (idempotent)

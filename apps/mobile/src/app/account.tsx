@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { api, useAuth, useBets, usePreferences, useUsers, useMatches, useRiskLimits, useAnalyticsDashboard, useAnalyticsTrends, useAnalyticsHotMatches, useAnalyticsUsers, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS, PAYMENT_STATUS_LABELS } from '@betting/core';
-import type { Bet, User, Market, RiskField, PaymentOrder, DashboardStats, TrendPoint, HotMatch, UserAnalytics } from '@betting/core';
+import { api, useAuth, useBets, usePreferences, useMyVip, useUsers, useMatches, useRiskLimits, useAnalyticsDashboard, useAnalyticsTrends, useAnalyticsHotMatches, useAnalyticsUsers, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS, PAYMENT_STATUS_LABELS } from '@betting/core';
+import type { Bet, User, Market, RiskField, PaymentOrder, DashboardStats, TrendPoint, HotMatch, UserAnalytics, MyVip } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
 function betLabel(b: Bet): string {
@@ -572,6 +572,39 @@ function AnalyticsPanel() {
   );
 }
 
+/** VIP 等级卡片（CRM 忠诚度计划） */
+function VipCard() {
+  const vip = useMyVip();
+  const data = vip.data?.vip;
+  if (!data) return null;
+  const current = data.tiers.find((t) => t.tier === data.tier);
+  if (!current) return null;
+  const nextTier = data.next ? data.tiers.find((t) => t.tier === data.next) : null;
+  const pct = Math.round(data.progress * 100);
+  return (
+    <Card style={styles.sectionCard} glass>
+      <View style={styles.vipHeader}>
+        <Text style={styles.vipBadge}>{current.badge}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.vipTitle}>VIP {current.tier}</Text>
+          <Text style={styles.vipPerks}>{current.perks}</Text>
+        </View>
+      </View>
+      <View style={styles.vipMetaRow}>
+        <Text style={styles.vipStake}>累计投注 ¥{data.stake.toLocaleString()}</Text>
+        <Text style={styles.vipNext}>{nextTier ? `距 ${nextTier.badge} ${nextTier.tier} 还差 ¥${Math.max(0, nextTier.min_lifetime_stake - data.stake).toLocaleString()}` : '已达最高等级'}</Text>
+      </View>
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${pct}%` }]} />
+      </View>
+      <View style={styles.vipBenefits}>
+        <Text style={styles.vipBenefit}>返水 {Math.round(current.cashback_rate * 100)}%</Text>
+        <Text style={styles.vipBenefit}>提现费折扣 {Math.round(current.fee_discount * 100)}%</Text>
+      </View>
+    </Card>
+  );
+}
+
 export default function AccountScreen() {
   const auth = useAuth();
   const { user } = auth;
@@ -702,6 +735,9 @@ export default function AccountScreen() {
               </Pressable>
             </View>
           </Card>
+
+          {/* VIP 等级（CRM 忠诚度计划） */}
+          <VipCard />
 
           {/* 联系客服（Step 4-5） */}
           <Card style={styles.sectionCard} glass>
@@ -891,6 +927,18 @@ const styles = StyleSheet.create({
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
   // 支付通道
   hint: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: spacing.sm },
+  // VIP 等级（CRM 忠诚度计划）
+  vipHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  vipBadge: { fontSize: 40 },
+  vipTitle: { color: colors.text, fontSize: fontSize.xl, fontWeight: font.bold, textTransform: 'capitalize' },
+  vipPerks: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 4 },
+  vipMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
+  vipStake: { color: colors.text, fontSize: fontSize.sm, fontWeight: font.bold },
+  vipNext: { color: colors.textMuted, fontSize: fontSize.xs },
+  progressTrack: { height: 8, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
+  progressFill: { height: 8, borderRadius: radius.pill, backgroundColor: colors.secondary },
+  vipBenefits: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
+  vipBenefit: { color: colors.success, fontSize: fontSize.xs, fontWeight: font.bold },
   orderRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   orderNo: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
   orderAmt: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 2 },

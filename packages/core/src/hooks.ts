@@ -10,6 +10,7 @@ import type {
   ContentsResponse,
   PromotionsResponse,
   UserPreferences,
+  MyVip,
   RiskLimits,
   DashboardStats,
   TrendPoint,
@@ -85,6 +86,10 @@ export function usePreferences(userId?: number | null) {
         : Promise.resolve({ preferences: { favorite_team: null, marketing_opt_in: false } }),
     [userId],
   );
+}
+
+export function useMyVip() {
+  return useAsync<{ vip: MyVip }>(() => api.getMyVip());
 }
 
 export function useRiskLimits() {
