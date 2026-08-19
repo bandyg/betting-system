@@ -11,6 +11,7 @@ import type {
   PromotionsResponse,
   UserPreferences,
   MyVip,
+  WithdrawalsResponse,
   RiskLimits,
   DashboardStats,
   TrendPoint,
@@ -90,6 +91,10 @@ export function usePreferences(userId?: number | null) {
 
 export function useMyVip() {
   return useAsync<{ vip: MyVip }>(() => api.getMyVip());
+}
+
+export function useWithdrawals(opts: { all?: boolean; status?: 'pending' | 'approved' | 'rejected' | 'paid' } = {}) {
+  return useAsync<WithdrawalsResponse>(() => api.listWithdrawals(opts), [opts.all, opts.status]);
 }
 
 export function useRiskLimits() {

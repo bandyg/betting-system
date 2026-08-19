@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { api, useAuth, useBets, usePreferences, useMyVip, useUsers, useMatches, useRiskLimits, useAnalyticsDashboard, useAnalyticsTrends, useAnalyticsHotMatches, useAnalyticsUsers, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS, PAYMENT_STATUS_LABELS } from '@betting/core';
-import type { Bet, User, Market, RiskField, PaymentOrder, DashboardStats, TrendPoint, HotMatch, UserAnalytics, MyVip } from '@betting/core';
+import { api, useAuth, useBets, usePreferences, useMyVip, useWithdrawals, useUsers, useMatches, useRiskLimits, useAnalyticsDashboard, useAnalyticsTrends, useAnalyticsHotMatches, useAnalyticsUsers, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS, PAYMENT_STATUS_LABELS, WITHDRAWAL_METHOD_LABELS, WITHDRAWAL_STATUS_LABELS } from '@betting/core';
+import type { Bet, User, Market, RiskField, PaymentOrder, Withdrawal, DashboardStats, TrendPoint, HotMatch, UserAnalytics, MyVip } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
 function betLabel(b: Bet): string {
@@ -605,6 +605,142 @@ function VipCard() {
   );
 }
 
+/** 提现卡片（PAM 资金闭环：申请 → 审批 → 打款） */
+function WithdrawCard({ isAdmin }: { isAdmin: boolean }) {
+  const mine = useWithdrawals({ all: isAdmin });
+  const [amount, setAmount] = useState('');
+  const [accountInfo, setAccountInfo] = useState('');
+  const [method, setMethod] = useState<'bank' | 'crypto' | 'usdt'>('bank');
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    const amt = Number(amount);
+    if (!amt || amt <= 0) {
+      setMsg({ kind: 'err', text: '请输入有效金额' });
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await api.createWithdrawal({ amount: amt, method, account_info: accountInfo.trim() });
+      setMsg({ kind: 'ok', text: `✅ 提现申请已提交（${res.withdrawal.wd_no}），等待审批` });
+      setAmount('');
+      setAccountInfo('');
+      mine.refresh();
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const review = async (w: Withdrawal, action: 'approve' | 'reject' | 'paid') => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      if (action === 'approve') await api.approveWithdrawal(w.id);
+      else if (action === 'reject') await api.rejectWithdrawal(w.id, '不符合提现条件');
+      else await api.markWithdrawalPaid(w.id);
+      const label = action === 'approve' ? '已通过' : action === 'reject' ? '已驳回' : '已打款';
+      setMsg({ kind: 'ok', text: `✅ ${w.wd_no} ${label}` });
+      mine.refresh();
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const list = mine.data?.withdrawals ?? [];
+  const pending = list.filter((w) => w.status === 'pending');
+
+  return (
+    <Card style={styles.sectionCard}>
+      <Text style={styles.cardTitle}>🏦 提现（PAM）</Text>
+      <View style={styles.row}>
+        <TextInput
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="numeric"
+          placeholder="金额（¥10 ~ ¥50,000）"
+          placeholderTextColor={colors.textMuted}
+          style={styles.input}
+        />
+        <Button title="申请提现" onPress={submit} loading={busy} style={{ minWidth: 96 }} />
+      </View>
+      <View style={styles.row}>
+        {(['bank', 'crypto', 'usdt'] as const).map((m) => (
+          <Pressable
+            key={m}
+            onPress={() => setMethod(m)}
+            style={[styles.chip, { borderWidth: 1, borderColor: method === m ? colors.secondary : colors.border }]}
+          >
+            <Text style={[styles.chipText, { color: method === m ? colors.secondary : colors.textSecondary }]}>
+              {WITHDRAWAL_METHOD_LABELS[m]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <TextInput
+        value={accountInfo}
+        onChangeText={setAccountInfo}
+        placeholder="收款账户（卡号 / 钱包地址）"
+        placeholderTextColor={colors.textMuted}
+        style={styles.input}
+      />
+      {msg && (
+        <View style={{ marginTop: spacing.sm }}>
+          <FlashMsg msg={msg} />
+        </View>
+      )}
+      <Text style={styles.hint}>申请后由客服/admin 审批打款；金额从余额扣除，需先充值</Text>
+
+      {isAdmin && pending.length > 0 && (
+        <View style={{ marginTop: spacing.sm }}>
+          <Text style={styles.hint}>待审批（{pending.length}）：</Text>
+          {pending.map((w) => (
+            <View key={w.id} style={styles.orderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.orderNo}>{w.wd_no} · ¥{w.amount.toLocaleString()}</Text>
+                <Text style={styles.hint}>用户#{w.user_id} · {WITHDRAWAL_METHOD_LABELS[w.method]} · {w.account_info || '未填账户'}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <Button title="通过" onPress={() => review(w, 'approve')} loading={busy} style={{ minWidth: 64, paddingHorizontal: 8 }} />
+                <Button title="驳回" onPress={() => review(w, 'reject')} loading={busy} style={{ minWidth: 64, paddingHorizontal: 8, backgroundColor: colors.danger }} />
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {list.length > 0 && (
+        <View style={{ marginTop: spacing.sm }}>
+          <Text style={styles.hint}>最近记录：</Text>
+          {list.slice(0, 5).map((w) => (
+            <View key={w.id} style={styles.orderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.orderNo}>{w.wd_no} · ¥{w.amount.toLocaleString()}</Text>
+                <Text style={styles.hint}>{w.created_at} · {WITHDRAWAL_METHOD_LABELS[w.method]}{w.reject_reason ? ` · ${w.reject_reason}` : ''}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.orderStatus, { color: w.status === 'paid' || w.status === 'approved' ? colors.success : w.status === 'rejected' ? colors.danger : colors.textSecondary }]}>
+                  {WITHDRAWAL_STATUS_LABELS[w.status]}
+                </Text>
+                {isAdmin && w.status === 'approved' && (
+                  <Pressable onPress={() => review(w, 'paid')} hitSlop={8}>
+                    <Text style={{ color: colors.secondary, fontSize: fontSize.xs, fontWeight: font.bold }}>标记打款</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </Card>
+  );
+}
+
 export default function AccountScreen() {
   const auth = useAuth();
   const { user } = auth;
@@ -815,6 +951,9 @@ export default function AccountScreen() {
           </Card>
 
           {msg && <FlashMsg msg={msg} />}
+
+          {/* 提现 (PAM 资金闭环) */}
+          <WithdrawCard isAdmin={user.role === 'admin'} />
 
           {/* 客户偏好 (CRM) */}
           <Card style={styles.sectionCard}>

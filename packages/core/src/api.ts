@@ -18,6 +18,8 @@ import type {
   MyVip,
   RiskLimits,
   PaymentOrder,
+  Withdrawal,
+  WithdrawalsResponse,
   DashboardStats,
   TrendPoint,
   HotMatch,
@@ -206,6 +208,27 @@ export const api = {
     request<{ order: PaymentOrder }>(`/payments/orders/${orderNo}`),
   listPaymentProviders: () =>
     request<{ providers: { name: string; configured: boolean }[] }>('/payments/providers'),
+  // 提现 (PAM 资金闭环)
+  createWithdrawal: (data: { amount: number; method?: string; account_info?: string }) =>
+    request<{ withdrawal: Withdrawal }>('/withdrawals', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  listWithdrawals: (opts: { all?: boolean; status?: Withdrawal['status'] } = {}) => {
+    const q: string[] = [];
+    if (opts.all) q.push('all=1');
+    if (opts.status) q.push(`status=${opts.status}`);
+    return request<WithdrawalsResponse>(q.length ? `/withdrawals?${q.join('&')}` : '/withdrawals');
+  },
+  approveWithdrawal: (id: number) =>
+    request<{ withdrawal: Withdrawal; account: { balance: number } }>(`/withdrawals/${id}/approve`, { method: 'POST' }),
+  rejectWithdrawal: (id: number, reason?: string) =>
+    request<{ withdrawal: Withdrawal }>(`/withdrawals/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    }),
+  markWithdrawalPaid: (id: number) =>
+    request<{ withdrawal: Withdrawal }>(`/withdrawals/${id}/paid`, { method: 'POST' }),
   // analytics (Step 31-34)
   getAnalyticsDashboard: () => request<{ dashboard: DashboardStats }>('/analytics/dashboard'),
   getAnalyticsTrends: (days = 14) => request<{ trends: TrendPoint[] }>(`/analytics/trends?days=${days}`),

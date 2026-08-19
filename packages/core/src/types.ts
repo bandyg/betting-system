@@ -232,6 +232,41 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentOrderStatus, string> = {
   expired: '已过期',
 };
 
+// ── 提现 (PAM 资金闭环) ──
+export type WithdrawalStatus = 'pending' | 'approved' | 'rejected' | 'paid';
+
+export interface Withdrawal {
+  id: number;
+  wd_no: string;
+  user_id: number;
+  amount: number;
+  method: 'bank' | 'crypto' | 'usdt';
+  account_info: string;
+  status: WithdrawalStatus;
+  reviewed_by: number | null;
+  reviewed_at: string | null;
+  reject_reason: string | null;
+  created_at: string;
+}
+
+export interface WithdrawalsResponse {
+  count: number;
+  withdrawals: Withdrawal[];
+}
+
+export const WITHDRAWAL_METHOD_LABELS: Record<Withdrawal['method'], string> = {
+  bank: '银行卡',
+  crypto: '加密货币',
+  usdt: 'USDT',
+};
+
+export const WITHDRAWAL_STATUS_LABELS: Record<WithdrawalStatus, string> = {
+  pending: '待审批',
+  approved: '已通过',
+  rejected: '已驳回',
+  paid: '已打款',
+};
+
 // ── Data Analytics (Step 31-34) ──
 export interface DashboardStats {
   totalBetStake: number; // 总投注额

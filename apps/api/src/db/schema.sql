@@ -160,6 +160,25 @@ CREATE TABLE IF NOT EXISTS payment_orders (
 CREATE INDEX IF NOT EXISTS idx_payment_orders_user ON payment_orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON payment_orders(status);
 
+-- 提现（PAM 资金闭环：申请 → 审批 → 打款 → 流水）
+CREATE TABLE IF NOT EXISTS withdrawals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  wd_no TEXT NOT NULL UNIQUE,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  amount REAL NOT NULL CHECK (amount > 0),
+  method TEXT NOT NULL DEFAULT 'bank'
+    CHECK (method IN ('bank', 'crypto', 'usdt')),
+  account_info TEXT NOT NULL DEFAULT '',        -- 收款账户信息（卡号/钱包地址）
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'approved', 'rejected', 'paid')),
+  reviewed_by INTEGER REFERENCES users(id),     -- 审批人（admin）
+  reviewed_at TEXT,
+  reject_reason TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_withdrawals_user ON withdrawals(user_id);
+CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status);
+
 -- feed 拉取可观测性日志（外部 Sportsbook 数据源接入，P1）
 CREATE TABLE IF NOT EXISTS feed_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
