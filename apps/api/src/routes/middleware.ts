@@ -39,3 +39,12 @@ export function requireRole(role: 'admin' | 'user' = 'admin') {
     next();
   };
 }
+
+/** 要求 role 为 admin 或 support（客服，在 requireAuth 之后使用） */
+export function requireSupport(req: Request, res: Response, next: NextFunction) {
+  const u = res.locals.user as AuthedUser | undefined;
+  if (!u || (u.role !== 'admin' && u.role !== 'support')) {
+    return res.status(403).json({ error: '仅客服或管理员可执行此操作' });
+  }
+  next();
+}

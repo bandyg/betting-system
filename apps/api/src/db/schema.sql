@@ -169,3 +169,34 @@ CREATE TABLE IF NOT EXISTS feed_log (
   matches_upserted INTEGER,
   errors TEXT
 );
+
+-- ============ Customer Support（工单） ============
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),          -- 提单人（作者）
+  category TEXT NOT NULL DEFAULT 'other'
+    CHECK (category IN ('deposit_withdrawal', 'betting', 'account', 'technical', 'other')),
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,                                      -- 首条内容（列表免 JOIN 展示）
+  priority TEXT NOT NULL DEFAULT 'normal'
+    CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+  status TEXT NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open', 'in_progress', 'waiting_user', 'resolved', 'closed')),
+  closed_by INTEGER REFERENCES users(id),                  -- 关闭/完结人（客服）
+  closed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_user ON support_tickets(user_id);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_user_status ON support_tickets(user_id, status);
+
+CREATE TABLE IF NOT EXISTS support_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticket_id INTEGER NOT NULL REFERENCES support_tickets(id),
+  author_user_id INTEGER NOT NULL REFERENCES users(id),
+  author_role TEXT NOT NULL CHECK (author_role IN ('user', 'agent')),
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_support_messages_ticket ON support_messages(ticket_id);

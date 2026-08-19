@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, '..', '..', '..', '..', 'data');
+// Optional DB path override (used by isolated e2e/tests to avoid touching live data)
+const DB_FILE = process.env.BETTING_DB_PATH ?? join(DATA_DIR, 'betting.db');
 
 export function hashPassword(pw: string): string {
   return createHash('sha256').update(pw).digest('hex');
@@ -15,8 +17,8 @@ export function hashPassword(pw: string): string {
 export const DEFAULT_PASSWORD = '123456';
 
 export function getDb(): Database.Database {
-  mkdirSync(DATA_DIR, { recursive: true });
-  const db = new Database(join(DATA_DIR, 'betting.db'));
+  mkdirSync(dirname(DB_FILE), { recursive: true });
+  const db = new Database(DB_FILE);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   return db;
