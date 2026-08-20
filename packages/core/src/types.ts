@@ -238,6 +238,7 @@ export const MARKET_STATUS_LABELS: Record<string, string> = {
   open: '开放',
   suspended: '已挂盘',
   settled: '已结算',
+  closed: '已关盘',
 };
 
 

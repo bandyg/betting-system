@@ -5,6 +5,7 @@ import db from '../db/index.js';
 import { requireAuth, requireRole } from './middleware.js';
 import { pollOnce, readFeedConfig } from '../feeds/scheduler.js';
 import { isAutoSettleEnabled } from '../feeds/ingest.js';
+import { isAutoMarketEnabled } from '../feeds/autoMarket.js';
 
 export const feedRouter = Router();
 
@@ -25,6 +26,7 @@ feedRouter.get('/admin/feed/status', requireAuth, requireRole('admin'), (_req, r
     | undefined;
   const manual = row?.value === 'true';
   const autoSettle = isAutoSettleEnabled(db);
+  const autoMarket = isAutoMarketEnabled(db);
   const lastLog = db.prepare('SELECT * FROM feed_log ORDER BY id DESC LIMIT 1').get() as
     | FeedLogRow
     | undefined;
@@ -49,6 +51,7 @@ feedRouter.get('/admin/feed/status', requireAuth, requireRole('admin'), (_req, r
   res.json({
     manual,
     autoSettle,
+    autoMarket,
     lastSync: lastLog?.requested_at ?? null,
     lastProvider: lastLog?.provider ?? null,
     health,
@@ -84,6 +87,19 @@ feedRouter.post('/admin/feed/auto-settle', requireAuth, requireRole('admin'), (r
   res.json({ auto });
 });
 
+// POST /admin/feed/auto-market — 滚球开盘/关盘自动切换开关（写 settings，下次 pollOnce 生效，无需重启）
+feedRouter.post('/admin/feed/auto-market', requireAuth, requireRole('admin'), (req, res) => {
+  const { auto } = req.body ?? {};
+  if (typeof auto !== 'boolean') {
+    return res.status(400).json({ error: 'auto must be a boolean' });
+  }
+  db.prepare(
+    `INSERT INTO settings (key, value) VALUES ('feed_auto_market', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).run(auto ? 'true' : 'false');
+  res.json({ auto });
+});
+
 // POST /admin/feed/ingest — 立即拉取一次（主动操作，不受 manual 模式限制）
 feedRouter.post('/admin/feed/ingest', requireAuth, requireRole('admin'), async (_req, res) => {
   const cfg = readFeedConfig();
@@ -91,5 +107,5 @@ feedRouter.post('/admin/feed/ingest', requireAuth, requireRole('admin'), async (
     return res.status(400).json({ error: 'FEED_API_KEY not set' });
   }
   const r = await pollOnce(db, cfg);
-  res.json({ ok: r.ok, detail: r.detail, scores: r.scores ?? null });
+  res.json({ ok: r.ok, detail: r.detail, scores: r.scores ?? null, autoMarket: r.autoMarket ?? null });
 });

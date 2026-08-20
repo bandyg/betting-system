@@ -117,6 +117,8 @@ function MarketBlock({
 
 function MatchCard({ match, onPick }: { match: Match; onPick: (marketId: number, selection: string, price: number, label: string) => void }) {
   const statusLabel = MATCH_STATUS_LABELS[match.status] ?? match.status;
+  const isLive = match.status === 'scheduled' && !Number.isNaN(Date.parse(match.kickoff_time)) && Date.parse(match.kickoff_time) <= Date.now();
+  const isFinished = match.status === 'finished';
   const isSettled = match.status === 'settled' || match.status === 'finished';
   const isFeed = match.source === 'the-odds-api';
   return (
@@ -132,6 +134,8 @@ function MatchCard({ match, onPick }: { match: Match; onPick: (marketId: number,
           </Text>
           <Text style={styles.kickoff}>
             {'\uD83D\uDD50'} {formatKickoff(match.kickoff_time)} {'\u00B7'} {statusLabel}
+            {isLive && <Text style={styles.liveBadge}> {'\u25CF'} LIVE</Text>}
+            {isFinished && <Text style={styles.finishedBadge}> 已完场</Text>}
             {isFeed && <Text style={styles.feedBadge}> FEED</Text>}
           </Text>
         </View>
@@ -307,6 +311,16 @@ const styles = StyleSheet.create({
   leagueHeaderText: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: font.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   leagueHeaderCount: { color: colors.textMuted, fontSize: fontSize.xs },
   matchCard: { marginBottom: spacing.lg },
+  liveBadge: {
+    color: '#2ecc71',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  finishedBadge: {
+    color: colors.warning,
+    fontWeight: '600',
+    fontSize: 12,
+  },
   matchHeader: { flexDirection: 'row', alignItems: 'flex-start' },
   sportBadge: { alignItems: 'center', marginRight: spacing.md, minWidth: 40 },
   sportIcon: { fontSize: 22 },

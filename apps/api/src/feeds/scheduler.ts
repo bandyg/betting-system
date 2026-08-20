@@ -10,6 +10,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createTheOddsClient } from './provider.js';
 import { ingestVendorUpdate, ingestScores } from './ingest.js';
+import { autoSwitchAll, isAutoMarketEnabled } from './autoMarket.js';
 
 // Feed secrets/knobs live OUTSIDE the repo (so the API key is never committed):
 //   ~/.betting-feed.env  →  FEED_API_KEY / FEED_ENABLED / FEED_INTERVAL_MIN / FEED_SPORT_KEY / FEED_PROVIDER
@@ -86,7 +87,7 @@ async function pollOnceSingle(
 export async function pollOnce(
   db: Database,
   cfg: FeedConfig,
-): Promise<{ ok: boolean; detail: unknown; scores?: { ok: boolean; detail: unknown } }> {
+): Promise<{ ok: boolean; detail: unknown; scores?: { ok: boolean; detail: unknown }; autoMarket?: { switched: number; matches: number } }> {
   const results: Array<{ ok: boolean; detail: unknown; sportKey: string }> = [];
 
   const isUpcoming = cfg.sportKeys.includes('upcoming');
@@ -124,7 +125,10 @@ export async function pollOnce(
     }
   }
 
-  return { ok: oddsResult.ok, detail: oddsResult.detail, scores: { ok: scoresResults.every((r) => r.ok), detail: scoresResults } };
+  // 滚球开盘/关盘自动切换（SPORTBOOK Step 36）：每轮 ingest 后，若开关开启则自动切换市场状态。
+  const autoMarket = isAutoMarketEnabled(db) ? autoSwitchAll(db) : undefined;
+
+  return { ok: oddsResult.ok, detail: oddsResult.detail, scores: { ok: scoresResults.every((r) => r.ok), detail: scoresResults }, autoMarket };
 }
 
 /** Start the periodic loop; returns a stop() handle. If disabled, logs and does not start. */

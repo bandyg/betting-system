@@ -84,6 +84,30 @@ export function migrate(db: Database.Database): void {
     db.pragma('foreign_keys = ON');
   }
 
+  // 迁移：markets.status CHECK 加 'closed'（滚球关盘自动切换，SPORTBOOK Step 36；方法同 suspended）
+  const marketsSql2 = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='markets'")
+    .get() as { sql: string } | undefined;
+  if (marketsSql2 && !marketsSql2.sql.includes('closed')) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      CREATE TABLE markets_new2 (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        match_id INTEGER NOT NULL REFERENCES matches(id),
+        type TEXT NOT NULL CHECK (type IN ('1x2', 'ah', 'ou')),
+        line REAL,
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'suspended', 'settled', 'closed')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO markets_new2 (id, match_id, type, line, status, created_at)
+        SELECT id, match_id, type, line, status, created_at FROM markets;
+      DROP TABLE markets;
+      ALTER TABLE markets_new2 RENAME TO markets;
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_markets_match ON markets(match_id)');
+    db.pragma('foreign_keys = ON');
+  }
+
   // 迁移：默认风控限额单行（id=1）
   const rl = db.prepare('SELECT id FROM risk_limits WHERE id = 1').get();
   if (!rl) {
