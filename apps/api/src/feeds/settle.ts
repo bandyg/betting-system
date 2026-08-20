@@ -4,6 +4,7 @@
 //   All bets/markets/match move to 'settled'. Safe to call repeatedly (already-settled → skipped).
 // Parlays: each leg is settled when ITS market settles; the ticket settles only when ALL legs are settled.
 import type { Database } from 'better-sqlite3';
+import { accumulateWagering } from './wagering.js';
 
 export interface MarketSummary {
   marketId: number;
@@ -143,9 +144,11 @@ export function settleMatch(db: Database, matchId: number): SettleMatchResult {
           db.prepare(
             'INSERT INTO transactions (account_id, type, amount, ref_type, ref_id) VALUES (?, ?, ?, ?, ?)',
           ).run(acc.id, 'payout', payout, 'bet', bet.id);
+          accumulateWagering(db, bet.user_id, bet.stake);
         } else if (outcome === 'lost') {
           settleBet.run('lost', bet.id);
           lost += 1;
+          accumulateWagering(db, bet.user_id, bet.stake);
         } else {
           settleBet.run('void', bet.id);
           voided += 1;
@@ -244,6 +247,7 @@ export function settleMatch(db: Database, matchId: number): SettleMatchResult {
       if (nLost > 0) {
         outcome = 'lost';
         settleTicket.run('lost', parlay.id);
+        accumulateWagering(db, parlay.user_id, parlay.stake);
       } else if (nWon === legRows.length) {
         outcome = 'won';
         settleTicket.run('won', parlay.id);
@@ -259,6 +263,7 @@ export function settleMatch(db: Database, matchId: number): SettleMatchResult {
         db.prepare(
           'INSERT INTO transactions (account_id, type, amount, ref_type, ref_id) VALUES (?, ?, ?, ?, ?)',
         ).run(acc.id, 'payout', payout, 'bet', parlay.id);
+        accumulateWagering(db, parlay.user_id, parlay.stake);
       } else {
         outcome = 'void';
         settleTicket.run('void', parlay.id);

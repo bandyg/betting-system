@@ -9,6 +9,7 @@ import type {
   BetsResponse,
   ContentsResponse,
   PromotionsResponse,
+  ClaimsResponse,
   UserPreferences,
   MyVip,
   WithdrawalsResponse,
@@ -77,6 +78,10 @@ export function useContents(status?: 'published' | 'draft' | 'scheduled' | 'arch
 
 export function usePromotions(status?: 'active' | 'expired') {
   return useAsync<PromotionsResponse>(() => api.listPromotions(status), [status]);
+}
+
+export function useClaims(promotionId?: number | null) {
+  return useAsync<ClaimsResponse>(() => (promotionId ? api.listClaims(promotionId) : Promise.resolve({ count: 0, claims: [] })), [promotionId]);
 }
 
 export function usePreferences(userId?: number | null) {

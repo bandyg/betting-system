@@ -198,6 +198,62 @@ addCol('matches', 'external_id', "external_id TEXT");
     db.exec('CREATE INDEX IF NOT EXISTS idx_bet_legs_market ON bet_legs(market_id)');
     db.pragma('foreign_keys = ON');
   }
+
+  // 迁移（CRM 促销风控）：promotions 加 max_claims_per_user / wagering_multiplier
+  addCol('promotions', 'max_claims_per_user', 'max_claims_per_user INTEGER NOT NULL DEFAULT 1');
+  addCol('promotions', 'wagering_multiplier', 'wagering_multiplier REAL NOT NULL DEFAULT 0');
+  addCol('accounts', 'bonus_balance', 'bonus_balance REAL NOT NULL DEFAULT 0');
+
+  // 迁移（CRM 促销风控）：transactions.type CHECK 加 'bonus'（SQLite 不能改 CHECK，需重建表）
+  const txSql = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='transactions'")
+    .get() as { sql: string } | undefined;
+  if (txSql && !txSql.sql.includes("'bonus'")) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      CREATE TABLE transactions_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        type TEXT NOT NULL CHECK (type IN ('deposit', 'bet_stake', 'payout', 'void_refund', 'bonus')),
+        amount REAL NOT NULL,
+        ref_type TEXT,
+        ref_id INTEGER,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO transactions_new (id, account_id, type, amount, ref_type, ref_id, created_at)
+        SELECT id, account_id, type, amount, ref_type, ref_id, created_at FROM transactions;
+      DROP TABLE transactions;
+      ALTER TABLE transactions_new RENAME TO transactions;
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_tx_account ON transactions(account_id)');
+    db.pragma('foreign_keys = ON');
+  }
+
+  // 迁移（CRM 促销风控）：promotion_claims 重建 — 去掉 UNIQUE(promotion_id,user_id)，加审核/流水字段
+  const claimsSql = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='promotion_claims'")
+    .get() as { sql: string } | undefined;
+  if (claimsSql && !claimsSql.sql.includes('bonus_amount')) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      CREATE TABLE promotion_claims_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        promotion_id INTEGER NOT NULL REFERENCES promotions(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+        bonus_amount REAL NOT NULL DEFAULT 0,
+        wagering_required REAL NOT NULL DEFAULT 0,
+        wagering_done REAL NOT NULL DEFAULT 0,
+        approved_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO promotion_claims_new (id, promotion_id, user_id, status, bonus_amount, wagering_required, wagering_done, approved_at, created_at)
+        SELECT id, promotion_id, user_id, 'approved', 0, 0, 0, NULL, created_at FROM promotion_claims;
+      DROP TABLE promotion_claims;
+      ALTER TABLE promotion_claims_new RENAME TO promotion_claims;
+    `);
+    db.pragma('foreign_keys = ON');
+  }
 }
 
 // Ensure schema exists on import (idempotent)

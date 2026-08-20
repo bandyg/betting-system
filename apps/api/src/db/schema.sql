@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 CREATE TABLE IF NOT EXISTS transactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   account_id INTEGER NOT NULL REFERENCES accounts(id),
-  type TEXT NOT NULL CHECK (type IN ('deposit', 'bet_stake', 'payout', 'void_refund')),
+  type TEXT NOT NULL CHECK (type IN ('deposit', 'bet_stake', 'payout', 'void_refund', 'bonus')),
   amount REAL NOT NULL,
   ref_type TEXT,
   ref_id INTEGER,
@@ -121,6 +121,8 @@ CREATE TABLE IF NOT EXISTS promotions (
   bonus_type TEXT NOT NULL CHECK (bonus_type IN ('deposit_bonus', 'free_bet')),
   bonus_value REAL NOT NULL DEFAULT 0,
   min_deposit REAL NOT NULL DEFAULT 0,
+  max_claims_per_user INTEGER NOT NULL DEFAULT 1,
+  wagering_multiplier REAL NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired')),
   start_at TEXT,
   end_at TEXT,
@@ -139,8 +141,12 @@ CREATE TABLE IF NOT EXISTS promotion_claims (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   promotion_id INTEGER NOT NULL REFERENCES promotions(id),
   user_id INTEGER NOT NULL REFERENCES users(id),
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE (promotion_id, user_id)
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  bonus_amount REAL NOT NULL DEFAULT 0,
+  wagering_required REAL NOT NULL DEFAULT 0,
+  wagering_done REAL NOT NULL DEFAULT 0,
+  approved_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS sessions (

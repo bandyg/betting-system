@@ -153,10 +153,34 @@ export interface Promotion {
   bonus_type: 'deposit_bonus' | 'free_bet';
   bonus_value: number;
   min_deposit: number;
+  max_claims_per_user: number;
+  wagering_multiplier: number;
   status: 'active' | 'expired';
   start_at: string | null;
   end_at: string | null;
   created_at: string;
+}
+
+export interface PromotionClaim {
+  id: number;
+  promotion_id: number;
+  user_id: number;
+  status: 'pending' | 'approved' | 'rejected';
+  bonus_amount: number;
+  wagering_required: number;
+  wagering_done: number;
+  approved_at: string | null;
+  created_at: string;
+}
+
+export interface ClaimsResponse {
+  count: number;
+  claims: PromotionClaim[];
+}
+
+export interface ApproveClaimResponse {
+  claim: PromotionClaim;
+  account: { id: number; balance: number; bonus_balance: number };
 }
 
 export interface PromotionsResponse {

@@ -12,7 +12,10 @@ import type {
   Content,
   ContentsResponse,
   Promotion,
+  PromotionClaim,
   PromotionsResponse,
+  ClaimsResponse,
+  ApproveClaimResponse,
   UserPreferences,
   VipTier,
   MyVip,
@@ -175,6 +178,10 @@ export const api = {
     bonus_type: string;
     bonus_value: number;
     min_deposit?: number;
+    max_claims_per_user?: number;
+    wagering_multiplier?: number;
+    start_at?: string | null;
+    end_at?: string | null;
   }) =>
     request<{ promotion: Promotion }>('/crm/promotions', {
       method: 'POST',
@@ -182,13 +189,24 @@ export const api = {
     }),
   listPromotions: (status?: 'active' | 'expired') =>
     request<PromotionsResponse>(status ? `/crm/promotions?status=${status}` : '/crm/promotions'),
-  claimPromotion: (promotionId: number, userId: number) =>
-    request<{ claimed: boolean; promotion: Promotion }>(`/crm/promotions/${promotionId}/claim`, {
-      method: 'POST',
-      body: JSON.stringify({ userId })
+  claimPromotion: (promotionId: number) =>
+    request<{ claim: PromotionClaim; promotion: Promotion }>(`/crm/promotions/${promotionId}/claim`, {
+      method: 'POST'
     }),
-  checkClaim: (promotionId: number, userId: number) =>
-    request<{ claimed: boolean }>(`/crm/promotions/${promotionId}/claims?userId=${userId}`),
+  listClaims: (promotionId: number, userId?: number) =>
+    request<ClaimsResponse>(
+      userId !== undefined
+        ? `/crm/promotions/${promotionId}/claims?userId=${userId}`
+        : `/crm/promotions/${promotionId}/claims`
+    ),
+  approveClaim: (promotionId: number, claimId: number) =>
+    request<ApproveClaimResponse>(`/crm/promotions/${promotionId}/claims/${claimId}/approve`, {
+      method: 'POST'
+    }),
+  rejectClaim: (promotionId: number, claimId: number) =>
+    request<{ claim: PromotionClaim }>(`/crm/promotions/${promotionId}/claims/${claimId}/reject`, {
+      method: 'POST'
+    }),
   getPreferences: (userId: number) =>
     request<{ preferences: UserPreferences }>(`/users/${userId}/preferences`),
   updatePreferences: (userId: number, data: { favorite_team?: string | null; marketing_opt_in?: boolean }) =>

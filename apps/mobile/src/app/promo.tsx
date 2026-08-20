@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api, usePromotions, useCurrentUser, useContents } from '@betting/core';
-import type { Content, Promotion } from '@betting/core';
+import { api, usePromotions, useCurrentUser, useContents, useClaims } from '@betting/core';
+import type { Content, Promotion, PromotionClaim } from '@betting/core';
 import { Screen, PromotionCard, Banner, FlashMsg, MarkdownText, colors, radius, fontSize, font, spacing, SectionTitle } from '@betting/ui';
 
 function bonusLabel(p: Promotion): string {
@@ -17,9 +17,41 @@ export default function PromoScreen() {
   const [locale, setLocale] = useState<string>('zh');
   const contents = useContents('published', locale);
   const { user } = useCurrentUser();
-  const [claimedIds, setClaimedIds] = useState<Set<number>>(new Set());
+  const [claimStatus, setClaimStatus] = useState<Record<number, PromotionClaim['status'] | null>>({});
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [reviewClaims, setReviewClaims] = useState<{ promotion: Promotion; claims: PromotionClaim[] } | null>(null);
+  const [loadingClaims, setLoadingClaims] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingClaims(true);
+      try {
+        const map: Record<number, PromotionClaim['status'] | null> = {};
+        const list = promos.data?.promotions ?? [];
+        await Promise.all(
+          list.map(async (p) => {
+            try {
+              const r = await api.listClaims(p.id, user.id);
+              const mine = r.claims.find((c) => c.user_id === user.id);
+              if (mine && !cancelled) map[p.id] = mine.status;
+            } catch {
+              // 非本用户领取过 → 忽略
+            }
+          }),
+        );
+        if (!cancelled) setClaimStatus(map);
+      } finally {
+        if (!cancelled) setLoadingClaims(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // 管理员建活动（demo 简化：前端直接调 API）
   const [title, setTitle] = useState('');
@@ -82,9 +114,43 @@ export default function PromoScreen() {
     setBusyId(p.id);
     setMsg(null);
     try {
-      await api.claimPromotion(p.id, user.id);
-      setClaimedIds((prev) => new Set(prev).add(p.id));
-      setMsg({ kind: 'ok', text: `✅ 已领取「${p.title}」` });
+      const res = await api.claimPromotion(p.id);
+      setClaimStatus((prev) => ({ ...prev, [p.id]: res.claim.status }));
+      setMsg({ kind: 'ok', text: res.claim.status === 'pending' ? `✅ 已提交「${p.title}」审核` : `✅ 已领取「${p.title}」` });
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const review = async (p: Promotion) => {
+    setBusyId(p.id);
+    setMsg(null);
+    try {
+      const r = await api.listClaims(p.id);
+      setReviewClaims({ promotion: p, claims: r.claims });
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const decideClaim = async (c: PromotionClaim, action: 'approve' | 'reject') => {
+    if (!reviewClaims) return;
+    setBusyId(c.id);
+    setMsg(null);
+    try {
+      if (action === 'approve') {
+        await api.approveClaim(reviewClaims.promotion.id, c.id);
+        setMsg({ kind: 'ok', text: `✅ 已通过 #${c.id}（发放 ¥${reviewClaims.promotion.bonus_value}）` });
+      } else {
+        await api.rejectClaim(reviewClaims.promotion.id, c.id);
+        setMsg({ kind: 'ok', text: `✅ 已拒绝 #${c.id}` });
+      }
+      const r = await api.listClaims(reviewClaims.promotion.id);
+      setReviewClaims({ promotion: reviewClaims.promotion, claims: r.claims });
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -184,7 +250,7 @@ export default function PromoScreen() {
                 title={item.title}
                 description={item.description}
                 bonusLabel={bonusLabel(item)}
-                claimed={claimedIds.has(item.id)}
+                claimStatus={claimStatus[item.id] ?? null}
                 onClaim={() => claim(item)}
               />
             )}
@@ -205,6 +271,75 @@ export default function PromoScreen() {
             </View>
           </View>
         )}
+
+        {/* 管理员：领取审核（仅 role=admin 可见） */}
+        {user?.role === 'admin' && (
+          <View style={styles.adminBox}>
+            <Text style={styles.adminTitle}>🔎 管理员：领取审核</Text>
+            {(promos.data?.promotions ?? []).length === 0 && <Text style={styles.empty}>暂无活动</Text>}
+            {(promos.data?.promotions ?? []).map((p) => (
+              <View key={p.id} style={styles.contentRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.contentTitle} numberOfLines={1}>{p.title}</Text>
+                  <Text style={styles.contentMeta}>
+                    {p.bonus_type === 'deposit_bonus' ? `充值送${p.bonus_value}%` : `免费投注 ¥${p.bonus_value}`}
+                    {p.wagering_multiplier > 0 ? ` · 流水×${p.wagering_multiplier}` : ''}
+                    {p.max_claims_per_user > 1 ? ` · 限领${p.max_claims_per_user}次` : ''}
+                  </Text>
+                </View>
+                <Pressable onPress={() => review(p)} disabled={busyId === p.id} style={styles.miniBtn}>
+                  <Text style={styles.miniBtnText}>{busyId === p.id ? '…' : '审核'}</Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* 领取审核弹窗 */}
+        <Modal visible={reviewClaims !== null} transparent animationType="slide" onRequestClose={() => setReviewClaims(null)}>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalSheet}>
+              {reviewClaims && (
+                <>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>审核「{reviewClaims.promotion.title}」</Text>
+                    <Pressable onPress={() => setReviewClaims(null)} hitSlop={10} style={styles.modalClose}>
+                      <Text style={styles.modalCloseText}>✕</Text>
+                    </Pressable>
+                  </View>
+                  <Text style={styles.modalMeta}>共 {reviewClaims.claims.length} 条领取记录</Text>
+                  {reviewClaims.claims.length === 0 && <Text style={styles.empty}>暂无领取记录</Text>}
+                  {reviewClaims.claims.map((c) => (
+                    <View key={c.id} style={styles.contentRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.contentTitle} numberOfLines={1}>
+                          #{c.id} · 用户{c.user_id}
+                        </Text>
+                        <Text style={styles.contentMeta}>
+                          {c.status === 'approved'
+                            ? `✅ 已发放 ¥${c.bonus_amount}${c.wagering_required > 0 ? `（流水 ${c.wagering_done}/${c.wagering_required}）` : ''}`
+                            : c.status === 'rejected'
+                              ? '❌ 已拒绝'
+                              : '⏳ 待审核'}
+                        </Text>
+                      </View>
+                      {c.status === 'pending' && (
+                        <View style={styles.contentActions}>
+                          <Pressable onPress={() => decideClaim(c, 'approve')} disabled={busyId === c.id} style={styles.miniBtn}>
+                            <Text style={styles.miniBtnText}>{busyId === c.id ? '…' : '通过'}</Text>
+                          </Pressable>
+                          <Pressable onPress={() => decideClaim(c, 'reject')} disabled={busyId === c.id} style={styles.miniBtnDanger}>
+                            <Text style={styles.miniBtnText}>{busyId === c.id ? '…' : '拒绝'}</Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* 管理员 CMS：内容管理（仅 role=admin 可见） */}
         {user?.role === 'admin' && (

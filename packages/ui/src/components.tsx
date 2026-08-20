@@ -202,13 +202,13 @@ export function PromotionCard({
   title,
   description,
   bonusLabel,
-  claimed,
+  claimStatus,
   onClaim,
 }: {
   title: string;
   description: string;
   bonusLabel: string;
-  claimed?: boolean;
+  claimStatus?: 'pending' | 'approved' | 'rejected' | null;
   onClaim?: () => void;
 }) {
   const t = useTheme();
@@ -221,9 +221,17 @@ export function PromotionCard({
           <Text style={styles.promoBonusText}>{bonusLabel}</Text>
         </View>
       </View>
-      {claimed ? (
+      {claimStatus === 'approved' ? (
         <View style={[styles.promoClaimed, { borderColor: t.success }]}>
           <Text style={{ color: t.success, fontSize: fontSize.sm, fontWeight: font.bold }}>已领取 ✓</Text>
+        </View>
+      ) : claimStatus === 'pending' ? (
+        <View style={[styles.promoClaimed, { borderColor: t.warning }]}>
+          <Text style={{ color: t.warning, fontSize: fontSize.sm, fontWeight: font.bold }}>审核中…</Text>
+        </View>
+      ) : claimStatus === 'rejected' ? (
+        <View style={[styles.promoClaimed, { borderColor: t.danger }]}>
+          <Text style={{ color: t.danger, fontSize: fontSize.sm, fontWeight: font.bold }}>已拒绝</Text>
         </View>
       ) : (
         <Pressable
