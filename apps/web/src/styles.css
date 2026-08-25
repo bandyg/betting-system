@@ -77,6 +77,8 @@ button.small { padding: 4px 10px; font-size: 12px; }
 .msg.ok { background: #12331f; border: 1px solid #1f6b3d; color: #7ee2a8; }
 .msg.err { background: #33131a; border: 1px solid #8a2f3f; color: #ff9db0; }
 
+.auth-hint { margin: 12px 0; padding: 14px 16px; border-radius: 8px; background: #14203a; border: 1px dashed #3b5585; color: #9fb6dd; font-size: 13px; line-height: 1.6; }
+
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 8px 10px; border-bottom: 1px solid #232c47; text-align: left; vertical-align: top; }
 th { color: #8b95b5; font-weight: 600; font-size: 12px; }

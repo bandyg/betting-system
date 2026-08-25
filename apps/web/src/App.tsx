@@ -5,6 +5,22 @@ import { MATCH_STATUS_LABELS, SEL_LABELS, TYPE_LABELS, SUPPORT_STATUS_LABELS, SU
 
 interface Msg { kind: 'ok' | 'err'; text: string }
 
+/** 错误显示助手：避免 String(e) 直出（Error 对象会带 "Error: " 前缀，用户看不懂） */
+function errText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+/** 提示消息自动消失（默认 3.5s）：msg 变化即重置 timer，cleanup 防泄漏 */
+function useAutoDismissMsg(delayMs = 3500): [Msg | null, (m: Msg | null) => void] {
+  const [msg, setMsg] = useState<Msg | null>(null);
+  useEffect(() => {
+    if (!msg) return;
+    const t = window.setTimeout(() => setMsg(null), delayMs);
+    return () => window.clearTimeout(t);
+  }, [msg, delayMs]);
+  return [msg, setMsg];
+}
+
 function fmtTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -127,7 +143,7 @@ function MatchesExplorer({ onPick, loggedIn, pickedKeys }: {
   const [when, setWhen] = useState<'all' | 'today' | '3d' | '7d'>('all');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [loadedAt, setLoadedAt] = useState<string>('');
-  const [msg, setMsg] = useState<Msg | null>(null);
+  const [msg, setMsg] = useAutoDismissMsg();
 
   const refresh = useCallback(async () => {
     try {
@@ -135,7 +151,7 @@ function MatchesExplorer({ onPick, loggedIn, pickedKeys }: {
       setMatches(res.matches);
       setLoadedAt(new Date().toISOString());
       setMsg(null);
-    } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
+    } catch (e) { setMsg({ kind: 'err', text: errText(e) }); }
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -453,7 +469,7 @@ function BetSlip({ items, user, role, onRemove, onClear, onSelfBalance }: {
   const [stake, setStake] = useState('100');
   const [proxyUid, setProxyUid] = useState<number | ''>('');
   const [users, setUsers] = useState<User[]>([]);
-  const [msg, setMsg] = useState<Msg | null>(null);
+  const [msg, setMsg] = useAutoDismissMsg();
   const isAdmin = role === 'admin';
 
   useEffect(() => {
@@ -482,7 +498,7 @@ function BetSlip({ items, user, role, onRemove, onClear, onSelfBalance }: {
         lastBet = res.bet;
         lastAccount = res.account;
       } catch (e) {
-        setMsg({ kind: 'err', text: `#${it.marketId} ${SEL_LABELS[it.selection] ?? it.selection} 下注失败：${e instanceof Error ? e.message : String(e)}` });
+        setMsg({ kind: 'err', text: `#${it.marketId} ${SEL_LABELS[it.selection] ?? it.selection} 下注失败：${errText(e)}` });
         break;
       }
     }
@@ -545,19 +561,42 @@ function BetSlip({ items, user, role, onRemove, onClear, onSelfBalance }: {
 
 /* ==================== 投注记录 ==================== */
 
-function BetsPanel({ role }: { role: string }) {
+function BetsPanel({ role, loggedIn }: { role: string; loggedIn: boolean }) {
   const [bets, setBets] = useState<Bet[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [userId, setUserId] = useState<number | ''>('');
-  const [msg, setMsg] = useState<Msg | null>(null);
+  const [msg, setMsg] = useAutoDismissMsg();
+  const [authHint, setAuthHint] = useState<string | null>(null);
   const isAdmin = role === 'admin';
 
   const refresh = useCallback(async () => {
-    try { const res = await api.listBets(userId === '' ? undefined : Number(userId)); setBets(res.bets); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-  }, [userId]);
+    try {
+      const res = await api.listBets(userId === '' ? undefined : Number(userId));
+      setBets(res.bets);
+      setAuthHint(null);
+    } catch (e) {
+      if ((e as { status?: number }).status === 401) {
+        // 登录态失效（token 被清/会话过期）：给友好提示，不直出裸错误
+        setBets([]);
+        setAuthHint('登录状态已失效，请重新登录');
+      } else {
+        setMsg({ kind: 'err', text: errText(e) });
+      }
+    }
+  }, [userId, setMsg]);
 
   useEffect(() => { if (isAdmin) { api.listUsers().then((r) => setUsers(r.users)).catch(() => {}); } }, [isAdmin]);
-  useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (loggedIn) {
+      setAuthHint(null);
+      refresh();
+    } else {
+      // 匿名：不请求 API，直接显示登录引导
+      setBets([]);
+      setAuthHint('请先登录后查看投注记录');
+    }
+  }, [loggedIn, refresh]);
 
   return (
     <section className="card">
@@ -568,10 +607,11 @@ function BetsPanel({ role }: { role: string }) {
             <option value="">全部用户</option>
             {users.map((u) => <option key={u.id} value={u.id}>#{u.id} {u.name}</option>)}
           </select>
-          <button onClick={refresh} className="ghost small">↻</button>
+          <button onClick={() => refresh()} className="ghost small">↻</button>
         </div>
       )}
-      {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
+      {authHint && <div className="auth-hint">{authHint}</div>}
+      {!authHint && <>{msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
       <table>
         <thead>
           <tr><th>#</th><th>用户</th><th>市场</th><th>选择</th><th>金额</th><th>赔率</th><th>派彩</th><th>状态</th><th>时间</th></tr>
@@ -592,7 +632,7 @@ function BetsPanel({ role }: { role: string }) {
           ))}
           {bets.length === 0 && <tr><td colSpan={9} className="muted">暂无投注记录</td></tr>}
         </tbody>
-      </table>
+      </table></>}
     </section>
   );
 }
@@ -885,7 +925,7 @@ export default function App() {
             </aside>
           </div>
         )}
-        {tab === 'records' && <BetsPanel role={role} />}
+        {tab === 'records' && <BetsPanel role={role} loggedIn={!!currentUser} />}
         {tab === 'admin' && isSupport && (
           <>
             <div className="grid">
