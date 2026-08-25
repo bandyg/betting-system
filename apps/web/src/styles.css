@@ -7,7 +7,7 @@ body {
   line-height: 1.5;
 }
 
-#root { max-width: 1100px; margin: 0 auto; padding: 0 0 60px; }
+#root { max-width: 1280px; margin: 0 auto; padding: 0 0 60px; }
 
 /* ── Header ── */
 header.top {
@@ -99,6 +99,27 @@ th { color: #8b95b5; font-weight: 600; font-size: 12px; }
 }
 .odds-chip:hover { border-color: #4a6cf7; }
 .odds-chip.selected { border-color: #4a6cf7; background: #22315c; }
+.odds-chip.disabled { opacity: 0.45; cursor: not-allowed; }
+.odds-chip.disabled:hover { border-color: #2a3350; }
+
+/* ── Lobby Layout（bet365 双栏：左赛事列表 + 右 sticky 投注单） ── */
+.lobby-layout { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
+@media (min-width: 1200px) {
+  .lobby-layout { grid-template-columns: minmax(0, 1fr) 320px; }
+  .lobby-basket { position: sticky; top: 12px; }
+}
+
+/* ── Bet Slip（投注单） ── */
+.bet-slip-item {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid #232c47; font-size: 13px;
+}
+.bet-slip-item .sel { color: #7ee2a8; font-weight: 600; }
+.bet-slip-item .price { color: #e8ecf4; font-weight: 700; }
+.bet-slip-remove { background: none; border: none; color: #6b7699; cursor: pointer; padding: 0 4px; font-size: 15px; }
+.bet-slip-remove:hover { color: #ff9db0; }
+
+.balance-inline { color: #7ee2a8; font-weight: 600; }
 
 .muted { color: #8b95b5; font-size: 12px; }
 .balance { font-size: 20px; font-weight: 700; color: #7ee2a8; }

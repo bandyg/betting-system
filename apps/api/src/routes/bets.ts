@@ -62,11 +62,34 @@ function getBetDetail(id: number) {
   return { ...bet, market };
 }
 
+// 下注身份解析（K2 语义修复）：
+// - 普通用户：强制用 token 身份，body.userId 一律忽略（防伪造）
+// - admin/support：保留代客下注，放行 body.userId（校验正整数 + 用户存在）
+function resolveBetUid(
+  me: { id: number; role: string },
+  bodyUserId: unknown,
+):
+  | { uid: number }
+  | { error: { status: number; body: { error: string } } } {
+  if (bodyUserId === undefined) return { uid: me.id };
+  if (me.role !== 'admin' && me.role !== 'support') return { uid: me.id };
+  const bid = Number(bodyUserId);
+  if (!Number.isInteger(bid) || bid <= 0) {
+    return { error: { status: 400, body: { error: 'userId must be a positive integer' } } };
+  }
+  const target = db.prepare('SELECT id FROM users WHERE id = ?').get(bid);
+  if (!target) return { error: { status: 404, body: { error: 'user not found' } } };
+  return { uid: bid };
+}
+
 // POST /bets — place a bet: validate user/market/selection, check balance, deduct stake, create bet
-// body: { marketId, selection, stake }（userId 从登录 token 取，不信任客户端传值）
+// body: { marketId, selection, stake }（userId 从登录 token 取，不信任客户端传值；admin/support 可代客下注）
 betsRouter.post('/bets', requireAuth, (req, res) => {
-  const uid = (res.locals.user as { id: number }).id;
-  const { marketId, selection, stake } = req.body ?? {};
+  const me = res.locals.user as { id: number; role: string };
+  const { marketId, selection, stake, userId } = req.body ?? {};
+  const resolved = resolveBetUid(me, userId);
+  if ('error' in resolved) return res.status(resolved.error.status).json(resolved.error.body);
+  const uid = resolved.uid;
 
   const mid = Number(marketId);
   if (!Number.isInteger(mid) || mid <= 0) {
@@ -148,12 +171,15 @@ betsRouter.post('/bets', requireAuth, (req, res) => {
 });
 
 // POST /bets/parlay — place an accumulator bet: ≥2 legs across different matches, stake is the whole ticket.
-// body: { legs: [{ marketId, selection }, ...], stake }（userId 从 token 取）
+// body: { legs: [{ marketId, selection }, ...], stake }（userId 从 token 取；admin/support 可代客下注）
 //   Combined odds = product of all leg odds. All legs must be on 'open' markets and on distinct matches.
 //   Deducts stake once; each leg lands in bet_legs. Settled together by settleMatch once every leg's market is settled.
 betsRouter.post('/bets/parlay', requireAuth, (req, res) => {
-  const uid = (res.locals.user as { id: number }).id;
-  const { legs, stake } = req.body ?? {};
+  const me = res.locals.user as { id: number; role: string };
+  const { legs, stake, userId } = req.body ?? {};
+  const resolved = resolveBetUid(me, userId);
+  if ('error' in resolved) return res.status(resolved.error.status).json(resolved.error.body);
+  const uid = resolved.uid;
 
   if (!Array.isArray(legs) || legs.length < 2) {
     return res.status(400).json({ error: 'legs must be an array with at least 2 entries' });

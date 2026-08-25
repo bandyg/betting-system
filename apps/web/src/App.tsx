@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, setAuthToken } from '@betting/core';
-import type { Bet, Market, Match, SettleResponse, User, SupportCategory, SupportMessage, SupportStatus, SupportTicket } from '@betting/core';
+import type { Bet, Market, Match, OddsItem, SettleResponse, User, SupportCategory, SupportMessage, SupportStatus, SupportTicket } from '@betting/core';
 import { MATCH_STATUS_LABELS, SEL_LABELS, TYPE_LABELS, SUPPORT_STATUS_LABELS, SUPPORT_PRIORITY_LABELS, SUPPORT_STATUS_TRANSITIONS } from '@betting/core';
 
 interface Msg { kind: 'ok' | 'err'; text: string }
@@ -28,7 +28,7 @@ function fmtKickoff(iso: string): string {
 
 /* ==================== Admin Login Bar ==================== */
 
-function AdminLoginBar({ onRole }: { onRole: (role: string) => void }) {
+function AdminLoginBar({ user, onRole, onUser }: { user: User | null; onRole: (role: string) => void; onUser: (u: User | null) => void }) {
   const [token, setToken] = useState<string | null>(null);
   const [name, setName] = useState('admin');
   const [pw, setPw] = useState('');
@@ -42,6 +42,11 @@ function AdminLoginBar({ onRole }: { onRole: (role: string) => void }) {
         setToken(t);
         const r = localStorage.getItem('betting.role');
         if (r) onRole(r);
+        const u = localStorage.getItem('betting.user');
+        if (u) {
+          const parsed = JSON.parse(u) as User;
+          onUser(parsed);
+        }
       }
     } catch { /* ignore */ }
   }, []);
@@ -53,9 +58,11 @@ function AdminLoginBar({ onRole }: { onRole: (role: string) => void }) {
       try {
         localStorage.setItem('betting.token', res.token);
         localStorage.setItem('betting.role', res.user.role ?? 'user');
+        localStorage.setItem('betting.user', JSON.stringify(res.user));
       } catch { /* ignore */ }
       setToken(res.token);
       onRole(res.user.role ?? 'user');
+      onUser(res.user);
       setMsg({ kind: 'ok', text: `✅ ${res.user.name}（${res.user.role}）` });
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
@@ -65,7 +72,8 @@ function AdminLoginBar({ onRole }: { onRole: (role: string) => void }) {
   const logout = () => {
     setAuthToken(null);
     setToken(null);
-    try { localStorage.removeItem('betting.token'); localStorage.removeItem('betting.role'); } catch { /* ignore */ }
+    onUser(null);
+    try { localStorage.removeItem('betting.token'); localStorage.removeItem('betting.role'); localStorage.removeItem('betting.user'); } catch { /* ignore */ }
     onRole('');
   };
 
@@ -73,7 +81,7 @@ function AdminLoginBar({ onRole }: { onRole: (role: string) => void }) {
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: '8px 0', fontSize: 12 }}>
       {token ? (
         <>
-          <span style={{ color: '#4ade80' }}>🔐 {name}</span>
+          <span style={{ color: '#4ade80' }}>🔐 {user?.name}{user?.balance != null && <span className="balance-inline">（¥{user.balance}）</span>}</span>
           <button onClick={logout} className="ghost small">退出</button>
         </>
       ) : (
@@ -106,7 +114,11 @@ const WHEN_FILTERS: Array<['all' | 'today' | '3d' | '7d', string]> = [
   ['all', '全部'], ['today', '今天'], ['3d', '近3天'], ['7d', '近7天'],
 ];
 
-function MatchesExplorer() {
+function MatchesExplorer({ onPick, loggedIn, pickedKeys }: {
+  onPick: (m: Match, mk: Market, o: OddsItem) => void;
+  loggedIn: boolean;
+  pickedKeys: Set<string>;
+}) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [q, setQ] = useState('');
   const [sport, setSport] = useState('');
@@ -218,7 +230,9 @@ function MatchesExplorer() {
             {label}
           </button>
         ))}
-        <span className="filter-label" style={{ marginLeft: 8 }}>时间</span>
+      </div>
+      <div className="filter-row">
+        <span className="filter-label">时间</span>
         {WHEN_FILTERS.map(([v, label]) => (
           <button key={v} className={`filter-chip ${when === v ? 'active' : ''}`} onClick={() => setWhen(v)}>
             {label}
@@ -254,13 +268,28 @@ function MatchesExplorer() {
                 </div>
                 {m.markets.length > 0 && (
                   <div className="match-odds">
-                    {m.markets.map((mk) => (
-                      mk.odds.map((o) => (
-                        <span key={`${mk.id}-${o.selection}`} className="odds-chip">
-                          {SEL_LABELS[o.selection] ?? o.selection} {o.price}
-                        </span>
-                      ))
-                    ))}
+                    {m.markets.map((mk) =>
+                      mk.odds.map((o) => {
+                        const chipKey = `${mk.id}:${o.selection}`;
+                        const open = mk.status === 'open';
+                        return (
+                          <span
+                            key={`${mk.id}-${o.selection}`}
+                            role="button"
+                            title={open ? '加入投注单' : '该市场已关闭'}
+                            className={`odds-chip${pickedKeys.has(chipKey) ? ' selected' : ''}${open ? '' : ' disabled'}`}
+                            onClick={() => {
+                              if (!loggedIn) { setMsg({ kind: 'err', text: '⚠️ 请先登录再下注' }); return; }
+                              if (!open) { setMsg({ kind: 'err', text: '该市场已关闭，无法下注' }); return; }
+                              setMsg(null);
+                              onPick(m, mk, o);
+                            }}
+                          >
+                            {SEL_LABELS[o.selection] ?? o.selection} {o.price}
+                          </span>
+                        );
+                      }),
+                    )}
                   </div>
                 )}
               </div>
@@ -402,71 +431,113 @@ function MatchesAdminPanel() {
   );
 }
 
-/* ==================== 下注 ==================== */
+/* ==================== 投注单（bet365 直下注模式，K1） ==================== */
 
-function BettingPanel() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [userId, setUserId] = useState<number | ''>('');
-  const [marketId, setMarketId] = useState<number | ''>('');
-  const [selection, setSelection] = useState('');
+interface BasketItem {
+  key: string;            // `${marketId}:${selection}`
+  marketId: number;
+  matchLabel: string;
+  marketLabel: string;
+  selection: string;
+  price: number;
+}
+
+function BetSlip({ items, user, role, onRemove, onClear, onSelfBalance }: {
+  items: BasketItem[];
+  user: User | null;
+  role: string;
+  onRemove: (key: string) => void;
+  onClear: () => void;
+  onSelfBalance: (balance: number) => void;
+}) {
   const [stake, setStake] = useState('100');
+  const [proxyUid, setProxyUid] = useState<number | ''>('');
+  const [users, setUsers] = useState<User[]>([]);
   const [msg, setMsg] = useState<Msg | null>(null);
+  const isAdmin = role === 'admin';
 
   useEffect(() => {
-    api.listUsers().then((r) => setUsers(r.users)).catch(() => {});
-    api.listMatches().then((r) => setMatches(r.matches)).catch(() => {});
-  }, []);
+    if (isAdmin) {
+      api.listUsers().then((r) => setUsers(r.users)).catch(() => {});
+    }
+  }, [isAdmin]);
 
-  type MarketWithMatch = Market & { match: Match };
-  const markets: MarketWithMatch[] = matches.flatMap((m) =>
-    m.markets.filter((mk) => mk.status === 'open').map((mk) => ({ ...mk, match: m }))
-  );
-
-  const chosen = markets.find((mk) => mk.id === marketId);
-  const odds = chosen?.odds.find((o) => o.selection === selection);
-  const potential = odds && stake ? (odds.price * Number(stake)).toFixed(2) : '—';
+  const stakeNum = Number(stake) || 0;
+  const totalPotential = items.reduce((n, it) => n + it.price * stakeNum, 0);
 
   const submit = async () => {
-    if (userId === '' || marketId === '' || !selection) { setMsg({ kind: 'err', text: '请选择用户、市场和选择' }); return; }
     const s = Number(stake);
     if (!(s > 0)) { setMsg({ kind: 'err', text: '投注额必须大于 0' }); return; }
-    try { const res = await api.placeBet(Number(userId), Number(marketId), selection, s); setMsg({ kind: 'ok', text: `下注成功：#${res.bet.id}，潜在派彩 ¥${res.bet.potential_payout}` }); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
+    if (items.length === 0) { setMsg({ kind: 'err', text: '投注单为空，请先在大厅点击赔率选择' }); return; }
+    if (!user && !isAdmin) { setMsg({ kind: 'err', text: '请先登录再下注' }); return; }
+    if (isAdmin && proxyUid === '') { setMsg({ kind: 'err', text: '代客下注请先选择用户' }); return; }
+    const uid = isAdmin ? Number(proxyUid) : user!.id;
+    let okCount = 0;
+    let lastBet: Bet | null = null;
+    let lastAccount: { balance: number } | null = null;
+    for (const it of items) {
+      try {
+        const res = await api.placeBet(uid, it.marketId, it.selection, s);
+        okCount += 1;
+        lastBet = res.bet;
+        lastAccount = res.account;
+      } catch (e) {
+        setMsg({ kind: 'err', text: `#${it.marketId} ${SEL_LABELS[it.selection] ?? it.selection} 下注失败：${e instanceof Error ? e.message : String(e)}` });
+        break;
+      }
+    }
+    if (okCount > 0) {
+      const pot = lastBet ? `，潜在派彩 ¥${lastBet.potential_payout}` : '';
+      setMsg({ kind: 'ok', text: `下注成功：${okCount} 笔${lastBet ? `（#${lastBet.id}${pot}）` : ''}` });
+      onClear();
+      if (lastAccount) {
+        if (isAdmin) {
+          api.listUsers().then((r) => setUsers(r.users)).catch(() => {});
+        } else {
+          onSelfBalance(lastAccount.balance);
+        }
+      }
+    }
   };
 
   return (
-    <section className="card">
-      <h2>🎫 下注</h2>
-      <div className="row">
-        <label>用户</label>
-        <select value={userId} onChange={(e) => setUserId(e.target.value === '' ? '' : Number(e.target.value))}>
-          <option value="">选择用户</option>
-          {users.map((u) => <option key={u.id} value={u.id}>#{u.id} {u.name}（¥{u.balance}）</option>)}
-        </select>
-      </div>
-      <div className="row">
-        <label>市场</label>
-        <select value={marketId} onChange={(e) => { setMarketId(e.target.value === '' ? '' : Number(e.target.value)); setSelection(''); }}>
-          <option value="">选择市场</option>
-          {markets.map((mk) => <option key={mk.id} value={mk.id}>#{mk.id} {mk.match.home_team} vs {mk.match.away_team} - {TYPE_LABELS[mk.type] ?? mk.type}{mk.line != null ? ` @${mk.line}` : ''}</option>)}
-        </select>
-      </div>
-      {chosen && (
-        <div className="row">
-          <label>选择</label>
-          {chosen.odds.map((o) => (
-            <button key={o.selection} className={`ghost small ${selection === o.selection ? 'selected' : ''}`} onClick={() => setSelection(o.selection)}>
-              {SEL_LABELS[o.selection] ?? o.selection} {o.price}
-            </button>
+    <section className="card bet-slip">
+      <h2>🧾 投注单 {items.length > 0 && <span className="badge open">{items.length}</span>}</h2>
+      {items.length === 0 ? (
+        <div className="muted" style={{ padding: '12px 0' }}>点击赛事赔率加入投注单</div>
+      ) : (
+        <>
+          {items.map((it) => (
+            <div key={it.key} className="bet-slip-item">
+              <div>
+                <div className="muted">{it.matchLabel} · {it.marketLabel}</div>
+                <span className="sel">{SEL_LABELS[it.selection] ?? it.selection}</span>{' '}
+                <span className="price">@{it.price}</span>
+              </div>
+              <button className="bet-slip-remove" onClick={() => onRemove(it.key)} title="移除">✕</button>
+            </div>
           ))}
-        </div>
+          <div className="row" style={{ marginTop: 10 }}>
+            <label>投注额</label>
+            <input type="number" value={stake} onChange={(e) => setStake(e.target.value)} min="1" />
+            <span className="muted">每注</span>
+          </div>
+          {isAdmin && (
+            <div className="row">
+              <label>代客下注</label>
+              <select value={proxyUid} onChange={(e) => setProxyUid(e.target.value === '' ? '' : Number(e.target.value))}>
+                <option value="">选择用户</option>
+                {users.map((u) => <option key={u.id} value={u.id}>#{u.id} {u.name}（¥{u.balance}）</option>)}
+              </select>
+            </div>
+          )}
+          <div className="row">
+            <span className="muted">可赢 ¥{totalPotential.toFixed(2)}</span>
+            <button onClick={submit} style={{ marginLeft: 'auto' }}>提交下注</button>
+          </div>
+        </>
       )}
-      <div className="row">
-        <label>投注额</label>
-        <input type="number" value={stake} onChange={(e) => setStake(e.target.value)} min="1" style={{ width: 100 }} />
-        {odds && <span className="muted">潜在派彩 ¥{potential}</span>}
-      </div>
-      <button onClick={submit}>提交下注</button>
+      {!user && <div className="muted" style={{ marginTop: 6 }}>未登录：点击赔率会提示先登录</div>}
       {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
     </section>
   );
@@ -474,29 +545,32 @@ function BettingPanel() {
 
 /* ==================== 投注记录 ==================== */
 
-function BetsPanel() {
+function BetsPanel({ role }: { role: string }) {
   const [bets, setBets] = useState<Bet[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [userId, setUserId] = useState<number | ''>('');
   const [msg, setMsg] = useState<Msg | null>(null);
+  const isAdmin = role === 'admin';
 
   const refresh = useCallback(async () => {
     try { const res = await api.listBets(userId === '' ? undefined : Number(userId)); setBets(res.bets); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
   }, [userId]);
 
-  useEffect(() => { api.listUsers().then((r) => setUsers(r.users)).catch(() => {}); }, []);
+  useEffect(() => { if (isAdmin) { api.listUsers().then((r) => setUsers(r.users)).catch(() => {}); } }, [isAdmin]);
   useEffect(() => { refresh(); }, [refresh]);
 
   return (
     <section className="card">
       <h2>📋 投注记录</h2>
-      <div className="row">
-        <select value={userId} onChange={(e) => setUserId(e.target.value === '' ? '' : Number(e.target.value))}>
-          <option value="">全部用户</option>
-          {users.map((u) => <option key={u.id} value={u.id}>#{u.id} {u.name}</option>)}
-        </select>
-        <button onClick={refresh} className="ghost small">↻</button>
-      </div>
+      {isAdmin && (
+        <div className="row">
+          <select value={userId} onChange={(e) => setUserId(e.target.value === '' ? '' : Number(e.target.value))}>
+            <option value="">全部用户</option>
+            {users.map((u) => <option key={u.id} value={u.id}>#{u.id} {u.name}</option>)}
+          </select>
+          <button onClick={refresh} className="ghost small">↻</button>
+        </div>
+      )}
       {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
       <table>
         <thead>
@@ -526,30 +600,45 @@ function BetsPanel() {
 /* ==================== 结算 ==================== */
 
 function SettlePanel() {
-  const [marketId, setMarketId] = useState<number | ''>('');
-  const [result, setResult] = useState('');
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [matchId, setMatchId] = useState<number | ''>('');
+  const [homeScore, setHomeScore] = useState('1');
+  const [awayScore, setAwayScore] = useState('0');
   const [msg, setMsg] = useState<Msg | null>(null);
 
-  const settle = async () => {
-    if (marketId === '' || !result) { setMsg({ kind: 'err', text: '请选择市场和结果' }); return; }
-    try { const res: SettleResponse = await api.settleMarket(Number(marketId), result); setMsg({ kind: 'ok', text: `结算完成：${res.settled} 笔投注` }); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
+  const refresh = useCallback(async () => {
+    try { const res = await api.listMatches(); setMatches(res.matches); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const recordAndSettle = async () => {
+    if (matchId === '') { setMsg({ kind: 'err', text: '请选择赛事' }); return; }
+    const hs = Number(homeScore); const as = Number(awayScore);
+    if (!Number.isInteger(hs) || !Number.isInteger(as) || hs < 0 || as < 0) { setMsg({ kind: 'err', text: '比分必须是非负整数' }); return; }
+    try {
+      await api.recordResult(Number(matchId), hs, as);
+      const res = await api.settleMatch(Number(matchId));
+      setMsg({ kind: 'ok', text: `结算完成：总派彩 ¥${res.totalPayout}，总退款 ¥${res.totalRefund}（${res.summary.length} 个市场）` });
+      await refresh();
+    } catch (e) { setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }); }
   };
 
   return (
     <section className="card">
       <h2>💰 结算</h2>
       <div className="row">
-        <input type="number" value={marketId} onChange={(e) => setMarketId(e.target.value === '' ? '' : Number(e.target.value))} placeholder="市场 ID" />
-        <select value={result} onChange={(e) => setResult(e.target.value)}>
-          <option value="">选择结果</option>
-          <option value="home">主胜 (home)</option>
-          <option value="draw">平局 (draw)</option>
-          <option value="away">客胜 (away)</option>
-          <option value="over">大 (over)</option>
-          <option value="under">小 (under)</option>
+        <select value={matchId} onChange={(e) => setMatchId(e.target.value === '' ? '' : Number(e.target.value))}>
+          <option value="">选择赛事</option>
+          {matches.filter((m) => m.status === 'finished').map((m) => (
+            <option key={m.id} value={m.id}>#{m.id} {m.home_team} vs {m.away_team}</option>
+          ))}
         </select>
-        <button onClick={settle}>结算</button>
+        <input type="number" value={homeScore} onChange={(e) => setHomeScore(e.target.value)} min="0" style={{ width: 70 }} placeholder="主队比分" />
+        <span className="muted">:</span>
+        <input type="number" value={awayScore} onChange={(e) => setAwayScore(e.target.value)} min="0" style={{ width: 70 }} placeholder="客队比分" />
+        <button onClick={recordAndSettle}>记录比分并结算</button>
       </div>
+      <button onClick={refresh} className="ghost small">↻ 刷新</button>
       {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
     </section>
   );
@@ -563,13 +652,13 @@ function FeedPanel() {
   const [msg, setMsg] = useState<Msg | null>(null);
 
   const refresh = useCallback(async () => {
-    try { const res = await api.adminFeedStatus(); setStatus(res); } catch { /* ignore */ }
+    try { const res = await api.getFeedStatus(); setStatus(res); } catch { /* ignore */ }
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
 
   const trigger = async () => {
     setBusy(true);
-    try { await api.adminTriggerFeed(); setMsg({ kind: 'ok', text: 'Feed 拉取已触发' }); await refresh(); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
+    try { await api.ingestFeedNow(); setMsg({ kind: 'ok', text: 'Feed 拉取已触发' }); await refresh(); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
     finally { setBusy(false); }
   };
 
@@ -720,18 +809,41 @@ function SupportPanel() {
   );
 }
 
-/* ==================== App（Tab 导航） ==================== */
+/* ==================== App（Tab 导航 + bet365 双栏大厅） ==================== */
 
-type TabId = 'lobby' | 'bet' | 'records' | 'admin';
+type TabId = 'lobby' | 'records' | 'admin';
 
 export default function App() {
   const [role, setRole] = useState('');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [basket, setBasket] = useState<BasketItem[]>([]);
   const [tab, setTab] = useState<TabId>('lobby');
   const isSupport = role === 'admin' || role === 'support';
 
+  const pickedKeys = useMemo(() => new Set(basket.map((b) => b.key)), [basket]);
+
+  const handlePick = useCallback((m: Match, mk: Market, o: OddsItem) => {
+    const key = `${mk.id}:${o.selection}`;
+    setBasket((b) => (b.some((i) => i.key === key) ? b : [...b, {
+      key,
+      marketId: mk.id,
+      matchLabel: `${m.home_team} vs ${m.away_team}`,
+      marketLabel: `${TYPE_LABELS[mk.type] ?? mk.type}${mk.line != null ? ` @${mk.line}` : ''}`,
+      selection: o.selection,
+      price: o.price,
+    }]));
+  }, []);
+
+  const removeItem = useCallback((key: string) => {
+    setBasket((b) => b.filter((i) => i.key !== key));
+  }, []);
+
+  const updateSelfBalance = useCallback((balance: number) => {
+    setCurrentUser((u) => (u ? { ...u, balance } : u));
+  }, []);
+
   const tabs: Array<{ id: TabId; icon: string; label: string; adminOnly?: boolean }> = [
     { id: 'lobby', icon: '🏠', label: '大厅' },
-    { id: 'bet', icon: '🎫', label: '下注' },
     { id: 'records', icon: '📋', label: '投注记录' },
     { id: 'admin', icon: '⚙️', label: '管理', adminOnly: true },
   ];
@@ -745,7 +857,7 @@ export default function App() {
           <h1>⚽ 投注系统</h1>
           <span className="sub">赛前固定赔率 · 下注 · 结算</span>
         </div>
-        <AdminLoginBar onRole={setRole} />
+        <AdminLoginBar user={currentUser} onRole={setRole} onUser={setCurrentUser} />
       </header>
       <nav className="tab-bar">
         {visibleTabs.map((t) => (
@@ -756,9 +868,24 @@ export default function App() {
         ))}
       </nav>
       <div className="tab-content">
-        {tab === 'lobby' && <MatchesExplorer />}
-        {tab === 'bet' && <BettingPanel />}
-        {tab === 'records' && <BetsPanel />}
+        {tab === 'lobby' && (
+          <div className="lobby-layout">
+            <div className="lobby-list">
+              <MatchesExplorer onPick={handlePick} loggedIn={!!currentUser} pickedKeys={pickedKeys} />
+            </div>
+            <aside className="lobby-basket">
+              <BetSlip
+                items={basket}
+                user={currentUser}
+                role={role}
+                onRemove={removeItem}
+                onClear={() => setBasket([])}
+                onSelfBalance={updateSelfBalance}
+              />
+            </aside>
+          </div>
+        )}
+        {tab === 'records' && <BetsPanel role={role} />}
         {tab === 'admin' && isSupport && (
           <>
             <div className="grid">
