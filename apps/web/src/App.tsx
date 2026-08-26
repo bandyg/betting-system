@@ -144,14 +144,17 @@ function MatchesExplorer({ onPick, loggedIn, pickedKeys }: {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [loadedAt, setLoadedAt] = useState<string>('');
   const [msg, setMsg] = useAutoDismissMsg();
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await api.listMatches();
       setMatches(res.matches);
       setLoadedAt(new Date().toISOString());
       setMsg(null);
     } catch (e) { setMsg({ kind: 'err', text: errText(e) }); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -257,7 +260,8 @@ function MatchesExplorer({ onPick, loggedIn, pickedKeys }: {
       </div>
 
       {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
-      {!msg && totalCount === 0 && <div className="muted" style={{ margin: '20px 0', textAlign: 'center' }}>没有符合条件的赛事</div>}
+      {loading && <div className="muted" style={{ margin: '20px 0', textAlign: 'center' }}>⏳ 加载赛事中…</div>}
+      {!loading && !msg && totalCount === 0 && <div className="muted" style={{ margin: '20px 0', textAlign: 'center' }}>没有符合条件的赛事</div>}
 
       {/* Match Groups */}
       {groups.map((g) => {
