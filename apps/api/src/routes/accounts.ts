@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { randomUUID } from 'node:crypto';
 import db, { hashPassword, DEFAULT_PASSWORD } from '../db/index.js';
 import { requireAuth, requireRole } from './middleware.js';
+import { signSessionToken } from '../jwt.js';
 
 export const accountsRouter = Router();
 
@@ -36,9 +36,13 @@ accountsRouter.post('/users', (req, res) => {
        WHERE u.id = ?`,
     )
     .get(userId);
-  // 注册即登录：直接发一个 session token
-  const token = crypto.randomUUID();
-  db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, userId);
+  // 注册即登录：签发 JWT 会话（sessions 表存 JWT + expires_at）
+  const { token, expiresAt } = signSessionToken(userId);
+  db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(
+    token,
+    userId,
+    expiresAt,
+  );
   res.status(201).json({ user: row, token });
 });
 

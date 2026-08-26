@@ -22,6 +22,17 @@ const PORT = Number(process.env.PORT ?? 4100);
 app.use(cors());
 app.use(express.json());
 
+// 安全响应头（N 轮生产化第一阶·N3）：全局应用，/health 与 /api/* 均携带
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+  res.setHeader('X-XSS-Protection', '0'); // 现代标准建议显式关闭遗留易误伤过滤器
+  next();
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'betting-api', time: new Date().toISOString() });
 });

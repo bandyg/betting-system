@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,8 +10,29 @@ const DATA_DIR = join(__dirname, '..', '..', '..', '..', 'data');
 // Optional DB path override (used by isolated e2e/tests to avoid touching live data)
 const DB_FILE = process.env.BETTING_DB_PATH ?? join(DATA_DIR, 'betting.db');
 
+/**
+ * 密码哈希：bcrypt（N 轮生产化第一阶，bcryptjs v3 默认 $2b$ 前缀，cost 10）。
+ * 旧数据（SHA-256 无盐 hex）不做批量迁移 —— 保留原样，登录成功时惰性升级（见 auth.ts）。
+ */
 export function hashPassword(pw: string): string {
-  return createHash('sha256').update(pw).digest('hex');
+  return bcrypt.hashSync(pw, 10);
+}
+
+/** 是否为 bcrypt 哈希（$2a$/$2b$/$2y$ 前缀） */
+export function isBcryptHash(h: string): boolean {
+  return typeof h === 'string' && h.startsWith('$2');
+}
+
+/** 校验密码：bcrypt 哈希走 compareSync；历史 SHA-256 hex 走旧算法（登录成功后升级） */
+export function verifyPassword(pw: string, stored: string): boolean {
+  if (isBcryptHash(stored)) {
+    try {
+      return bcrypt.compareSync(pw, stored);
+    } catch {
+      return false;
+    }
+  }
+  return createHash('sha256').update(pw).digest('hex') === stored;
 }
 
 /** 默认密码（旧用户无密码，迁移时统一回填 123456，demo 用） */
@@ -278,6 +300,19 @@ addCol('matches', 'external_id', "external_id TEXT");
     `);
     db.pragma('foreign_keys = ON');
   }
+
+  // 迁移（N 轮生产化第一阶）：JWT 签名密钥（首次启动随机生成并持久化，幂等）
+  const jwtSecret = db
+    .prepare("SELECT value FROM settings WHERE key = 'jwt_secret'")
+    .get() as { value: string } | undefined;
+  if (!jwtSecret) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('jwt_secret', ?)").run(
+      randomBytes(32).toString('hex'),
+    );
+  }
+
+  // 迁移（N 轮生产化第一阶）：sessions 表加 expires_at（JWT 会话过期时间，幂等）
+  addCol('sessions', 'expires_at', 'expires_at TEXT');
 }
 
 // Ensure schema exists on import (idempotent)
