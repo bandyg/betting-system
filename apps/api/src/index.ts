@@ -15,6 +15,7 @@ import { analyticsRouter } from './routes/analytics.js';
 import { feedRouter } from './routes/feed.js';
 import { supportRouter } from './routes/support.js';
 import { sportsRouter } from './routes/sports.js';
+import { healthRouter } from './routes/health.js';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4100);
@@ -52,6 +53,7 @@ app.use('/api', analyticsRouter);
 app.use('/api', feedRouter);
 app.use('/api', supportRouter);
 app.use('/api', sportsRouter);
+app.use('/api', healthRouter);
 
 app.listen(PORT, () => {
   console.log(`[betting-api] listening on :${PORT}`);
