@@ -136,3 +136,4 @@ pm2 delete ecosystem.config.js   # 全部下线
 - 无用户认证（单用户直接用 userId 操作，演示用）
 - 无多语言 / 多渠道（仅 Web）
 - SQLite 单机存储（后续可迁 PostgreSQL）
+# 本機測試 - betting-system verification
