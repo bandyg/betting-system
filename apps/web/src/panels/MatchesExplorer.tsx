@@ -10,6 +10,7 @@ import {
 } from '@betting/core';
 import { SkeletonList } from '../components/Skeleton.js';
 import { EmptyState } from '../components/EmptyState.js';
+import { MatchDetail } from '../components/MatchDetail.js';
 import { useAuth, toast } from '../store.js';
 
 const SPORT_EMOJI: Record<string, string> = {
@@ -63,6 +64,7 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [loadedAt, setLoadedAt] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [detailMatch, setDetailMatch] = useState<Match | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -191,7 +193,13 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
             {isOpen && g.items.map((m) => (
               <div key={m.id} style={{ borderTop: '1px solid var(--border)', padding: '10px 0' }}>
                 <div className="row">
-                  <strong>{m.home_team} vs {m.away_team}</strong>
+                  <button
+                    className="md-team-btn"
+                    onClick={() => setDetailMatch(m)}
+                    title="查看详情"
+                  >
+                    <strong>{m.home_team} vs {m.away_team}</strong>
+                  </button>
                   <span className="muted">#{m.id}</span>
                   <span className="muted">{fmtKickoff(m.kickoff_time)}</span>
                   <span className={`badge ${m.status}`}>{MATCH_STATUS_LABELS[m.status] ?? m.status}</span>
@@ -226,10 +234,16 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
                   </div>
                 )}
               </div>
-            ))}
+              ))}
           </div>
-        );
-      })}
-    </div>
-  );
-}
+          );
+          )}
+        <MatchDetail
+          match={detailMatch}
+          onClose={() => setDetailMatch(null)}
+          onPick={onPick}
+          loggedIn={loggedIn}
+        />
+      </div>
+    );
+  }
