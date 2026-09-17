@@ -557,7 +557,11 @@ function BetSlip({ items, user, role, onRemove, onClear, onSelfBalance }: {
           </div>
         </>
       )}
-      {!user && <div className="muted" style={{ marginTop: 6 }}>未登录：点击赔率会提示先登录</div>}
+      {!user && (
+        <div className="auth-hint" style={{ marginTop: 10, border: '1px dashed #8a2f3f', background: '#33131a', color: '#ff9db0' }}>
+          🔒 请先登录再下注：当前未登录，点击任何赔率将提示「请先登录再下注」。投注前请先在上方登录。
+        </div>
+      )}
       {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
     </section>
   );
