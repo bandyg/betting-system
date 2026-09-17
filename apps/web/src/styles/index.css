@@ -1,0 +1,6 @@
+/* styles/index.css — 入口（按顺序 import） */
+
+@import './reset.css';
+@import './layout.css';
+@import './components.css';
+@import './animations.css';
