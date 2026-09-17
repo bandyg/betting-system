@@ -67,13 +67,17 @@ try {
   let body = await page.locator('body').innerText();
   ok(body.includes('请先登录') || body.includes('登录'), 'K1a 未登录点赔率提示登录', body.slice(0, 200).replace(/\n/g, ' '));
 
-  // ===== 登录用户 A =====
-  const userInput = page.locator('input').first();
-  await userInput.fill('kuxa_' + ts);
-  const pwInput = page.locator('input[type="password"]').first();
-  await pwInput.fill('123456');
+  // ===== 登录用户 A (走 A1 /login 独立页) =====
+  // 1) 点 header "🔑 登录" 跳 /login
+  await page.getByRole('button', { name: /登录/ }).click();
+  await page.waitForURL(/\/login/, { timeout: 10000 });
+  // 2) 在 /login 填表单
+  await page.locator('#login-name').fill('kuxa_' + ts);
+  await page.locator('#login-pw').fill('123456');
   await page.getByRole('button', { name: '登录', exact: true }).click();
-  await page.waitForTimeout(1200);
+  // 3) 跳回 /matches
+  await page.waitForURL(/\/matches/, { timeout: 10000 });
+  await page.waitForTimeout(500);
   body = await page.locator('body').innerText();
   ok(body.includes('kuxa_' + ts) && body.includes('¥1000'), 'K1b 登录后头部显示用户名+余额', body.match(/kuxa_\d+[^\n¥]*¥\d+/)?.join('') ?? '');
 
@@ -118,15 +122,14 @@ try {
   const navText = await page.locator('.tab-bar').innerText();
   ok(!navText.match(/\b下注\b/) || navText.includes('投注记录'), 'K3e 下注 tab 已移除（basket 直下注）', navText.replace(/\n/g, ' '));
 
-  // ===== K2: admin 代客下注 =====
+  // ===== K2: admin 代客下注（走 A1 /login）=====
   await page.evaluate(() => localStorage.clear());
-  await page.goto(BASE + '/matches', { waitUntil: 'networkidle' });
-  const userInput2 = page.locator('input').first();
-  await userInput2.fill('admin');
-  const pwInput2 = page.locator('input[type="password"]').first();
-  await pwInput2.fill('admin123');
+  await page.goto(BASE + '/login', { waitUntil: 'networkidle' });
+  await page.locator('#login-name').fill('admin');
+  await page.locator('#login-pw').fill('admin123');
   await page.getByRole('button', { name: '登录', exact: true }).click();
-  await page.waitForTimeout(1200);
+  await page.waitForURL(/\/matches/, { timeout: 10000 });
+  await page.waitForTimeout(800);
   await page.locator('.odds-chip').filter({ hasText: /\d+\.\d+/ }).first().click();
   await page.waitForTimeout(600);
   body = await page.locator('body').innerText();

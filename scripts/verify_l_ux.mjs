@@ -79,11 +79,13 @@ try {
   const toastCount3 = await page.locator('.toast').count().catch(() => 0);
   ok(toastCount3 === 0, 'L2b2 连点后的提示最终消失');
 
-  // ===== 登录用户 A =====
-  await page.locator('input').first().fill('luxa_' + ts);
-  await page.locator('input[type="password"]').first().fill('123456');
+  // ===== 登录用户 A (走 A1 /login) =====
+  await page.goto(BASE + '/login', { waitUntil: 'networkidle' });
+  await page.locator('#login-name').fill('luxa_' + ts);
+  await page.locator('#login-pw').fill('123456');
   await page.getByRole('button', { name: '登录', exact: true }).click();
-  await page.waitForTimeout(1200);
+  await page.waitForURL(/\/matches/, { timeout: 10000 });
+  await page.waitForTimeout(800);
   body = await page.locator('body').innerText();
   ok(body.includes('luxa_' + ts) && body.includes('¥1000'), 'Lx0 登录成功头部显示用户名+余额');
 
