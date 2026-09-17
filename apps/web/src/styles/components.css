@@ -126,6 +126,56 @@ tr:hover td { background: var(--bg-elevated); }
 .eb-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .eb-actions button { font-size: 13px; padding: 8px 14px; }
 
+/* ── Match Detail Modal (Sprint 2 A2) ── */
+.md-backdrop {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 20px; overflow-y: auto;
+  animation: fade-in 0.15s ease-out;
+}
+.md-modal {
+  max-width: 640px; width: 100%;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+.md-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 18px 20px; border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--bg-card-2), var(--bg-card));
+  gap: 12px;
+}
+.md-head-info { flex: 1; }
+.md-teams { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.md-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; align-items: center; }
+.md-market-tabs {
+  display: flex; gap: 4px; padding: 12px 16px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.md-market-tab {
+  background: transparent; border: none;
+  padding: 8px 14px; font-size: 13px; font-weight: 500;
+  color: var(--fg-muted); cursor: pointer; border-bottom: 2px solid transparent;
+  transition: all 0.15s; white-space: nowrap;
+}
+.md-market-tab:hover { color: var(--fg); }
+.md-market-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.md-market-tab:disabled { opacity: 0.4; cursor: not-allowed; }
+.md-odds { width: 100%; border-collapse: collapse; }
+.md-odds th, .md-odds td { padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+.md-odds th { background: var(--bg-card-2); font-weight: 600; color: var(--fg-muted); font-size: 12px; }
+.md-odds tr:hover td { background: var(--bg-card-2); }
+.md-hint { padding: 10px 16px; font-size: 11px; }
+.md-team-btn {
+  background: transparent; border: none; padding: 0; cursor: pointer;
+  color: var(--accent); font-size: 14px; text-align: left;
+}
+.md-team-btn:hover { text-decoration: underline; }
+.md-team-btn strong { font-weight: 600; }
+
 /* ── Keyboard Help Modal (Sprint 1 A4) ── */
 .kbd-help-backdrop {
   position: fixed; inset: 0; z-index: 10000;
