@@ -103,12 +103,14 @@ try {
   const emptyDuringAbort = await page.locator('.empty-state').count();
   ok(emptyDuringAbort === 0, 'M2c2 断网不显示空态');
 
-  // ===== M2d: 登录态 加载→列表 闭环 =====
+  // ===== M2d: 登录态 加载→列表 闭环（走 A1 /login）=====
   routeMode = 'delay';
-  await page.locator('input').first().fill('muxa_' + ts);
-  await page.locator('input[type="password"]').first().fill('123456');
+  await page.goto(BASE + '/login', { waitUntil: 'networkidle' });
+  await page.locator('#login-name').fill('muxa_' + ts);
+  await page.locator('#login-pw').fill('123456');
   await page.getByRole('button', { name: '登录', exact: true }).click();
-  await page.waitForTimeout(1200);
+  await page.waitForURL(/\/matches/, { timeout: 10000 });
+  await page.waitForTimeout(800);
   await page.getByRole('tab', { name: /我的投注/ }).click();
   await page.waitForTimeout(800);
   await page.getByRole('tab', { name: /赛事/ }).click();

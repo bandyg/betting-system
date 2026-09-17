@@ -11,19 +11,25 @@ import { SettlePanel } from './panels/SettlePanel.js';
 import { FeedPanel } from './panels/FeedPanel.js';
 import { SupportPanel } from './panels/SupportPanel.js';
 import { EmptyState } from './components/EmptyState.js';
+import { LoginPage } from './pages/Login.js';
 import { useAuth } from './store.js';
 import type { Match, Market, OddsItem } from '@betting/core';
 
-/** 公共 wrapper：未登录时给引导 */
+/** 公共 wrapper：未登录时给引导（带「去登录」按钮，跳转回原 URL）*/
 function RequireAuth({ children }: { children: JSX.Element }) {
   const user = useAuth((s: { user: import('@betting/core').User | null }) => s.user);
+  const location = window.location.pathname + window.location.search;
   if (!user) {
     return (
       <EmptyState
         icon="🔒"
         title="请先登录"
         desc="该功能需要登录后使用"
-        action={<a href="/matches"><button>返回大厅</button></a>}
+        action={
+          <a href={`/login?from=${encodeURIComponent(location)}`}>
+            <button className="primary">去登录</button>
+          </a>
+        }
       />
     );
   }
@@ -98,6 +104,8 @@ function NotFoundPage() {
 export default function App() {
   return (
     <Routes>
+      {/* /login 在 Layout 外（避免 header LoginBar 无限循环）*/}
+      <Route path="/login" element={<LoginPage />} />
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/matches" replace />} />
         <Route path="/matches" element={<LobbyPage />} />
