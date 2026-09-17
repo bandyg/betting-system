@@ -237,7 +237,7 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
               ))}
           </div>
           );
-          )}
+          })}
         <MatchDetail
           match={detailMatch}
           onClose={() => setDetailMatch(null)}
