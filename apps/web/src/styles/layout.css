@@ -43,6 +43,13 @@ header.top .right { display: flex; align-items: center; gap: 8px; }
 .stack { display: flex; flex-direction: column; gap: 8px; }
 .spacer { flex: 1; }
 
+/* ── Lobby Layout (K 轮) ── */
+.lobby-layout { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
+.lobby-list { min-width: 0; }
+.lobby-basket { position: sticky; top: 16px; min-width: 0; }
+@media (max-width: 1100px) { .lobby-layout { grid-template-columns: 1fr 320px; } }
+@media (max-width: 900px) { .lobby-layout { grid-template-columns: 1fr; } .lobby-basket { position: static; } }
+
 @media (max-width: 600px) {
   header.top { flex-wrap: wrap; }
   header.top .right { flex-wrap: wrap; }
