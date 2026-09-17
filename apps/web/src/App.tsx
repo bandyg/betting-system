@@ -1,873 +1,38 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api, setAuthToken } from '@betting/core';
-import type { Bet, Market, Match, OddsItem, SettleResponse, User, SupportCategory, SupportMessage, SupportStatus, SupportTicket } from '@betting/core';
-import { MATCH_STATUS_LABELS, SEL_LABELS, TYPE_LABELS, SUPPORT_STATUS_LABELS, SUPPORT_PRIORITY_LABELS, SUPPORT_STATUS_TRANSITIONS } from '@betting/core';
+// App.tsx — 入口：route 配置 + layout shell + basket state（跨页共享）
+import { useCallback, useMemo, useState } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { Layout } from './components/Layout.js';
+import { MatchesExplorer } from './panels/MatchesExplorer.js';
+import { AccountsPanel } from './panels/AccountsPanel.js';
+import { MatchesAdminPanel } from './panels/MatchesAdminPanel.js';
+import { BetSlip, type BasketItem } from './panels/BetSlip.js';
+import { BetsPanel } from './panels/BetsPanel.js';
+import { SettlePanel } from './panels/SettlePanel.js';
+import { FeedPanel } from './panels/FeedPanel.js';
+import { SupportPanel } from './panels/SupportPanel.js';
+import { EmptyState } from './components/EmptyState.js';
+import { useAuth } from './store.js';
+import type { Match, Market, OddsItem } from '@betting/core';
 
-interface Msg { kind: 'ok' | 'err'; text: string }
-
-/** 错误显示助手：避免 String(e) 直出（Error 对象会带 "Error: " 前缀，用户看不懂） */
-function errText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
-
-/** 提示消息自动消失（默认 3.5s）：msg 变化即重置 timer，cleanup 防泄漏 */
-function useAutoDismissMsg(delayMs = 3500): [Msg | null, (m: Msg | null) => void] {
-  const [msg, setMsg] = useState<Msg | null>(null);
-  useEffect(() => {
-    if (!msg) return;
-    const t = window.setTimeout(() => setMsg(null), delayMs);
-    return () => window.clearTimeout(t);
-  }, [msg, delayMs]);
-  return [msg, setMsg];
-}
-
-function fmtTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString('zh-CN', { hour12: false });
-}
-
-function fmtKickoff(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const now = new Date();
-  const diffMs = d.getTime() - now.getTime();
-  const diffH = diffMs / 3600000;
-  const time = d.toLocaleString('zh-CN', { hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  if (diffMs > 0 && diffH < 24) {
-    const h = Math.floor(diffH);
-    const m = Math.floor((diffH - h) * 60);
-    return `${time}（${h > 0 ? h + '时' : ''}${m > 0 ? m + '分' : ''}后）`;
+/** 公共 wrapper：未登录时给引导 */
+function RequireAuth({ children }: { children: JSX.Element }) {
+  const user = useAuth((s: { user: import('@betting/core').User | null }) => s.user);
+  if (!user) {
+    return (
+      <EmptyState
+        icon="🔒"
+        title="请先登录"
+        desc="该功能需要登录后使用"
+        action={<a href="/matches"><button>返回大厅</button></a>}
+      />
+    );
   }
-  return time;
+  return children;
 }
 
-/* ==================== Admin Login Bar ==================== */
-
-function AdminLoginBar({ user, onRole, onUser }: { user: User | null; onRole: (role: string) => void; onUser: (u: User | null) => void }) {
-  const [token, setToken] = useState<string | null>(null);
-  const [name, setName] = useState('admin');
-  const [pw, setPw] = useState('');
-  const [msg, setMsg] = useState<Msg | null>(null);
-
-  useEffect(() => {
-    try {
-      const t = localStorage.getItem('betting.token');
-      if (t) {
-        setAuthToken(t);
-        setToken(t);
-        const r = localStorage.getItem('betting.role');
-        if (r) onRole(r);
-        const u = localStorage.getItem('betting.user');
-        if (u) {
-          const parsed = JSON.parse(u) as User;
-          onUser(parsed);
-        }
-      }
-    } catch { /* ignore */ }
-  }, []);
-
-  const login = async () => {
-    try {
-      const res = await api.login(name.trim(), pw);
-      setAuthToken(res.token);
-      try {
-        localStorage.setItem('betting.token', res.token);
-        localStorage.setItem('betting.role', res.user.role ?? 'user');
-        localStorage.setItem('betting.user', JSON.stringify(res.user));
-      } catch { /* ignore */ }
-      setToken(res.token);
-      onRole(res.user.role ?? 'user');
-      onUser(res.user);
-      setMsg({ kind: 'ok', text: `✅ ${res.user.name}（${res.user.role}）` });
-    } catch (e) {
-      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
-    }
-  };
-
-  const logout = () => {
-    setAuthToken(null);
-    setToken(null);
-    onUser(null);
-    try { localStorage.removeItem('betting.token'); localStorage.removeItem('betting.role'); localStorage.removeItem('betting.user'); } catch { /* ignore */ }
-    onRole('');
-  };
-
-  return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: '8px 0', fontSize: 12 }}>
-      {token ? (
-        <>
-          <span style={{ color: '#4ade80' }}>🔐 {user?.name}{user?.balance != null && <span className="balance-inline">（¥{user.balance}）</span>}</span>
-          <button onClick={logout} className="ghost small">退出</button>
-        </>
-      ) : (
-        <>
-          <input placeholder="用户" value={name} onChange={(e) => setName(e.target.value)} style={{ width: 80, padding: '4px 8px', fontSize: 12 }} />
-          <input placeholder="密码" type="password" value={pw} onChange={(e) => setPw(e.target.value)} style={{ width: 80, padding: '4px 8px', fontSize: 12 }} />
-          <button onClick={login} className="small">登录</button>
-        </>
-      )}
-      {msg && <span style={{ color: msg.kind === 'ok' ? '#4ade80' : '#f87171', fontSize: 12 }}>{msg.text}</span>}
-    </div>
-  );
-}
-
-/* ==================== 赛事大厅（重设计） ==================== */
-
-const SPORT_EMOJI: Record<string, string> = {
-  soccer: '⚽', basketball: '🏀', tennis: '🎾', baseball: '⚾', american_football: '🏈', hockey: '🏒',
-};
-
-function sportLabel(sport: string): string {
-  return `${SPORT_EMOJI[sport] ?? '🏆'} ${sport === 'other' ? '其他' : sport}`;
-}
-
-const STATUS_FILTERS: Array<[string, string]> = [
-  ['', '全部'], ['scheduled', '未开始'], ['in_progress', '进行中'], ['finished', '已结束'], ['settled', '已结算'],
-];
-
-const WHEN_FILTERS: Array<['all' | 'today' | '3d' | '7d', string]> = [
-  ['all', '全部'], ['today', '今天'], ['3d', '近3天'], ['7d', '近7天'],
-];
-
-function MatchesExplorer({ onPick, loggedIn, pickedKeys }: {
-  onPick: (m: Match, mk: Market, o: OddsItem) => void;
-  loggedIn: boolean;
-  pickedKeys: Set<string>;
-}) {
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [q, setQ] = useState('');
-  const [sport, setSport] = useState('');
-  const [league, setLeague] = useState('');
-  const [status, setStatus] = useState('');
-  const [when, setWhen] = useState<'all' | 'today' | '3d' | '7d'>('all');
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [loadedAt, setLoadedAt] = useState<string>('');
-  const [msg, setMsg] = useAutoDismissMsg();
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.listMatches();
-      setMatches(res.matches);
-      setLoadedAt(new Date().toISOString());
-      setMsg(null);
-    } catch (e) { setMsg({ kind: 'err', text: errText(e) }); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
-
-  const normSport = useCallback((m: Match) => m.sport?.trim().toLowerCase() || 'other', []);
-  const normLeague = useCallback((m: Match) => m.league?.trim() || '', []);
-
-  const sports = useMemo(() => Array.from(new Set(matches.map(normSport))).sort(), [matches, normSport]);
-
-  const sportCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const m of matches) map.set(normSport(m), (map.get(normSport(m)) ?? 0) + 1);
-    return map;
-  }, [matches, normSport]);
-
-  const leagues = useMemo(
-    () => Array.from(new Set(matches.filter((m) => !sport || normSport(m) === sport).map(normLeague).filter(Boolean))).sort(),
-    [matches, sport, normSport, normLeague]
-  );
-
-  const groups = useMemo(() => {
-    const kw = q.trim().toLowerCase();
-    const start = new Date(); start.setHours(0, 0, 0, 0);
-    const startMs = start.getTime();
-    const days = when === 'today' ? 1 : when === '3d' ? 3 : when === '7d' ? 7 : 0;
-
-    const filtered = matches.filter((m) => {
-      if (sport && normSport(m) !== sport) return false;
-      if (league && normLeague(m) !== league) return false;
-      if (status && m.status !== status) return false;
-      if (kw && !`${m.home_team} ${m.away_team}`.toLowerCase().includes(kw)) return false;
-      if (days > 0) {
-        const t = new Date(m.kickoff_time).getTime();
-        if (!Number.isNaN(t) && (t < startMs || t >= startMs + days * 86400000)) return false;
-      }
-      return true;
-    });
-
-    const map = new Map<string, { key: string; sport: string; league: string; items: Match[] }>();
-    for (const m of filtered) {
-      const s = normSport(m);
-      const l = normLeague(m) || '未分类联赛';
-      const key = `${s}||${l}`;
-      let g = map.get(key);
-      if (!g) { g = { key, sport: s, league: l, items: [] }; map.set(key, g); }
-      g.items.push(m);
-    }
-    return Array.from(map.values()).sort((a, b) =>
-      a.sport.localeCompare(b.sport) || a.league.localeCompare(b.league));
-  }, [matches, q, sport, league, status, when, normSport, normLeague]);
-
-  const totalCount = groups.reduce((n, g) => n + g.items.length, 0);
-  const liveCount = matches.filter((m) => m.status === 'in_progress' || m.status === 'open').length;
-
-  return (
-    <div>
-      {/* Sport Pills */}
-      <div className="sport-pills">
-        <button className={`sport-pill ${sport === '' ? 'active' : ''}`} onClick={() => { setSport(''); setLeague(''); }}>
-          全部 <span className="pill-count">{matches.length}</span>
-        </button>
-        {sports.map((s) => (
-          <button key={s} className={`sport-pill ${sport === s ? 'active' : ''}`} onClick={() => { setSport(s); setLeague(''); }}>
-            {sportLabel(s)} <span className="pill-count">{sportCounts.get(s) ?? 0}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Stats */}
-      <div className="stats-bar">
-        <span>共 <span className="stat-num">{totalCount}</span> 场</span>
-        {liveCount > 0 && <span style={{ color: '#4ade80' }}>🔴 <span className="stat-num">{liveCount}</span> 进行中</span>}
-        {loadedAt && <span style={{ marginLeft: 'auto' }}>更新于 {fmtTime(loadedAt)}</span>}
-      </div>
-
-      {/* Search + Filters */}
-      <div className="search-bar">
-        <input placeholder="🔍 搜索队名..." value={q} onChange={(e) => setQ(e.target.value)} />
-        {leagues.length > 0 && (
-          <select value={league} onChange={(e) => setLeague(e.target.value)} style={{ maxWidth: 160 }}>
-            <option value="">全部联赛</option>
-            {leagues.map((l) => <option key={l} value={l}>{l}</option>)}
-          </select>
-        )}
-        <button onClick={refresh} className="ghost small">↻</button>
-      </div>
-
-      <div className="filter-row">
-        <span className="filter-label">状态</span>
-        {STATUS_FILTERS.map(([v, label]) => (
-          <button key={v || 'all'} className={`filter-chip ${status === v ? 'active' : ''}`} onClick={() => setStatus(v)}>
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="filter-row">
-        <span className="filter-label">时间</span>
-        {WHEN_FILTERS.map(([v, label]) => (
-          <button key={v} className={`filter-chip ${when === v ? 'active' : ''}`} onClick={() => setWhen(v)}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
-      {loading && <div className="muted" style={{ margin: '20px 0', textAlign: 'center' }}>⏳ 加载赛事中…</div>}
-      {!loading && !msg && totalCount === 0 && <div className="muted" style={{ margin: '20px 0', textAlign: 'center' }}>没有符合条件的赛事</div>}
-
-      {/* Match Groups */}
-      {groups.map((g) => {
-        const isOpen = !collapsed[g.key];
-        return (
-          <div key={g.key} className="match-group">
-            <button className="match-group-head" onClick={() => setCollapsed((c) => ({ ...c, [g.key]: isOpen }))}>
-              <span>
-                <span className="group-arrow" style={{ display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                {sportLabel(g.sport)} · {g.league}
-              </span>
-              <span className="group-count">{g.items.length} 场</span>
-            </button>
-            {isOpen && g.items.map((m) => (
-              <div key={m.id} className="match-card">
-                <div className="match-card-top">
-                  <span className="match-teams">{m.home_team} vs {m.away_team}</span>
-                  <span className="match-id">#{m.id}</span>
-                </div>
-                <div className="match-meta">
-                  <span>{fmtKickoff(m.kickoff_time)}</span>
-                  <span className={`badge ${m.status}`}>{MATCH_STATUS_LABELS[m.status] ?? m.status}</span>
-                  {m.home_score != null && <span style={{ fontWeight: 700, color: '#e8ecf4' }}>{m.home_score} : {m.away_score}</span>}
-                </div>
-                {m.markets.length > 0 && (
-                  <div className="match-odds">
-                    {m.markets.map((mk) =>
-                      mk.odds.map((o) => {
-                        const chipKey = `${mk.id}:${o.selection}`;
-                        const open = mk.status === 'open';
-                        return (
-                          <span
-                            key={`${mk.id}-${o.selection}`}
-                            role="button"
-                            title={open ? '加入投注单' : '该市场已关闭'}
-                            className={`odds-chip${pickedKeys.has(chipKey) ? ' selected' : ''}${open ? '' : ' disabled'}`}
-                            onClick={() => {
-                              if (!loggedIn) { setMsg({ kind: 'err', text: '⚠️ 请先登录再下注' }); return; }
-                              if (!open) { setMsg({ kind: 'err', text: '该市场已关闭，无法下注' }); return; }
-                              setMsg(null);
-                              onPick(m, mk, o);
-                            }}
-                          >
-                            {SEL_LABELS[o.selection] ?? o.selection} {o.price}
-                          </span>
-                        );
-                      }),
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ==================== 账户 ==================== */
-
-function AccountsPanel() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [name, setName] = useState('');
-  const [selId, setSelId] = useState<number | ''>('');
-  const [user, setUser] = useState<User | null>(null);
-  const [deposit, setDeposit] = useState('1000');
-  const [msg, setMsg] = useState<Msg | null>(null);
-
-  const refreshUsers = useCallback(async () => {
-    try { const res = await api.listUsers(); setUsers(res.users); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-  }, []);
-  useEffect(() => { refreshUsers(); }, [refreshUsers]);
-
-  const loadUser = async (id: number) => {
-    try { const res = await api.getUser(id); setUser(res.user); setMsg(null); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-  };
-
-  const createUser = async () => {
-    if (!name.trim()) { setMsg({ kind: 'err', text: '请输入用户名' }); return; }
-    try {
-      const res = await api.createUser(name.trim());
-      setMsg({ kind: 'ok', text: `创建成功：#${res.user.id} ${res.user.name}` });
-      setName(''); await refreshUsers(); setSelId(res.user.id); setUser(res.user);
-    } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-  };
-
-  const doDeposit = async () => {
-    if (selId === '') { setMsg({ kind: 'err', text: '先选择用户' }); return; }
-    const amt = Number(deposit);
-    if (!(amt > 0)) { setMsg({ kind: 'err', text: '金额必须大于 0' }); return; }
-    try { const res = await api.deposit(Number(selId), amt); setMsg({ kind: 'ok', text: `充值成功：余额 → ${res.account.balance}` }); await loadUser(Number(selId)); await refreshUsers(); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-  };
-
-  return (
-    <section className="card">
-      <h2>👤 账户</h2>
-      <div className="row">
-        <input className="wide" placeholder="新用户名" value={name} onChange={(e) => setName(e.target.value)} />
-        <button onClick={createUser}>创建</button>
-      </div>
-      <div className="row">
-        <select value={selId} onChange={(e) => { const v = e.target.value; setSelId(v === '' ? '' : Number(v)); if (v !== '') loadUser(Number(v)); }}>
-          <option value="">选择用户</option>
-          {users.map((u) => <option key={u.id} value={u.id}>#{u.id} {u.name}</option>)}
-        </select>
-        <input type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)} min="1" />
-        <button onClick={doDeposit} className="ghost">充值</button>
-      </div>
-      {user && <div className="row"><span className="muted">#{user.id} {user.name}</span><span className="balance">¥{user.balance}</span></div>}
-      {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
-    </section>
-  );
-}
-
-/* ==================== 赛事+市场管理（Admin） ==================== */
-
-function MatchesAdminPanel() {
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [home, setHome] = useState('Arsenal');
-  const [away, setAway] = useState('Chelsea');
-  const [kickoff, setKickoff] = useState('2026-08-20T15:00');
-  const [sport, setSport] = useState('');
-  const [league, setLeague] = useState('');
-  const [msg, setMsg] = useState<Msg | null>(null);
-  const [mktMatch, setMktMatch] = useState<number | ''>('');
-  const [mktType, setMktType] = useState<'1x2' | 'ah' | 'ou'>('1x2');
-  const [mktLine, setMktLine] = useState('-1.5');
-  const [oddsA, setOddsA] = useState('2.1');
-  const [oddsB, setOddsB] = useState('3.4');
-  const [oddsC, setOddsC] = useState('3.2');
-
-  const refresh = useCallback(async () => {
-    try { const res = await api.listMatches(); setMatches(res.matches); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-  }, []);
-  useEffect(() => { refresh(); }, [refresh]);
-
-  const createMatch = async () => {
-    if (!home.trim() || !away.trim()) { setMsg({ kind: 'err', text: '主客队名必填' }); return; }
-    try { const res = await api.createMatch(home.trim(), away.trim(), new Date(kickoff).toISOString(), sport || undefined, league || undefined); setMsg({ kind: 'ok', text: `创建成功：#${res.match.id}` }); await refresh(); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-  };
-
-  const createMarket = async () => {
-    if (mktMatch === '') { setMsg({ kind: 'err', text: '先选择赛事' }); return; }
-    let line: number | null = null;
-    if (mktType !== '1x2') { line = Number(mktLine); if (!Number.isFinite(line) || line === 0) { setMsg({ kind: 'err', text: 'line 必须是非 0 数字' }); return; } }
-    const a = Number(oddsA); const b = Number(oddsB);
-    if (!(a > 1) || !(b > 1)) { setMsg({ kind: 'err', text: '赔率必须大于 1' }); return; }
-    let odds: Record<string, number>;
-    if (mktType === '1x2') { const c = Number(oddsC); if (!(c > 1)) { setMsg({ kind: 'err', text: '赔率必须大于 1' }); return; } odds = { home: a, draw: b, away: c }; }
-    else if (mktType === 'ah') { odds = { home: a, away: b }; } else { odds = { over: a, under: b }; }
-    try { const res = await api.createMarket(Number(mktMatch), mktType, line, odds); setMsg({ kind: 'ok', text: `市场创建成功：#${res.market.id}` }); await refresh(); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-  };
-
-  const scheduled = matches.filter((m) => m.status === 'scheduled');
-
-  return (
-    <section className="card">
-      <h2>🏟️ 建赛 & 市场</h2>
-      <div className="row">
-        <input className="wide" value={home} onChange={(e) => setHome(e.target.value)} placeholder="主队" style={{ maxWidth: 120 }} />
-        <span className="muted">vs</span>
-        <input className="wide" value={away} onChange={(e) => setAway(e.target.value)} placeholder="客队" style={{ maxWidth: 120 }} />
-        <input type="datetime-local" value={kickoff} onChange={(e) => setKickoff(e.target.value)} />
-        <button onClick={createMatch} className="ghost">建赛</button>
-      </div>
-      <h3>添加市场</h3>
-      <div className="row">
-        <select value={mktMatch} onChange={(e) => setMktMatch(e.target.value === '' ? '' : Number(e.target.value))}>
-          <option value="">选择赛事</option>
-          {scheduled.map((m) => <option key={m.id} value={m.id}>{m.home_team} vs {m.away_team}</option>)}
-        </select>
-        <select value={mktType} onChange={(e) => setMktType(e.target.value as '1x2' | 'ah' | 'ou')}>
-          <option value="1x2">胜平负</option>
-          <option value="ah">让球</option>
-          <option value="ou">大小</option>
-        </select>
-        {mktType !== '1x2' && <input type="number" step="0.25" value={mktLine} onChange={(e) => setMktLine(e.target.value)} placeholder="line" />}
-        <input type="number" step="0.01" value={oddsA} onChange={(e) => setOddsA(e.target.value)} />
-        <input type="number" step="0.01" value={oddsB} onChange={(e) => setOddsB(e.target.value)} />
-        {mktType === '1x2' && <input type="number" step="0.01" value={oddsC} onChange={(e) => setOddsC(e.target.value)} />}
-        <button onClick={createMarket} className="ghost">添加市场</button>
-      </div>
-      <button onClick={refresh} className="ghost small">↻ 刷新</button>
-      {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
-    </section>
-  );
-}
-
-/* ==================== 投注单（bet365 直下注模式，K1） ==================== */
-
-interface BasketItem {
-  key: string;            // `${marketId}:${selection}`
-  marketId: number;
-  matchLabel: string;
-  marketLabel: string;
-  selection: string;
-  price: number;
-}
-
-function BetSlip({ items, user, role, onRemove, onClear, onSelfBalance }: {
-  items: BasketItem[];
-  user: User | null;
-  role: string;
-  onRemove: (key: string) => void;
-  onClear: () => void;
-  onSelfBalance: (balance: number) => void;
-}) {
-  const [stake, setStake] = useState('100');
-  const [proxyUid, setProxyUid] = useState<number | ''>('');
-  const [users, setUsers] = useState<User[]>([]);
-  const [msg, setMsg] = useAutoDismissMsg();
-  const isAdmin = role === 'admin';
-
-  useEffect(() => {
-    if (isAdmin) {
-      api.listUsers().then((r) => setUsers(r.users)).catch(() => {});
-    }
-  }, [isAdmin]);
-
-  const stakeNum = Number(stake) || 0;
-  const totalPotential = items.reduce((n, it) => n + it.price * stakeNum, 0);
-
-  const submit = async () => {
-    const s = Number(stake);
-    if (!(s > 0)) { setMsg({ kind: 'err', text: '投注额必须大于 0' }); return; }
-    if (items.length === 0) { setMsg({ kind: 'err', text: '投注单为空，请先在大厅点击赔率选择' }); return; }
-    if (!user && !isAdmin) { setMsg({ kind: 'err', text: '请先登录再下注' }); return; }
-    if (isAdmin && proxyUid === '') { setMsg({ kind: 'err', text: '代客下注请先选择用户' }); return; }
-    const uid = isAdmin ? Number(proxyUid) : user!.id;
-    let okCount = 0;
-    let lastBet: Bet | null = null;
-    let lastAccount: { balance: number } | null = null;
-    for (const it of items) {
-      try {
-        const res = await api.placeBet(uid, it.marketId, it.selection, s);
-        okCount += 1;
-        lastBet = res.bet;
-        lastAccount = res.account;
-      } catch (e) {
-        setMsg({ kind: 'err', text: `#${it.marketId} ${SEL_LABELS[it.selection] ?? it.selection} 下注失败：${errText(e)}` });
-        break;
-      }
-    }
-    if (okCount > 0) {
-      const pot = lastBet ? `，潜在派彩 ¥${lastBet.potential_payout}` : '';
-      setMsg({ kind: 'ok', text: `下注成功：${okCount} 笔${lastBet ? `（#${lastBet.id}${pot}）` : ''}` });
-      onClear();
-      if (lastAccount) {
-        if (isAdmin) {
-          api.listUsers().then((r) => setUsers(r.users)).catch(() => {});
-        } else {
-          onSelfBalance(lastAccount.balance);
-        }
-      }
-    }
-  };
-
-  return (
-    <section className="card bet-slip">
-      <h2>🧾 投注单 {items.length > 0 && <span className="badge open">{items.length}</span>}</h2>
-      {items.length === 0 ? (
-        <div className="muted" style={{ padding: '12px 0' }}>点击赛事赔率加入投注单</div>
-      ) : (
-        <>
-          {items.map((it) => (
-            <div key={it.key} className="bet-slip-item">
-              <div>
-                <div className="muted">{it.matchLabel} · {it.marketLabel}</div>
-                <span className="sel">{SEL_LABELS[it.selection] ?? it.selection}</span>{' '}
-                <span className="price">@{it.price}</span>
-              </div>
-              <button className="bet-slip-remove" onClick={() => onRemove(it.key)} title="移除">✕</button>
-            </div>
-          ))}
-          <div className="row" style={{ marginTop: 10 }}>
-            <label>投注额</label>
-            <input type="number" value={stake} onChange={(e) => setStake(e.target.value)} min="1" />
-            <span className="muted">每注</span>
-          </div>
-          {isAdmin && (
-            <div className="row">
-              <label>代客下注</label>
-              <select value={proxyUid} onChange={(e) => setProxyUid(e.target.value === '' ? '' : Number(e.target.value))}>
-                <option value="">选择用户</option>
-                {users.map((u) => <option key={u.id} value={u.id}>#{u.id} {u.name}（¥{u.balance}）</option>)}
-              </select>
-            </div>
-          )}
-          <div className="row">
-            <span className="muted">可赢 ¥{totalPotential.toFixed(2)}</span>
-            <button onClick={submit} style={{ marginLeft: 'auto' }}>提交下注</button>
-          </div>
-        </>
-      )}
-      {!user && (
-        <div className="auth-hint" style={{ marginTop: 10, border: '1px dashed #8a2f3f', background: '#33131a', color: '#ff9db0' }}>
-          🔒 请先登录再下注：当前未登录，点击任何赔率将提示「请先登录再下注」。投注前请先在上方登录。
-        </div>
-      )}
-      {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
-    </section>
-  );
-}
-
-/* ==================== 投注记录 ==================== */
-
-function BetsPanel({ role, loggedIn }: { role: string; loggedIn: boolean }) {
-  const [bets, setBets] = useState<Bet[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [userId, setUserId] = useState<number | ''>('');
-  const [msg, setMsg] = useAutoDismissMsg();
-  const [authHint, setAuthHint] = useState<string | null>(null);
-  const isAdmin = role === 'admin';
-
-  const refresh = useCallback(async () => {
-    try {
-      const res = await api.listBets(userId === '' ? undefined : Number(userId));
-      setBets(res.bets);
-      setAuthHint(null);
-    } catch (e) {
-      if ((e as { status?: number }).status === 401) {
-        // 登录态失效（token 被清/会话过期）：给友好提示，不直出裸错误
-        setBets([]);
-        setAuthHint('登录状态已失效，请重新登录');
-      } else {
-        setMsg({ kind: 'err', text: errText(e) });
-      }
-    }
-  }, [userId, setMsg]);
-
-  useEffect(() => { if (isAdmin) { api.listUsers().then((r) => setUsers(r.users)).catch(() => {}); } }, [isAdmin]);
-
-  useEffect(() => {
-    if (loggedIn) {
-      setAuthHint(null);
-      refresh();
-    } else {
-      // 匿名：不请求 API，直接显示登录引导
-      setBets([]);
-      setAuthHint('请先登录后查看投注记录');
-    }
-  }, [loggedIn, refresh]);
-
-  return (
-    <section className="card">
-      <h2>📋 投注记录</h2>
-      {isAdmin && (
-        <div className="row">
-          <select value={userId} onChange={(e) => setUserId(e.target.value === '' ? '' : Number(e.target.value))}>
-            <option value="">全部用户</option>
-            {users.map((u) => <option key={u.id} value={u.id}>#{u.id} {u.name}</option>)}
-          </select>
-          <button onClick={() => refresh()} className="ghost small">↻</button>
-        </div>
-      )}
-      {authHint && <div className="auth-hint">{authHint}</div>}
-      {!authHint && <>{msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
-      <table>
-        <thead>
-          <tr><th>#</th><th>用户</th><th>市场</th><th>选择</th><th>金额</th><th>赔率</th><th>派彩</th><th>状态</th><th>时间</th></tr>
-        </thead>
-        <tbody>
-          {bets.map((b) => (
-            <tr key={b.id}>
-              <td>{b.id}</td>
-              <td>#{b.user_id}</td>
-              <td className="mono">#{b.market_id}</td>
-              <td>{b.selection ? (SEL_LABELS[b.selection] ?? b.selection) : '—'}</td>
-              <td>{b.stake}</td>
-              <td>{b.price}</td>
-              <td>{b.potential_payout}</td>
-              <td><span className={`badge ${b.status}`}>{b.status}</span></td>
-              <td className="mono">{fmtTime(b.created_at)}</td>
-            </tr>
-          ))}
-          {bets.length === 0 && <tr><td colSpan={9} className="muted">暂无投注记录</td></tr>}
-        </tbody>
-      </table></>}
-    </section>
-  );
-}
-
-/* ==================== 结算 ==================== */
-
-function SettlePanel() {
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [matchId, setMatchId] = useState<number | ''>('');
-  const [homeScore, setHomeScore] = useState('1');
-  const [awayScore, setAwayScore] = useState('0');
-  const [msg, setMsg] = useState<Msg | null>(null);
-
-  const refresh = useCallback(async () => {
-    try { const res = await api.listMatches(); setMatches(res.matches); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-  }, []);
-  useEffect(() => { refresh(); }, [refresh]);
-
-  const recordAndSettle = async () => {
-    if (matchId === '') { setMsg({ kind: 'err', text: '请选择赛事' }); return; }
-    const hs = Number(homeScore); const as = Number(awayScore);
-    if (!Number.isInteger(hs) || !Number.isInteger(as) || hs < 0 || as < 0) { setMsg({ kind: 'err', text: '比分必须是非负整数' }); return; }
-    try {
-      await api.recordResult(Number(matchId), hs, as);
-      const res = await api.settleMatch(Number(matchId));
-      setMsg({ kind: 'ok', text: `结算完成：总派彩 ¥${res.totalPayout}，总退款 ¥${res.totalRefund}（${res.summary.length} 个市场）` });
-      await refresh();
-    } catch (e) { setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }); }
-  };
-
-  return (
-    <section className="card">
-      <h2>💰 结算</h2>
-      <div className="row">
-        <select value={matchId} onChange={(e) => setMatchId(e.target.value === '' ? '' : Number(e.target.value))}>
-          <option value="">选择赛事</option>
-          {matches.filter((m) => m.status === 'finished').map((m) => (
-            <option key={m.id} value={m.id}>#{m.id} {m.home_team} vs {m.away_team}</option>
-          ))}
-        </select>
-        <input type="number" value={homeScore} onChange={(e) => setHomeScore(e.target.value)} min="0" style={{ width: 70 }} placeholder="主队比分" />
-        <span className="muted">:</span>
-        <input type="number" value={awayScore} onChange={(e) => setAwayScore(e.target.value)} min="0" style={{ width: 70 }} placeholder="客队比分" />
-        <button onClick={recordAndSettle}>记录比分并结算</button>
-      </div>
-      <button onClick={refresh} className="ghost small">↻ 刷新</button>
-      {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
-    </section>
-  );
-}
-
-/* ==================== Feed ==================== */
-
-function FeedPanel() {
-  const [status, setStatus] = useState<any>(null);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<Msg | null>(null);
-
-  const refresh = useCallback(async () => {
-    try { const res = await api.getFeedStatus(); setStatus(res); } catch { /* ignore */ }
-  }, []);
-  useEffect(() => { refresh(); }, [refresh]);
-
-  const trigger = async () => {
-    setBusy(true);
-    try { await api.ingestFeedNow(); setMsg({ kind: 'ok', text: 'Feed 拉取已触发' }); await refresh(); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-    finally { setBusy(false); }
-  };
-
-  return (
-    <section className="card">
-      <h2>📡 Feed</h2>
-      <div className="row">
-        <button onClick={trigger} disabled={busy}>手动拉取</button>
-        <button onClick={refresh} className="ghost small">↻</button>
-      </div>
-      {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
-      <h3>最近拉取</h3>
-      <table>
-        <thead><tr><th>时间</th><th>状态</th><th>seen</th><th>upserted</th><th>errors</th></tr></thead>
-        <tbody>
-          {(status?.feedLog ?? []).map((l: any) => (
-            <tr key={l.id}>
-              <td className="mono">{fmtTime(l.requested_at)}</td>
-              <td><span className={`badge ${l.status === 'ok' ? 'open' : 'settled'}`}>{l.status ?? '—'}</span></td>
-              <td>{l.matches_seen ?? 0}</td>
-              <td>{l.matches_upserted ?? 0}</td>
-              <td className="mono">{l.errors ?? '—'}</td>
-            </tr>
-          ))}
-          {(status?.feedLog ?? []).length === 0 && <tr><td colSpan={5} className="muted">暂无记录</td></tr>}
-        </tbody>
-      </table>
-    </section>
-  );
-}
-
-/* ==================== 工单/客服 ==================== */
-
-const PAGE_SIZE = 10;
-
-function SupportPanel() {
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [total, setTotal] = useState(0);
-  const [status, setStatus] = useState('');
-  const [category, setCategory] = useState('');
-  const [userName, setUserName] = useState('');
-  const [userId, setUserId] = useState<number | undefined>(undefined);
-  const [page, setPage] = useState(1);
-  const [categories, setCategories] = useState<SupportCategory[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [detail, setDetail] = useState<{ ticket: SupportTicket; messages: SupportMessage[] } | null>(null);
-  const [reply, setReply] = useState('');
-  const [msg, setMsg] = useState<Msg | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const refresh = useCallback(async () => {
-    setBusy(true);
-    try { const res = await api.adminListTickets({ status: status || undefined, category: category || undefined, userId, page, pageSize: PAGE_SIZE }); setTickets(res.tickets); setTotal(res.total); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-    finally { setBusy(false); }
-  }, [status, category, userId, page]);
-
-  useEffect(() => { refresh(); }, [refresh]);
-  useEffect(() => { api.listSupportCategories().then((r) => setCategories(r.categories)).catch(() => {}); api.listUsers().then((r) => setUsers(r.users)).catch(() => {}); }, []);
-
-  const categoryLabel = (key: string) => categories.find((c) => c.key === key)?.label ?? key;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-  const openDetail = async (t: SupportTicket) => { setMsg(null); try { const res = await api.adminGetTicket(t.id); setDetail(res); } catch (e) { setMsg({ kind: 'err', text: String(e) }); } };
-
-  const sendReply = async () => {
-    if (!detail || !reply.trim()) { setMsg({ kind: 'err', text: '请输入回复内容' }); return; }
-    setBusy(true);
-    try { await api.adminReplyTicket(detail.ticket.id, reply.trim()); setReply(''); await openDetail(detail.ticket); await refresh(); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-    finally { setBusy(false); }
-  };
-
-  const changeStatus = async (target: SupportStatus) => {
-    if (!detail) return;
-    setBusy(true);
-    try { await api.adminSetTicketStatus(detail.ticket.id, target); await openDetail(detail.ticket); await refresh(); } catch (e) { setMsg({ kind: 'err', text: String(e) }); }
-    finally { setBusy(false); }
-  };
-
-  const canReply = detail ? !['resolved', 'closed'].includes(detail.ticket.status) : false;
-  const nextStatuses: SupportStatus[] = detail ? (SUPPORT_STATUS_TRANSITIONS[detail.ticket.status] ?? []) : [];
-
-  return (
-    <section className="card">
-      <h2>🎫 工单/客服</h2>
-      <div className="row">
-        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-          <option value="">全部状态</option>
-          {Object.entries(SUPPORT_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
-          <option value="">全部分类</option>
-          {categories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-        </select>
-        <input placeholder="用户名" value={userName} onChange={(e) => setUserName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { const u = users.find((x) => x.name === userName.trim()); setUserId(u?.id); setPage(1); } }} style={{ maxWidth: 120 }} />
-        <button onClick={refresh} className="ghost small">↻</button>
-      </div>
-      {msg && <div className={`msg ${msg.kind}`}>{msg.text}</div>}
-      <table>
-        <thead><tr><th>#</th><th>用户</th><th>主题</th><th>状态</th><th>时间</th><th></th></tr></thead>
-        <tbody>
-          {tickets.map((t) => (
-            <tr key={t.id}>
-              <td className="mono">#{t.id}</td>
-              <td>{t.user_name ?? `#${t.user_id}`}</td>
-              <td>{t.subject}</td>
-              <td><span className={`badge ${t.status}`}>{SUPPORT_STATUS_LABELS[t.status] ?? t.status}</span></td>
-              <td className="mono">{fmtTime(t.created_at)}</td>
-              <td><button className="ghost small" onClick={() => openDetail(t)}>详情</button></td>
-            </tr>
-          ))}
-          {tickets.length === 0 && <tr><td colSpan={6} className="muted">暂无工单</td></tr>}
-        </tbody>
-      </table>
-      <div className="row">
-        <button className="ghost small" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>←</button>
-        <span className="muted">{page}/{totalPages} · {total}条</span>
-        <button className="ghost small" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>→</button>
-      </div>
-      {detail && (
-        <div style={{ marginTop: 16, borderTop: '1px solid #26304d', paddingTop: 16 }}>
-          <h3>#{detail.ticket.id} · {detail.ticket.subject} <span className={`badge ${detail.ticket.status}`}>{SUPPORT_STATUS_LABELS[detail.ticket.status]}</span></h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '12px 0' }}>
-            <div style={{ maxWidth: '80%', background: '#0f1420', border: '1px solid #26304d', borderRadius: 10, padding: '8px 12px' }}>
-              <div className="muted" style={{ marginBottom: 4 }}>🧑 用户</div>{detail.ticket.body}
-            </div>
-            {detail.messages.map((m) => {
-              const isAgent = m.author_role === 'agent';
-              return (
-                <div key={m.id} style={{ alignSelf: isAgent ? 'flex-end' : 'flex-start', maxWidth: '80%', background: isAgent ? '#1f3a1f' : '#0f1420', border: isAgent ? '1px solid #1f6b3d' : '1px solid #26304d', borderRadius: 10, padding: '8px 12px' }}>
-                  <div className="muted" style={{ marginBottom: 4 }}>{isAgent ? '🛠 客服' : '🧑 用户'} · {fmtTime(m.created_at)}</div>{m.content}
-                </div>
-              );
-            })}
-          </div>
-          {canReply && (
-            <div className="row">
-              <input className="wide" placeholder="回复..." value={reply} onChange={(e) => setReply(e.target.value)} />
-              <button onClick={sendReply} disabled={busy}>发送</button>
-            </div>
-          )}
-          <div className="row">
-            {nextStatuses.map((s) => <button key={s} className="ghost small" onClick={() => changeStatus(s)} disabled={busy}>→ {SUPPORT_STATUS_LABELS[s]}</button>)}
-            <button className="ghost small" style={{ marginLeft: 'auto' }} onClick={() => setDetail(null)}>← 返回</button>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-/* ==================== App（Tab 导航 + bet365 双栏大厅） ==================== */
-
-type TabId = 'lobby' | 'records' | 'admin';
-
-export default function App() {
-  const [role, setRole] = useState('');
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+/** 大厅（K 轮 bet365 双栏） */
+function LobbyPage() {
   const [basket, setBasket] = useState<BasketItem[]>([]);
-  const [tab, setTab] = useState<TabId>('lobby');
-  const isSupport = role === 'admin' || role === 'support';
-
   const pickedKeys = useMemo(() => new Set(basket.map((b) => b.key)), [basket]);
 
   const handlePick = useCallback((m: Match, mk: Market, o: OddsItem) => {
@@ -876,78 +41,71 @@ export default function App() {
       key,
       marketId: mk.id,
       matchLabel: `${m.home_team} vs ${m.away_team}`,
-      marketLabel: `${TYPE_LABELS[mk.type] ?? mk.type}${mk.line != null ? ` @${mk.line}` : ''}`,
+      marketLabel: `${mk.type}${mk.line != null ? ` @${mk.line}` : ''}`,
       selection: o.selection,
       price: o.price,
     }]));
   }, []);
 
-  const removeItem = useCallback((key: string) => {
-    setBasket((b) => b.filter((i) => i.key !== key));
-  }, []);
-
-  const updateSelfBalance = useCallback((balance: number) => {
-    setCurrentUser((u) => (u ? { ...u, balance } : u));
-  }, []);
-
-  const tabs: Array<{ id: TabId; icon: string; label: string; adminOnly?: boolean }> = [
-    { id: 'lobby', icon: '🏠', label: '大厅' },
-    { id: 'records', icon: '📋', label: '投注记录' },
-    { id: 'admin', icon: '⚙️', label: '管理', adminOnly: true },
-  ];
-
-  const visibleTabs = tabs.filter((t) => !t.adminOnly || isSupport);
-
   return (
-    <>
-      <header className="top">
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <h1>⚽ 投注系统</h1>
-          <span className="sub">赛前固定赔率 · 下注 · 结算</span>
-        </div>
-        <AdminLoginBar user={currentUser} onRole={setRole} onUser={setCurrentUser} />
-      </header>
-      <nav className="tab-bar">
-        {visibleTabs.map((t) => (
-          <button key={t.id} className={`tab-item ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>
-            <span className="tab-icon">{t.icon}</span>
-            {t.label}
-          </button>
-        ))}
-      </nav>
-      <div className="tab-content">
-        {tab === 'lobby' && (
-          <div className="lobby-layout">
-            <div className="lobby-list">
-              <MatchesExplorer onPick={handlePick} loggedIn={!!currentUser} pickedKeys={pickedKeys} />
-            </div>
-            <aside className="lobby-basket">
-              <BetSlip
-                items={basket}
-                user={currentUser}
-                role={role}
-                onRemove={removeItem}
-                onClear={() => setBasket([])}
-                onSelfBalance={updateSelfBalance}
-              />
-            </aside>
-          </div>
-        )}
-        {tab === 'records' && <BetsPanel role={role} loggedIn={!!currentUser} />}
-        {tab === 'admin' && isSupport && (
-          <>
-            <div className="grid">
-              <AccountsPanel />
-              <MatchesAdminPanel />
-            </div>
-            <div className="grid">
-              <SettlePanel />
-              <FeedPanel />
-            </div>
-            <SupportPanel />
-          </>
-        )}
+    <div className="lobby-layout">
+      <div className="lobby-list">
+        <MatchesExplorer onPick={handlePick} pickedKeys={pickedKeys} />
       </div>
-    </>
+      <aside className="lobby-basket">
+        <BetSlip
+          items={basket}
+          onRemove={(k) => setBasket((b) => b.filter((i) => i.key !== k))}
+          onClear={() => setBasket([])}
+        />
+      </aside>
+    </div>
+  );
+}
+
+/** 管理页（仅 admin/support） */
+function AdminPage() {
+  const role = useAuth((s: { role: string }) => s.role);
+  if (role !== 'admin' && role !== 'support') {
+    return <Navigate to="/matches" replace />;
+  }
+  return (
+    <div className="fade-in">
+      <div className="grid">
+        <AccountsPanel />
+        <MatchesAdminPanel />
+      </div>
+      <div className="grid">
+        <SettlePanel />
+        <FeedPanel />
+      </div>
+      {role !== 'support' && <SupportPanel />}
+    </div>
+  );
+}
+
+function NotFoundPage() {
+  return (
+    <EmptyState
+      icon="🚧"
+      title="404 — 页面不存在"
+      desc="你访问的 URL 没有对应的页面"
+      action={<a href="/matches"><button>返回大厅</button></a>}
+    />
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Navigate to="/matches" replace />} />
+        <Route path="/matches" element={<LobbyPage />} />
+        <Route path="/bets" element={<RequireAuth><BetSlip items={[]} onRemove={() => {}} onClear={() => {}} /></RequireAuth>} />
+        <Route path="/history" element={<RequireAuth><BetsPanel /></RequireAuth>} />
+        <Route path="/admin/*" element={<AdminPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
   );
 }
