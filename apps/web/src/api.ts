@@ -10,18 +10,33 @@ import type {
   UsersResponse,
   BetsResponse
 } from './types.js';
+import { BusinessError, ServerError, NetworkError, classifyHttpError } from './errors.js';
 
 const BASE = '/api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
-  });
-  const body = await res.json().catch(() => ({}));
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options
+    });
+  } catch (e) {
+    // 网络层错误：fetch failed / CORS / timeout / DNS
+    const cause = e instanceof Error ? e.message : String(e);
+    throw new NetworkError('网络连接失败，请检查后重试', cause);
+  }
+
+  let body: unknown = {};
+  try {
+    body = await res.json();
+  } catch {
+    /* 响应非 JSON（如空 body / HTML 错误页）— 留空对象 */
+  }
   if (!res.ok) {
-    const msg = (body as { error?: string }).error ?? `HTTP ${res.status}`;
-    throw new Error(msg);
+    const obj = body as { error?: string; code?: string; details?: unknown } | null;
+    const msg = obj?.error ?? `HTTP ${res.status}`;
+    throw classifyHttpError(res.status, msg, obj?.code, obj?.details);
   }
   return body as T;
 }

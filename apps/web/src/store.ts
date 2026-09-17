@@ -3,10 +3,16 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { setAuthToken } from '@betting/core';
 import type { User } from '@betting/core';
+import { BusinessError, ServerError, NetworkError } from './api/errors.js';
 
 export type Theme = 'dark' | 'light';
 export type ToastKind = 'ok' | 'err' | 'warn' | 'info';
-export interface Toast { id: number; kind: ToastKind; text: string; }
+export interface Toast {
+  id: number;
+  kind: ToastKind;
+  text: string;
+  action?: { label: string; onClick: () => void };
+}
 
 interface AuthState {
   user: User | null;
@@ -16,7 +22,7 @@ interface AuthState {
 }
 interface ToastState {
   toasts: Toast[];
-  push: (kind: ToastKind, text: string) => void;
+  push: (kind: ToastKind, text: string, action?: Toast['action'], autoDismissMs?: number) => void;
   dismiss: (id: number) => void;
 }
 interface ThemeState {
@@ -54,14 +60,15 @@ export const useToast = create<ToastState>(
   (set: (partial: Partial<ToastState> | ((s: ToastState) => Partial<ToastState>)) => void,
    get: () => ToastState) => ({
     toasts: [],
-    push: (kind, text) => {
+    push: (kind, text, action, autoDismissMs) => {
       const id = ++_id;
       set((s) => {
-        const next = [...s.toasts, { id, kind, text }];
+        const next = [...s.toasts, { id, kind, text, action }];
         if (next.length > 3) next.shift();
         return { toasts: next };
       });
-      window.setTimeout(() => get().dismiss(id), 3500);
+      const ms = autoDismissMs ?? (action ? 8000 : 3500);
+      window.setTimeout(() => get().dismiss(id), ms);
     },
     dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   }),
@@ -73,7 +80,41 @@ export const toast = {
   err: (t: string) => useToast.getState().push('err', t),
   warn: (t: string) => useToast.getState().push('warn', t),
   info: (t: string) => useToast.getState().push('info', t),
+  // 带按钮的 toast（点按钮不自动 dismiss）
+  withAction: (kind: ToastKind, text: string, action: { label: string; onClick: () => void }) =>
+    useToast.getState().push(kind, text, action, 8000),
 };
+
+// ── 统一错误处理 helper（Sprint 1 B1）──
+// 调用方式：handleApiError(e, { retry: () => doApiCall() })
+// 会按错误类型选合适 toast（含重试按钮）
+export function handleApiError(e: unknown, opts?: { retry?: () => void; prefix?: string }): void {
+  const prefix = opts?.prefix ? `${opts.prefix}：` : '';
+  if (e instanceof BusinessError) {
+    // 4xx 业务错误 — 直接显示后端 message
+    useToast.getState().push('err', `${prefix}${e.message}`, undefined, 5000);
+  } else if (e instanceof ServerError) {
+    // 5xx — 重试按钮
+    useToast.getState().push(
+      'err',
+      `${prefix}服务异常（${e.status}），请稍后重试`,
+      opts?.retry ? { label: '重试', onClick: opts.retry } : undefined,
+      8000,
+    );
+  } else if (e instanceof NetworkError) {
+    // 网络 — 重试按钮
+    useToast.getState().push(
+      'err',
+      `${prefix}网络连接失败，请检查后重试`,
+      opts?.retry ? { label: '重试', onClick: opts.retry } : undefined,
+      8000,
+    );
+  } else {
+    // 未知错误
+    const msg = e instanceof Error ? e.message : String(e);
+    useToast.getState().push('err', `${prefix}${msg}`);
+  }
+}
 
 // ── Theme (持久化到 localStorage + html data-theme) ──
 export const useTheme = create<ThemeState>()(
