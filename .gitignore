@@ -6,3 +6,9 @@ data/*.db-shm
 data/*.db-wal
 *.log
 .DS_Store
+
+# Backup files (rolled back snapshots, never commit)
+*.bak
+*.bak-*
+apps/mobile/app.json.bak-static
+apps/web/vite.config.ts.bak.agent
