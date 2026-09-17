@@ -58,9 +58,14 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [q, setQ] = useState('');
   const [sport, setSport] = useState('');
+  const [sports, setSports] = useState<string[]>([]);          // multi-sport (A6)
   const [league, setLeague] = useState('');
+  const [leagueQ, setLeagueQ] = useState('');                  // 联赛搜索 (A6)
   const [status, setStatus] = useState('');
   const [when, setWhen] = useState<'all' | 'today' | '3d' | '7d'>('all');
+  const [onlyWithOdds, setOnlyWithOdds] = useState(false);     // 仅开盘 (A6)
+  const [presets, setPresets] = useState<{ name: string; filter: string }[]>([]);
+  const [presetName, setPresetName] = useState('');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [loadedAt, setLoadedAt] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -81,17 +86,25 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  // Load saved filter presets (Sprint 2 A6)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('mexplorer.presets');
+      if (raw) setPresets(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+
   const normSport = useCallback((m: Match) => m.sport?.trim().toLowerCase() || 'other', []);
   const normLeague = useCallback((m: Match) => m.league?.trim() || '', []);
-  const sports = useMemo(() => Array.from(new Set(matches.map(normSport))).sort(), [matches, normSport]);
+  const allSports = useMemo(() => Array.from(new Set(matches.map(normSport))).sort(), [matches, normSport]);
   const sportCounts = useMemo(() => {
     const map = new Map<string, number>();
     for (const m of matches) map.set(normSport(m), (map.get(normSport(m)) ?? 0) + 1);
     return map;
   }, [matches, normSport]);
   const leagues = useMemo(
-    () => Array.from(new Set(matches.filter((m) => !sport || normSport(m) === sport).map(normLeague).filter(Boolean))).sort(),
-    [matches, sport, normSport, normLeague],
+    () => Array.from(new Set(matches.map(normLeague).filter(Boolean))).sort(),
+    [matches, normLeague],
   );
 
   const groups = useMemo(() => {
@@ -101,6 +114,7 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
     const days = when === 'today' ? 1 : when === '3d' ? 3 : when === '7d' ? 7 : 0;
     const filtered = matches.filter((m) => {
       if (sport && normSport(m) !== sport) return false;
+      if (sports.length > 0 && !sports.includes(normSport(m))) return false;
       if (league && normLeague(m) !== league) return false;
       if (status && m.status !== status) return false;
       if (kw && !`${m.home_team} ${m.away_team}`.toLowerCase().includes(kw)) return false;
@@ -108,6 +122,7 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
         const t = new Date(m.kickoff_time).getTime();
         if (!Number.isNaN(t) && (t < startMs || t >= startMs + days * 86400000)) return false;
       }
+      if (onlyWithOdds && !m.markets.some((mk) => mk.status === 'open' && mk.odds.length > 0)) return false;
       return true;
     });
     const map = new Map<string, { key: string; sport: string; league: string; items: Match[] }>();
@@ -121,40 +136,155 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
     }
     return Array.from(map.values()).sort((a, b) =>
       a.sport.localeCompare(b.sport) || a.league.localeCompare(b.league));
-  }, [matches, q, sport, league, status, when, normSport, normLeague]);
+  }, [matches, q, sport, sports, league, status, when, onlyWithOdds, normSport, normLeague]);
+
+  // 联赛搜索 (A6)
+  const filteredLeagues = useMemo(() => {
+    const lq = leagueQ.trim().toLowerCase();
+    if (!lq) return leagues;
+    return leagues.filter((l) => l.toLowerCase().includes(lq));
+  }, [leagues, leagueQ]);
+
+  const snapshot = useCallback(
+    () => JSON.stringify({ q, sport, sports, league, status, when, onlyWithOdds }),
+    [q, sport, sports, league, status, when, onlyWithOdds],
+  );
+
+  const savePreset = useCallback(() => {
+    const name = presetName.trim();
+    if (!name) return;
+    const next = presets.filter((p) => p.name !== name).concat({ name, filter: snapshot() });
+    setPresets(next);
+    try { localStorage.setItem('mexplorer.presets', JSON.stringify(next)); } catch { /* ignore */ }
+    setPresetName('');
+    toast.ok(`已保存筛选预设: ${name}`);
+  }, [presetName, presets, snapshot]);
+
+  const loadPreset = useCallback(
+    (f: string) => {
+      try {
+        const p = JSON.parse(f) as {
+          q?: string; sport?: string; sports?: string[]; league?: string;
+          status?: string; when?: 'all' | 'today' | '3d' | '7d'; onlyWithOdds?: boolean;
+        };
+        setQ(p.q ?? '');
+        setSport(p.sport ?? '');
+        setSports(p.sports ?? []);
+        setLeague(p.league ?? '');
+        setStatus(p.status ?? '');
+        setWhen(p.when ?? 'all');
+        setOnlyWithOdds(!!p.onlyWithOdds);
+        toast.info('已加载预设');
+      } catch { toast.err('预设解析失败'); }
+    }, []);
+
+  const delPreset = useCallback((name: string) => {
+    const next = presets.filter((p) => p.name !== name);
+    setPresets(next);
+    try { localStorage.setItem('mexplorer.presets', JSON.stringify(next)); } catch { /* ignore */ }
+  }, [presets]);
+
+  const hasActiveFilter = !!(q || sport || sports.length || league || status || when !== 'all' || onlyWithOdds);
+  const clearAll = useCallback(() => {
+    setQ(''); setSport(''); setSports([]); setLeague(''); setStatus(''); setWhen('all'); setOnlyWithOdds(false); setLeagueQ('');
+  }, []);
 
   const totalCount = groups.reduce((n, g) => n + g.items.length, 0);
   const liveCount = matches.filter((m) => m.status === 'in_progress' || m.status === 'open').length;
 
   return (
     <div>
-      {/* Sport pills */}
+      {/* Sport pills (multi-select: A6) */}
       <div className="row" style={{ marginBottom: 12 }}>
-        <button className={`odds-chip ${sport === '' ? 'selected' : ''}`} onClick={() => { setSport(''); setLeague(''); }}>
+        <button
+          className={`odds-chip ${sports.length === 0 && !sport ? 'selected' : ''}`}
+          onClick={() => { setSports([]); setSport(''); setLeague(''); }}
+        >
           全部 ({matches.length})
         </button>
         {sports.map((s) => (
-          <button key={s} className={`odds-chip ${sport === s ? 'selected' : ''}`} onClick={() => { setSport(s); setLeague(''); }}>
+          <button
+            key={s}
+            className="odds-chip selected"
+            onClick={() => setSports(sports.filter((x) => x !== s))}
+            title="点此移除"
+          >
+            {sportLabel(s)} ✕
+          </button>
+        ))}
+        {sports.length === 0 && allSports.map((s) => (
+          <button
+            key={s}
+            className={`odds-chip ${sport === s ? 'selected' : ''}`}
+            onClick={() => { setSport(s); setLeague(''); }}
+          >
             {sportLabel(s)} ({sportCounts.get(s) ?? 0})
           </button>
         ))}
       </div>
 
-      {/* Stats */}
+      {/* Stats + 仅开盘 toggle (A6) */}
       <div className="row" style={{ marginBottom: 12 }}>
         <span>共 <strong>{totalCount}</strong> 场</span>
         {liveCount > 0 && <span style={{ color: 'var(--success)' }}>🔴 <strong>{liveCount}</strong> 进行中</span>}
+        <label className="only-with-odds" title="仅显示有可下注赔率的赛事">
+          <input type="checkbox" checked={onlyWithOdds} onChange={(e) => setOnlyWithOdds(e.target.checked)} />
+          <span>仅开盘</span>
+        </label>
         {loadedAt && <span className="muted" style={{ marginLeft: 'auto' }}>更新于 {fmtTime(loadedAt)}</span>}
       </div>
 
-      {/* Search + league */}
+      {/* Active filter chips (A6) */}
+      {hasActiveFilter && (
+        <div className="row" style={{ marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+          <span className="muted" style={{ fontSize: 11 }}>活动筛选:</span>
+          {q && <span className="active-chip" onClick={() => setQ('')}>🔍 "{q}" ✕</span>}
+          {sport && <span className="active-chip" onClick={() => setSport('')}>{sportLabel(sport)} ✕</span>}
+          {sports.map((s) => (
+            <span key={s} className="active-chip" onClick={() => setSports(sports.filter((x) => x !== s))}>{sportLabel(s)} ✕</span>
+          ))}
+          {league && <span className="active-chip" onClick={() => setLeague('')}>📋 {league} ✕</span>}
+          {status && <span className="active-chip" onClick={() => setStatus('')}>{status} ✕</span>}
+          {when !== 'all' && <span className="active-chip" onClick={() => setWhen('all')}>🕐 {when === 'today' ? '今天' : when === '3d' ? '近3天' : '近7天'} ✕</span>}
+          {onlyWithOdds && <span className="active-chip" onClick={() => setOnlyWithOdds(false)}>✅ 仅开盘 ✕</span>}
+          <button className="ghost small" onClick={clearAll}>全部清除</button>
+        </div>
+      )}
+
+      {/* Presets (A6) */}
+      <div className="row" style={{ marginBottom: 12, gap: 6, flexWrap: 'wrap' }}>
+        {presets.map((p) => (
+          <span key={p.name} className="preset-chip">
+            <button onClick={() => loadPreset(p.filter)} title="加载此预设">📂 {p.name}</button>
+            <button onClick={() => delPreset(p.name)} title="删除" className="ghost small">✕</button>
+          </span>
+        ))}
+        <input
+          placeholder="💾 保存当前筛选..."
+          value={presetName}
+          onChange={(e) => setPresetName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') savePreset(); }}
+          style={{ maxWidth: 200 }}
+        />
+        <button onClick={savePreset} disabled={!presetName.trim()} className="ghost small">保存</button>
+      </div>
+
+      {/* Search + league (A6: league 搜索 input) */}
       <div className="row" style={{ marginBottom: 8 }}>
         <input className="wide" placeholder="🔍 搜索队名..." value={q} onChange={(e) => setQ(e.target.value)} />
         {leagues.length > 0 && (
-          <select value={league} onChange={(e) => setLeague(e.target.value)} style={{ maxWidth: 160 }}>
-            <option value="">全部联赛</option>
-            {leagues.map((l) => <option key={l} value={l}>{l}</option>)}
-          </select>
+          <div className="league-search">
+            <input
+              placeholder="🔎 联赛"
+              value={leagueQ}
+              onChange={(e) => setLeagueQ(e.target.value)}
+              style={{ maxWidth: 140 }}
+            />
+            <select value={league} onChange={(e) => setLeague(e.target.value)} style={{ maxWidth: 160 }}>
+              <option value="">全部联赛 ({filteredLeagues.length})</option>
+              {filteredLeagues.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
         )}
         <button onClick={() => void refresh()} className="ghost small">↻ 刷新</button>
       </div>
@@ -237,7 +367,7 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
               ))}
           </div>
           );
-          )}
+          })}
         <MatchDetail
           match={detailMatch}
           onClose={() => setDetailMatch(null)}
