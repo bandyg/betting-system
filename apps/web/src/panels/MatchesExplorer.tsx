@@ -1,5 +1,5 @@
 // panels/MatchesExplorer.tsx — 赛事大厅（公开页）
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   api,
   MATCH_STATUS_LABELS,
@@ -11,6 +11,8 @@ import {
 import { SkeletonList } from '../components/Skeleton.js';
 import { EmptyState } from '../components/EmptyState.js';
 import { MatchDetail } from '../components/MatchDetail.js';
+import { LeagueChip } from '../components/LeagueChip.js';
+import { useVirtualScroll } from '../hooks/useVirtualScroll.js';
 import { useAuth, toast } from '../store.js';
 
 const SPORT_EMOJI: Record<string, string> = {
@@ -70,6 +72,7 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
   const [loadedAt, setLoadedAt] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [detailMatch, setDetailMatch] = useState<Match | null>(null);
+  const virtualViewportRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -190,6 +193,26 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
   }, []);
 
   const totalCount = groups.reduce((n, g) => n + g.items.length, 0);
+
+  // #2 虚拟滚动: 平铺所有 matches 用虚拟列表
+  const flatMatches = useMemo(() => {
+    const out: Match[] = [];
+    for (const g of groups) {
+      // 按 collapsed 状态决定是否包含
+      if (!collapsed[g.key]) {
+        for (const m of g.items) out.push(m);
+      }
+    }
+    return out;
+  }, [groups, collapsed]);
+
+  const { visible: visibleMatches, totalHeight: virtualHeight, useVirtual } = useVirtualScroll({
+    items: flatMatches,
+    parentRef: virtualViewportRef,
+    itemHeight: 96,         // 每 match ~ 96px
+    overscan: 4,
+    threshold: 40,
+  });
   const liveCount = matches.filter((m) => m.status === 'in_progress' || m.status === 'open').length;
 
   return (
@@ -313,12 +336,32 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
           action={<button onClick={() => { setQ(''); setSport(''); setLeague(''); setStatus(''); setWhen('all'); }}>重置筛选</button>}
         />
       )}
-      {!loading && totalCount > 0 && groups.map((g) => {
+      {!loading && totalCount > 0 && useVirtual ? (
+        <div ref={virtualViewportRef} className="virtual-viewport">
+          <div style={{ height: virtualHeight, position: 'relative' }}>
+            <div className="virtual-badge">共 {flatMatches.length} 场 (虚拟滚动中)</div>
+            {visibleMatches.map(({ item: m, offsetTop }) => (
+              <div key={m.id} className="virtual-item" style={{ top: offsetTop, height: 96, padding: '6px 0' }}>
+                <div className="card fade-in">
+                  <div className="row">
+                    <button className="md-team-btn" onClick={() => setDetailMatch(m)} title="查看详情">
+                      <strong>{m.home_team} vs {m.away_team}</strong>
+                    </button>
+                    <span className="muted">#{m.id}</span>
+                    <span className="muted">{fmtKickoff(m.kickoff_time)}</span>
+                    <span className={`badge ${m.status}`}>{MATCH_STATUS_LABELS[m.status] ?? m.status}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : !loading && totalCount > 0 && groups.map((g) => {
         const isOpen = !collapsed[g.key];
         return (
           <div key={g.key} className="card fade-in" style={{ marginBottom: 12 }}>
             <button className="ghost small" style={{ width: '100%', textAlign: 'left' }} onClick={() => setCollapsed((c) => ({ ...c, [g.key]: isOpen }))}>
-              {isOpen ? '▼' : '▶'} {sportLabel(g.sport)} · {g.league} <span className="muted">({g.items.length} 场)</span>
+                {isOpen ? '▼' : '▶'} {sportLabel(g.sport)} <LeagueChip league={g.league} size="xs" />
             </button>
             {isOpen && g.items.map((m) => (
               <div key={m.id} style={{ borderTop: '1px solid var(--border)', padding: '10px 0' }}>
