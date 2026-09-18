@@ -205,6 +205,42 @@ tr:hover td { background: var(--bg-elevated); }
 .preset-chip button:last-child { color: var(--fg-muted); padding: 2px 6px; }
 .league-search { display: inline-flex; gap: 4px; align-items: center; }
 
+/* ── BetSlip (Sprint 2 A3) ── */
+.bet-slip-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.bet-slip-head h2 { margin: 0; }
+.mode-toggle {
+  display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+}
+.mode-toggle button {
+  background: transparent; border: none; padding: 4px 10px;
+  font-size: 12px; color: var(--fg-muted); cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-toggle button:hover { background: var(--bg-card-2); color: var(--fg); }
+.mode-toggle button.active { background: var(--accent); color: white; font-weight: 600; }
+.bet-slip-item-accordion {
+  border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;
+  background: var(--bg-card-2);
+}
+.bet-slip-item-head {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  cursor: pointer; user-select: none;
+}
+.bet-slip-item-head .caret { color: var(--fg-muted); font-size: 10px; }
+.bet-slip-item-head .sel { font-weight: 600; }
+.bet-slip-item-head .price { color: var(--accent); font-weight: 500; }
+.bet-slip-item-head .bet-slip-remove { margin-left: auto; }
+.bet-slip-item-body { padding: 6px 10px 8px; border-top: 1px solid var(--border); }
+.parlay-preview {
+  margin: 10px 0; padding: 10px 12px;
+  background: linear-gradient(135deg, var(--accent-bg), var(--bg-card-2));
+  border: 1px solid var(--accent-border); border-radius: 8px;
+}
+.parlay-preview .row { margin: 4px 0; }
+.parlay-win { padding-top: 6px; border-top: 1px solid var(--border); margin-top: 6px; }
+.parlay-win strong { color: var(--success); }
+.bet-slip-footer { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
+
 /* ── Keyboard Help Modal (Sprint 1 A4) ── */
 .kbd-help-backdrop {
   position: fixed; inset: 0; z-index: 10000;
