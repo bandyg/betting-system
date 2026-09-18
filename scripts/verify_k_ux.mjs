@@ -89,7 +89,7 @@ try {
   await page.waitForTimeout(500);
   body = await page.locator('body').innerText();
   ok(body.includes('投注单') && body.includes(chipText.split(' ')[0]) && body.includes('@'), 'K1c 投注单出现 selection+赔率', `chip="${chipText}"`);
-  await page.locator('.bet-slip input[type="number"]').fill('100');
+  await page.locator('.bet-slip input[type="number"]').first().fill('100');
   await page.getByRole('button', { name: '提交下注', exact: true }).click();
   await page.waitForTimeout(1500);
   // 等"下注成功"toast 出现（最长 5s，因为 3.5s auto-dismiss）
@@ -135,7 +135,7 @@ try {
   body = await page.locator('body').innerText();
   ok(body.includes('代客下注'), 'K2a admin 投注单出现代客下注选择器');
   await page.locator('.bet-slip select').selectOption({ value: String(ua.id) });
-  await page.locator('.bet-slip input[type="number"]').fill('50');
+  await page.locator('.bet-slip input[type="number"]').first().fill('50');
   await page.getByRole('button', { name: '提交下注', exact: true }).click();
   await page.waitForTimeout(1200);
   body = await page.locator('body').innerText();
