@@ -91,6 +91,9 @@ try {
   ok(body.includes('投注单') && body.includes(chipText.split(' ')[0]) && body.includes('@'), 'K1c 投注单出现 selection+赔率', `chip="${chipText}"`);
   await page.locator('.bet-slip input[type="number"]').first().fill('100');
   await page.getByRole('button', { name: '提交下注', exact: true }).click();
+  await page.waitForTimeout(500);
+  // #4 确认弹窗: 点确认下注
+  await page.getByRole('button', { name: '✓ 确认下注', exact: false }).click();
   await page.waitForTimeout(1500);
   // 等"下注成功"toast 出现（最长 5s，因为 3.5s auto-dismiss）
   let betToast = '';
@@ -137,6 +140,8 @@ try {
   await page.locator('.bet-slip select').selectOption({ value: String(ua.id) });
   await page.locator('.bet-slip input[type="number"]').first().fill('50');
   await page.getByRole('button', { name: '提交下注', exact: true }).click();
+  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: '✓ 确认下注', exact: false }).click();
   await page.waitForTimeout(1200);
   body = await page.locator('body').innerText();
   ok(body.includes('下注成功'), 'K2b admin 代客下注成功');

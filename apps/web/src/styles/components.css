@@ -241,6 +241,92 @@ tr:hover td { background: var(--bg-elevated); }
 .parlay-win strong { color: var(--success); }
 .bet-slip-footer { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
 
+/* ── Confirm Bet Modal (Sprint 2 #4) ── */
+.confirm-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px 20px; animation: fade-in 0.15s ease-out;
+}
+.confirm-modal {
+  max-width: 560px; width: 100%;
+  background: var(--bg-card); border: 1px solid var(--accent-border);
+  border-radius: 12px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  padding: 20px 24px;
+}
+.confirm-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.confirm-head h2 { margin: 0; font-size: 18px; }
+.confirm-mode { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
+.mode-badge {
+  display: inline-block; padding: 4px 10px; border-radius: 14px;
+  font-size: 12px; font-weight: 600;
+}
+.mode-badge.single { background: var(--bg-card-2); color: var(--fg); border: 1px solid var(--border); }
+.mode-badge.parlay { background: var(--accent); color: white; }
+.combined-price { font-size: 13px; color: var(--fg-muted); }
+.combined-price strong { color: var(--accent); font-size: 16px; margin-left: 4px; }
+.confirm-items { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 13px; }
+.confirm-items th, .confirm-items td {
+  padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border);
+}
+.confirm-items th { background: var(--bg-card-2); font-size: 11px; color: var(--fg-muted); }
+.confirm-items .match-cell { max-width: 220px; }
+.confirm-items .match-name { font-weight: 600; }
+.confirm-items .price { color: var(--accent); font-weight: 600; }
+.confirm-summary {
+  background: var(--bg-card-2); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 12px;
+}
+.confirm-summary .row {
+  display: flex; justify-content: space-between;
+  margin: 4px 0; font-size: 13px;
+}
+.confirm-win { border-top: 1px solid var(--border); padding-top: 6px; margin-top: 6px; }
+.confirm-win strong { color: var(--success); font-size: 16px; }
+.confirm-actions { display: flex; gap: 8px; }
+.confirm-actions button { padding: 10px 14px; font-size: 14px; font-weight: 600; }
+.confirm-hint { font-size: 11px; text-align: center; margin: 10px 0 0; }
+
+/* ── Odds Flash (Sprint 2 #A5) ── */
+.odds-price {
+  display: inline-flex; align-items: center; gap: 4px;
+  transition: all 0.2s;
+}
+.odds-price.flash-up {
+  animation: flash-green 1.2s ease-out;
+}
+.odds-price.flash-down {
+  animation: flash-red 1.2s ease-out;
+}
+.odds-price .arrow { font-weight: bold; font-size: 12px; }
+@keyframes flash-green {
+  0% { background: var(--success-bg); transform: scale(1.1); }
+  100% { background: transparent; transform: scale(1); }
+}
+@keyframes flash-red {
+  0% { background: var(--danger-bg); transform: scale(1.1); }
+  100% { background: transparent; transform: scale(1); }
+}
+
+/* ── Settled Bet Flash (Sprint 2 #5) ── */
+.bet-row { transition: background 0.2s; }
+.bet-row.outcome-win { background: rgba(40, 167, 69, 0.06); }
+.bet-row.outcome-lose { background: rgba(220, 53, 69, 0.06); }
+.bet-row.flash-win { animation: flash-win 3s ease-out; }
+.bet-row.flash-lose { animation: flash-lose 3s ease-out; }
+@keyframes flash-win {
+  0%, 30% { background: var(--success-bg); transform: scale(1.02); }
+  100% { background: transparent; transform: scale(1); }
+}
+@keyframes flash-lose {
+  0%, 30% { background: var(--danger-bg); transform: scale(1.02); }
+  100% { background: transparent; transform: scale(1); }
+}
+.outcome-icon { font-size: 14px; }
+
 /* ── Keyboard Help Modal (Sprint 1 A4) ── */
 .kbd-help-backdrop {
   position: fixed; inset: 0; z-index: 10000;

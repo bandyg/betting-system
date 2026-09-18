@@ -94,6 +94,8 @@ try {
   await page.waitForTimeout(500);
   await page.locator('.bet-slip input[type="number"]').first().fill('100');
   await page.getByRole('button', { name: '提交下注', exact: true }).click();
+  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: '✓ 确认下注', exact: false }).click();
   // 等"下注成功"toast 出现（最长 5s，因为 3.5s auto-dismiss）
   let betToast = '';
   for (let i = 0; i < 50; i++) {

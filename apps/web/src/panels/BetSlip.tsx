@@ -1,8 +1,9 @@
-// panels/BetSlip.tsx — 投注单 (Sprint 2 A3: 单注/组合 模式切换 + accordion + 组合预览)
-import { useState, useEffect, useMemo } from 'react';
+// panels/BetSlip.tsx — 投注单 (Sprint 2 A3 parlay + Sprint 2 #4 confirm + #5 settle anim + #A5 odds anim)
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { api, type Bet, SEL_LABELS, TYPE_LABELS } from '@betting/core';
 import { useAuth, toast } from '../store.js';
 import type { Match, Market, OddsItem } from '@betting/core';
+import { ConfirmBet, type ConfirmItem } from '../components/ConfirmBet.js';
 
 export interface BasketItem {
   key: string;        // `${marketId}:${selection}`
@@ -32,6 +33,34 @@ export function BetSlip({ items, onRemove, onClear }: Props) {
   const [users, setUsers] = useState<{ id: number; name: string; balance: number }[]>([]);
   const [mode, setMode] = useState<Mode>('single');           // 单注/组合 toggle
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [confirmOpen, setConfirmOpen] = useState(false);       // #4 确认弹窗
+  const [oddsFlash, setOddsMap] = useState<Record<string, 'up' | 'down' | null>>({});  // #A5 赔率变化闪动
+  const prevPricesRef = useRef<Record<string, number>>({});   // #A5 上一次赔率
+
+  // #A5 监听 items 价格变化，触发闪动 (Sprint 2 #A5 odds flash)
+  useEffect(() => {
+    const prev = prevPricesRef.current;
+    const flashes: Record<string, 'up' | 'down' | null> = {};
+    for (const it of items) {
+      const oldP = prev[it.key];
+      if (oldP != null && oldP !== it.price) {
+        flashes[it.key] = it.price > oldP ? 'up' : 'down';
+      }
+    }
+    if (Object.keys(flashes).length > 0) {
+      setOddsMap((m) => ({ ...m, ...flashes }));
+      window.setTimeout(() => {
+        setOddsMap((m) => {
+          const next = { ...m };
+          for (const k of Object.keys(flashes)) next[k] = null;
+          return next;
+        });
+      }, 1200);
+    }
+    const newPrev: Record<string, number> = {};
+    for (const it of items) newPrev[it.key] = it.price;
+    prevPricesRef.current = newPrev;
+  }, [items]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -61,22 +90,47 @@ export function BetSlip({ items, onRemove, onClear }: Props) {
     return (Number(stake) || 0) * combinedPrice;
   }, [items, mode, stake, perStakes, combinedPrice]);
 
-  const submit = async () => {
-    if (items.length === 0) { toast.warn('投注单为空，请先在大厅点击赔率选择'); return; }
-    if (!user && !isAdmin) { toast.warn('请先登录再下注'); return; }
-    if (isAdmin && proxyUid === '') { toast.warn('代客下注请先选择用户'); return; }
+  // 收集 confirm items (Sprint 2 #4)
+  const buildConfirmItems = (): ConfirmItem[] | null => {
+    if (items.length === 0) { toast.warn('投注单为空，请先在大厅点击赔率选择'); return null; }
+    if (!user && !isAdmin) { toast.warn('请先登录再下注'); return null; }
+    if (isAdmin && proxyUid === '') { toast.warn('代客下注请先选择用户'); return null; }
+    return items.map((it) => ({
+      marketId: it.marketId,
+      matchLabel: it.matchLabel,
+      marketLabel: it.marketLabel,
+      selection: it.selection,
+      price: it.price,
+      stake: mode === 'parlay'
+        ? Number(stake) || 0
+        : Number(perStakes[it.key] ?? stake) || 0,
+    }));
+  };
+
+  // 点击提交按钮: 打开确认弹窗 (Sprint 2 #4)
+  const submit = () => {
+    const ci = buildConfirmItems();
+    if (!ci) return;
+    // 校验所有 stake > 0
+    if (ci.some((it) => !(it.stake > 0))) {
+      toast.warn('所有注的投注额必须大于 0');
+      return;
+    }
+    setConfirmOpen(true);
+  };
+
+  // 用户在弹窗中确认: 真正 placeBet (Sprint 2 #4)
+  const doPlaceBets = async () => {
+    setConfirmOpen(false);
     const uid = isAdmin ? Number(proxyUid) : user!.id;
     let okCount = 0;
     let lastBet: Bet | null = null;
     let lastAccount: { balance: number } | null = null;
 
     for (const it of items) {
-      // 单注模式: perStakes[it.key] 或 fallback stake
-      // 组合模式: 全部用 stake
       const s = mode === 'parlay'
         ? Number(stake)
         : Number(perStakes[it.key] ?? stake);
-      if (!(s > 0)) { toast.warn(`#${it.marketId} 投注额必须大于 0`); return; }
       try {
         const res = await api.placeBet(uid, it.marketId, it.selection, s);
         okCount += 1;
@@ -89,8 +143,6 @@ export function BetSlip({ items, onRemove, onClear }: Props) {
     }
 
     if (okCount > 0) {
-      // 组合模式: 派彩 = stake × combinedPrice
-      // 单注模式: lastBet.potential_payout
       const summary = mode === 'parlay'
         ? `（组合赔率 ${combinedPrice.toFixed(2)}，潜在派彩 ¥${((Number(stake) || 0) * combinedPrice).toFixed(2)}）`
         : lastBet ? `（#${lastBet.id}，潜在派彩 ¥${lastBet.potential_payout}）` : '';
@@ -98,7 +150,7 @@ export function BetSlip({ items, onRemove, onClear }: Props) {
       onClear();
       setPerStakes({});
       if (lastAccount && isAdmin) {
-        void api.listUsers().then((r) => setUsers(r.users)).catch(() => {});
+      void api.listUsers().then((r) => setUsers(r.users)).catch(() => {});
       }
     }
   };
@@ -139,7 +191,11 @@ export function BetSlip({ items, onRemove, onClear }: Props) {
                 <div className="bet-slip-item-head" onClick={() => setCollapsed((c) => ({ ...c, [it.key]: !c[it.key] }))}>
                   <span className="caret">{isOpen ? '▼' : '▶'}</span>
                   <span className="sel">{SEL_LABELS[it.selection] ?? it.selection}</span>
-                  <span className="price">@{it.price}</span>
+                  <span className={`price odds-price${oddsFlash[it.key] ? ' flash-' + oddsFlash[it.key] : ''}`}>
+                  {oddsFlash[it.key] === 'up' && <span className="arrow">↑</span>}
+                  {oddsFlash[it.key] === 'down' && <span className="arrow">↓</span>}
+                  @{it.price}
+                  </span>
                   <span className="muted" style={{ fontSize: 11 }}>· {it.matchLabel}</span>
                   <button
                     className="bet-slip-remove ghost small"
@@ -250,6 +306,16 @@ export function BetSlip({ items, onRemove, onClear }: Props) {
           🔒 请先登录再下注：当前未登录，点击任何赔率会提示先登录。投注前请先在顶部登录。
         </div>
       )}
+      <ConfirmBet
+      open={confirmOpen}
+      mode={mode}
+      items={buildConfirmItems() ?? []}
+      totalStake={totalStake}
+      totalPotential={totalPotential}
+      combinedPrice={mode === 'parlay' ? combinedPrice : undefined}
+      onConfirm={doPlaceBets}
+      onCancel={() => setConfirmOpen(false)}
+      />
     </section>
   );
 }
