@@ -383,6 +383,22 @@ tr:hover td { background: var(--bg-elevated); }
   z-index: 1;
 }
 
+/* ── Layout user-greeting + lang-toggle (Sprint 3 batch2) ── */
+.user-greeting {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 8px; border-radius: 14px;
+  background: var(--bg-card-2); border: 1px solid var(--border);
+  font-size: 13px;
+}
+.user-name {
+  font-weight: 600; max-width: 120px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lang-toggle {
+  font-weight: 600; min-width: 32px;
+  border: 1px solid var(--border);
+}
+
 /* ── Responsive Breakpoints (Sprint 3 #B4) ── */
 /* 默认 (>1280px) 桌面端 */
 /* xl: 1100-1280px 桌面缩小 */

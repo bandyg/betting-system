@@ -6,9 +6,15 @@ import { ThemeToggle } from './ThemeToggle.js';
 import { ToastHost } from './Toast.js';
 import { KeyboardHelp } from './KeyboardHelp.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboard.js';
+import { useT } from '../i18n.js';
+import { Avatar } from './Avatar.js';
+import { useAuth } from '../store.js';
 
 export function Layout() {
   const kbd = useKeyboardShortcuts();
+  const { lang, setLang } = useT();
+  const user = useAuth((s: { user: { name: string } | null }) => s.user);
+  const toggleLang = () => setLang(lang === 'zh-CN' ? 'en' : 'zh-CN');
 
   return (
     <>
@@ -20,6 +26,20 @@ export function Layout() {
           <span className="sub">6 systems / 16 routes / live</span>
         </div>
         <div className="right">
+          {user && (
+            <span className="user-greeting" title={user.name}>
+              <Avatar name={user.name} size={24} />
+              <span className="user-name">{user.name}</span>
+            </span>
+          )}
+          <button
+            className="ghost small lang-toggle"
+            onClick={toggleLang}
+            title="切换语言 / Switch language"
+            aria-label="Toggle language"
+          >
+            {lang === 'zh-CN' ? '中' : 'EN'}
+          </button>
           <button
             className="ghost small"
             onClick={kbd.openHelp}

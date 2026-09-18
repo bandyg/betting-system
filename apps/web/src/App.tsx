@@ -14,6 +14,7 @@ import { EmptyState } from './components/EmptyState.js';
 import { LoginPage } from './pages/Login.js';
 import { useAuth } from './store.js';
 import type { Match, Market, OddsItem } from '@betting/core';
+import { useLocation } from 'react-router-dom';
 
 /** 公共 wrapper：未登录时给引导（带「去登录」按钮，跳转回原 URL）*/
 function RequireAuth({ children }: { children: JSX.Element }) {
