@@ -399,6 +399,19 @@ tr:hover td { background: var(--bg-elevated); }
   border: 1px solid var(--border);
 }
 
+/* ── Offline Banner (Sprint 4 B5) ── */
+.offline-banner {
+  padding: 8px 16px; font-size: 13px; text-align: center;
+  border-bottom: 1px solid var(--border);
+  animation: slide-down 0.2s ease-out;
+}
+.offline-banner.offline { background: var(--warning-bg); color: var(--warning); border-color: var(--warning); }
+.offline-banner.online-flash { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+@keyframes slide-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 /* ── Responsive Breakpoints (Sprint 3 #B4) ── */
 /* 默认 (>1280px) 桌面端 */
 /* xl: 1100-1280px 桌面缩小 */

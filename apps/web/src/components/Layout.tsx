@@ -6,6 +6,7 @@ import { ThemeToggle } from './ThemeToggle.js';
 import { ToastHost } from './Toast.js';
 import { KeyboardHelp } from './KeyboardHelp.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboard.js';
+import { OfflineBanner } from './OfflineBanner.js';
 import { useT } from '../i18n.js';
 import { Avatar } from './Avatar.js';
 import { useAuth } from '../store.js';
@@ -52,6 +53,7 @@ export function Layout() {
           <ThemeToggle />
         </div>
       </header>
+      <OfflineBanner />
       <Tabs />
       <main className="tab-content fade-in">
         <Outlet />
