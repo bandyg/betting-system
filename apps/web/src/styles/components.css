@@ -176,6 +176,17 @@ tr:hover td { background: var(--bg-elevated); }
 .md-team-btn:hover { text-decoration: underline; }
 .md-team-btn strong { font-weight: 600; }
 
+/* ── Mini Chart (Sprint 3 #C1) ── */
+.mini-chart { background: var(--bg-card-2); border-radius: 4px; padding: 2px; }
+.mini-chart-svg { display: block; }
+.mini-chart-tip {
+  position: absolute; background: var(--fg); color: var(--bg-card);
+  font-size: 10px; padding: 2px 6px; border-radius: 3px;
+  pointer-events: none; white-space: nowrap;
+  font-family: ui-monospace, monospace;
+}
+.md-chart-wrap { margin-top: 4px; }
+
 /* ── Smart Filters (Sprint 2 A6) ── */
 .only-with-odds {
   display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
@@ -326,6 +337,83 @@ tr:hover td { background: var(--bg-elevated); }
   100% { background: transparent; transform: scale(1); }
 }
 .outcome-icon { font-size: 14px; }
+
+/* ── League Chip (Sprint 3 #6) ── */
+.league-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px 2px 2px; border-radius: 12px;
+  border: 1px solid; font-size: 12px; font-weight: 500;
+  user-select: none; max-width: 240px;
+}
+.league-chip .lc-circle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  font-size: 11px; font-weight: 700;
+}
+.league-chip .lc-emoji { font-size: 12px; line-height: 1; }
+.league-chip .lc-name {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.league-chip.lc-xs { font-size: 11px; padding: 1px 6px 1px 1px; gap: 3px; }
+.league-chip.lc-xs .lc-circle { width: 16px; height: 16px; font-size: 10px; }
+.league-chip.lc-sm { font-size: 12px; }
+.league-chip.lc-md { font-size: 13px; padding: 4px 10px 4px 3px; }
+.league-chip.lc-md .lc-circle { width: 22px; height: 22px; font-size: 12px; }
+
+/* ── Virtual Scroll (Sprint 3 #2) ── */
+.virtual-viewport {
+  position: relative;
+  overflow-y: auto;
+  max-height: 70vh;            /* 不超过 70vh，超过启用内部滚动 */
+  scroll-behavior: smooth;
+}
+.virtual-spacer {
+  position: relative;
+  width: 100%;
+}
+.virtual-item {
+  position: absolute;
+  left: 0; right: 0;
+  transition: opacity 0.15s;
+}
+.virtual-badge {
+  position: sticky; top: 0;
+  background: var(--bg-card); border-bottom: 1px solid var(--border);
+  padding: 4px 12px; font-size: 11px; color: var(--fg-muted);
+  z-index: 1;
+}
+
+/* ── Responsive Breakpoints (Sprint 3 #B4) ── */
+/* 默认 (>1280px) 桌面端 */
+/* xl: 1100-1280px 桌面缩小 */
+@media (max-width: 1280px) {
+  .lobby-layout { grid-template-columns: 1fr 320px !important; gap: 12px !important; }
+  .confirm-modal { max-width: 480px !important; }
+}
+/* lg: 800-1100px 小桌面/平板横屏 */
+@media (max-width: 1100px) {
+  .lobby-layout { grid-template-columns: 1fr !important; }
+  .lobby-layout > .lobby-basket { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); }
+}
+/* md: 600-800px 平板 */
+@media (max-width: 800px) {
+  .confirm-modal { max-width: 100% !important; }
+  .confirm-items .match-cell { max-width: 140px !important; }
+  .confirm-items { font-size: 11px !important; }
+  .confirm-items th, .confirm-items td { padding: 4px 6px !important; }
+  .league-chip { font-size: 11px !important; }
+  .league-chip.lc-md .lc-circle { width: 18px; height: 18px; font-size: 10px; }
+}
+/* sm: <600px 手机 */
+@media (max-width: 600px) {
+  .row { flex-wrap: wrap !important; }
+  .confirm-actions button { padding: 8px 10px !important; font-size: 12px !important; }
+  .mini-chart { display: none; }    /* 隐藏 mini chart 节省空间 */
+  .virtual-viewport { max-height: 60vh !important; }
+  .bet-slip-item-head .muted { display: none; }    /* 隐藏 matchLabel 节省 */
+  .parlay-preview { padding: 8px !important; }
+  .parlay-win strong { font-size: 14px !important; }
+}
 
 /* ── Keyboard Help Modal (Sprint 1 A4) ── */
 .kbd-help-backdrop {

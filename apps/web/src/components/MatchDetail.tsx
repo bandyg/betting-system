@@ -14,6 +14,20 @@ import {
   type Market,
   type OddsItem,
 } from '@betting/core';
+import { MiniChart } from './MiniChart.js';
+
+// Mock odds history generator (Sprint 3 #A2v2)
+function mockOddsHistory(basePrice: number, n = 24): number[] {
+  const out: number[] = [];
+  let p = basePrice * 0.97;
+  for (let i = 0; i < n; i++) {
+    p = p + (Math.random() - 0.48) * 0.04;
+    p = Math.max(1.01, p);
+    out.push(parseFloat(p.toFixed(2)));
+  }
+  out[out.length - 1] = basePrice;  // 确保终点等于当前价
+  return out;
+}
 
 interface Props {
   match: Match | null;
@@ -108,7 +122,12 @@ export function MatchDetail({ match, onClose, onPick, loggedIn }: Props) {
                 <tbody>
                   {market.odds.map((o) => (
                     <tr key={`${market.id}-${o.selection}`}>
-                      <td>{SEL_LABELS[o.selection] ?? o.selection}</td>
+                      <td>
+                        {SEL_LABELS[o.selection] ?? o.selection}
+                        <div className="md-chart-wrap">
+                          <MiniChart data={mockOddsHistory(o.price)} label={SEL_LABELS[o.selection] ?? o.selection} width={140} height={36} />
+                        </div>
+                      </td>
                       <td><strong>{o.price.toFixed(2)}</strong></td>
                       <td className="muted">{impliedProb(o.price)}</td>
                       <td>
