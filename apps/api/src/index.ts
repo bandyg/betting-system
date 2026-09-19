@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'node:http';
 import { accountsRouter } from './routes/accounts.js';
 import { authRouter } from './routes/auth.js';
 import { matchesRouter } from './routes/matches.js';
@@ -16,8 +17,10 @@ import { feedRouter } from './routes/feed.js';
 import { supportRouter } from './routes/support.js';
 import { sportsRouter } from './routes/sports.js';
 import { healthRouter } from './routes/health.js';
+import { attachWsHub } from './wsHub.js';
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = Number(process.env.PORT ?? 4100);
 
 app.use(cors());
@@ -55,6 +58,8 @@ app.use('/api', supportRouter);
 app.use('/api', sportsRouter);
 app.use('/api', healthRouter);
 
-app.listen(PORT, () => {
-  console.log(`[betting-api] listening on :${PORT}`);
+attachWsHub(httpServer);
+
+httpServer.listen(PORT, () => {
+  console.log(`[betting-api] listening on :${PORT} (ws: /ws/odds)`);
 });

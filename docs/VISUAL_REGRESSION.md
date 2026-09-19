@@ -118,14 +118,16 @@ Diff images: docs/visual-diff/
 4. **8 个关键页面**: 不覆盖每个 modal (modal 单独 Playwright e2e 已覆盖)
 5. **baseline committed**: PNG 在 repo, 防止丢失
 
-## 已知限制
+## 已知限制与解决方案 (Sprint 5 扩展后)
 
-- **时间敏感**: 时间显示 (footer, 时区) 可能不同
-- **网络延迟**: 加载 spinner 时序变化
-- **chromium 版本**: 不同版本渲染可能像素差异
-- **字体**: 系统字体变化 (chromium embedded fonts)
+| 问题 | Sprint 5 修复 |
+|------|---------------|
+| 时间敏感 (footer "更新于 HH:MM:SS") | MatchesExplorer 加 `data-test="loaded-at"`, 截图前 `visibility: hidden` + override `window.Date.now()` |
+| odds-chip 闪动动画残留 | `flash-up/down` CSS `animation: none !important` |
+| 网络延迟 spinner | 800ms `waitForTimeout` 缓冲 |
+| chromium 版本 | 锁 `chromium-1234` executablePath (e2e 共用) |
 
-→ 对这些区域建议 `waitForTimeout` 长一点, 或局部遮罩 (代码可扩展)。
+→ matches.png 从 3892 px diff → 0 px diff 完美可重现。
 
 ## 与其他测试关系
 

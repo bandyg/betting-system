@@ -41,15 +41,21 @@ async function getToken(name, password) {
 
 async function seed() {
   const adminTok = await getToken('admin', 'admin123');
-  const ts = Date.now();
-  const cr = await fetch(API + '/matches', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminTok },
-    body: JSON.stringify({
-      homeTeam: 'VR' + ts + 'A', awayTeam: 'VR' + ts + 'B',
-      kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VR',
-    }),
-  });
-  await cr.json();
+  // Sprint 5: idempotent - skip create if VR match exists (avoid baseline/regression diff)
+  const lr = await fetch(API + '/matches', { headers: { Authorization: 'Bearer ' + adminTok } });
+  const ld = await lr.json();
+  const existing = (ld.matches || []).find((x) => x.league === 'VRLeague');
+  if (!existing) {
+    const ts = Date.now();
+    const cr = await fetch(API + '/matches', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminTok },
+      body: JSON.stringify({
+        homeTeam: 'VR' + ts + 'A', awayTeam: 'VR' + ts + 'B',
+        kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VRLeague',
+      }),
+    });
+    await cr.json();
+  }
   const ur = await fetch(API + '/users', { headers: { Authorization: 'Bearer ' + adminTok } });
   const ud = await ur.json();
   let u = ud.users.find((x) => x.name === 'vruser');
@@ -109,6 +115,23 @@ async function main() {
     const page = await ctx.newPage();
     await page.goto(BASE + p.url, { waitUntil: 'networkidle' });
     await page.waitForTimeout(800);
+    // Sprint 5 扩展: 同步遮罩 + 冻结时间戳（与 capture_baseline.mjs 一致）
+    await page.addStyleTag({ content: `
+      [data-test="loaded-at"] { visibility: hidden !important; }
+      .odds-chip.flash-up, .odds-chip.flash-down,
+      .odds-price.flash-up, .odds-price.flash-down {
+        animation: none !important;
+      }
+    ` });
+    await page.evaluate(() => {
+      const fixed = 1737158400000;
+      const _Date = Date;
+      window.Date = class extends _Date {
+        constructor(...args) { if (args.length === 0) super(fixed); else super(...args); }
+        static now() { return fixed; }
+      };
+    });
+    await page.waitForTimeout(100);
     const currentPath = join(CURRENT_DIR, p.name + '.png');
     await page.screenshot({ path: currentPath, fullPage: false });
     const baselinePath = join(BASELINE_DIR, p.name + '.png');

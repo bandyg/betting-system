@@ -13,6 +13,7 @@ import { EmptyState } from '../components/EmptyState.js';
 import { MatchDetail } from '../components/MatchDetail.js';
 import { LeagueChip } from '../components/LeagueChip.js';
 import { useVirtualScroll } from '../hooks/useVirtualScroll.js';
+import { useLiveOdds } from '../hooks/useLiveOdds.js';
 import { useAuth, toast } from '../store.js';
 
 const SPORT_EMOJI: Record<string, string> = {
@@ -72,7 +73,49 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
   const [loadedAt, setLoadedAt] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [detailMatch, setDetailMatch] = useState<Match | null>(null);
+  const [liveFlashes, setLiveFlashes] = useState<Record<string, 'up' | 'down' | null>>({});  // Sprint 4 C3 实时赔率闪动
   const virtualViewportRef = useRef<HTMLDivElement>(null);
+
+  // Sprint 4 C3 WebSocket: 实时赔率更新
+  useLiveOdds((updates) => {
+    if (updates.length === 0) return;
+    setMatches((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev.map((m) => {
+        const upd = updates.find((u) => u.marketId && m.markets.some((mk) => mk.id === u.marketId));
+        if (!upd) return m;
+        const mk = m.markets.find((mk2) => mk2.id === upd.marketId);
+        if (!mk) return m;
+        return {
+          ...m,
+          markets: m.markets.map((mk2) => {
+            if (mk2.id !== upd.marketId) return mk2;
+            const oldPrices: Record<string, number> = {};
+            for (const o of mk2.odds) oldPrices[o.selection] = o.price;
+            return {
+              ...mk2,
+              odds: mk2.odds.map((o) => {
+                const upd2 = upd.odds.find((x) => x.selection === o.selection);
+                if (upd2 && upd2.price !== o.price) {
+                  const chipKey = `${m.id}-${mk2.id}-${o.selection}`;
+                  setLiveFlashes((f) => ({ ...f, [chipKey]: upd2.price > o.price ? 'up' : 'down' }));
+                  setTimeout(() => {
+                    setLiveFlashes((f) => {
+                      const { [chipKey]: _, ...rest } = f;
+                      return rest;
+                    });
+                  }, 1200);
+                  return { ...o, price: upd2.price };
+                }
+                return o;
+              }),
+            };
+          }),
+        };
+      });
+      return next;
+    });
+  });
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -254,7 +297,7 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
           <input type="checkbox" checked={onlyWithOdds} onChange={(e) => setOnlyWithOdds(e.target.checked)} />
           <span>仅开盘</span>
         </label>
-        {loadedAt && <span className="muted" style={{ marginLeft: 'auto' }}>更新于 {fmtTime(loadedAt)}</span>}
+        {loadedAt && <span data-test="loaded-at" className="muted" style={{ marginLeft: 'auto' }}>更新于 {fmtTime(loadedAt)}</span>}
       </div>
 
       {/* Active filter chips (A6) */}
@@ -383,14 +426,16 @@ export function MatchesExplorer({ onPick, pickedKeys }: Props) {
                     {m.markets.map((mk) =>
                       mk.odds.map((o) => {
                         const chipKey = `${mk.id}:${o.selection}`;
+                        const liveKey = `${m.id}-${mk.id}-${o.selection}`;
                         const open = mk.status === 'open';
+                        const flash = liveFlashes[liveKey];
                         return (
                           <span
                             key={`${mk.id}-${o.selection}`}
                             role="button"
                             tabIndex={0}
                             title={open ? '加入投注单' : '该市场已关闭'}
-                            className={`odds-chip${pickedKeys.has(chipKey) ? ' selected' : ''}${open ? '' : ' disabled'}`}
+                            className={`odds-chip${pickedKeys.has(chipKey) ? ' selected' : ''}${open ? '' : ' disabled'}${flash ? ' flash-' + flash : ''}`}
                             style={{ cursor: open ? 'pointer' : 'not-allowed', opacity: open ? 1 : 0.5 }}
                             onClick={() => {
                               if (!loggedIn) { toast.warn('⚠️ 请先登录再下注'); return; }

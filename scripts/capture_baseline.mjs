@@ -47,12 +47,12 @@ async function ensureUser(token, name, balance) {
   const data = await res.json();
   const adminTok = data.token;
   // 找 user 或建
-  const users = await (await fetch(`${API}/users`, { headers: { Authorization: Bearer ${adminTok}` } })).json();
+  const users = await (await fetch(`${API}/users`, { headers: { Authorization: 'Bearer ' + adminTok } })).json();
   let u = users.users.find((x) => x.name === name);
   if (!u) {
     const r = await fetch(`${API}/users`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: Bearer ${adminTok}` },
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminTok },
       body: JSON.stringify({ name, password: '123456' }),
     });
     const d = await r.json();
@@ -61,7 +61,7 @@ async function ensureUser(token, name, balance) {
   // deposit
   await fetch(`${API}/users/${u.id}/deposit`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: Bearer ${adminTok}` },
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminTok },
     body: JSON.stringify({ amount: balance }),
   });
   // login as user
@@ -75,7 +75,7 @@ async function ensureUser(token, name, balance) {
 }
 
 async function ensureMatchAndBets() {
-  // 创建未来赛事 + market 让页面有数据
+  // Sprint 5: idempotent - reuse VRLeague match if exists (avoid baseline/regression diff)
   const ar = await fetch(`${API}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -83,25 +83,29 @@ async function ensureMatchAndBets() {
   });
   const ad = await ar.json();
   const aTok = ad.token;
-  const ts = Date.now();
-  await fetch(`${API}/matches`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: Bearer ${aTok}` },
-    body: JSON.stringify({
-      homeTeam: `VRHome${ts}`, awayTeam: `VRAway${ts}`,
-      kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VRLeague',
-    }),
-  });
-  const mr = await fetch(`${API}/matches`, {
-    headers: { Authorization: Bearer ${aTok}` },
-  });
-  const md = await mr.json();
-  const m = md.matches.find((x) => x.homeTeam === `VRHome${ts}`);
-  await fetch(`${API}/matches/${m.id}/markets`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: Bearer ${aTok}` },
-    body: JSON.stringify({ type: '1x2', odds: { home: 2.10, draw: 3.40, away: 3.20 } }),
-  });
+  const lr = await fetch(`${API}/matches`, { headers: { Authorization: 'Bearer ' + aTok } });
+  const ld = await lr.json();
+  let m = (ld.matches || []).find((x) => x.league === 'VRLeague');
+  if (!m) {
+    const ts = Date.now();
+    const cr = await fetch(`${API}/matches`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + aTok },
+      body: JSON.stringify({
+        homeTeam: `VRHome${ts}`, awayTeam: `VRAway${ts}`,
+        kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VRLeague',
+      }),
+    });
+    const cd = await cr.json();
+    m = cd.match ?? cd;
+  }
+  if (!m.markets || m.markets.length === 0) {
+    await fetch(`${API}/matches/${m.id}/markets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + aTok },
+      body: JSON.stringify({ type: '1x2', odds: { home: 2.10, draw: 3.40, away: 3.20 } }),
+    });
+  }
 }
 
 async function main() {
@@ -112,7 +116,7 @@ async function main() {
   const userTok = await ensureUser(null, 'vruser', 1000);
   console.log('user token:', userTok ? 'OK' : 'FAIL');
 
-  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+  const browser = await chromium.launch({ executablePath: '/home/bandyg/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome', args: ['--no-sandbox'] });
   const ctx = await browser.newContext({ viewport: VIEWPORT });
   // 注入 user token to localStorage
   await ctx.addInitScript((token) => {
@@ -123,8 +127,8 @@ async function main() {
 
   let count = 0;
   for (const p of pages) {
+    let page;
     if (p.role === 'admin') {
-      // 单独 admin context
       const adminTok = await (async () => {
         const r = await fetch(`${API}/auth/login`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -136,22 +140,34 @@ async function main() {
       await aCtx.addInitScript((t) => {
         localStorage.setItem('app.auth', JSON.stringify({ user: { name: 'admin' }, token: t, role: 'admin' }));
       }, adminTok);
-      const page = await aCtx.newPage();
-      await page.goto(`${BASE}${p.url}`, { waitUntil: 'networkidle' });
-      await page.waitForTimeout(800);  // 等动画
-      const out = join(OUT_DIR, `${p.name}.png`);
-      await page.screenshot({ path: out, fullPage: false });
-      console.log(`✓ ${p.name}.png`);
-      await aCtx.close();
+      page = await aCtx.newPage();
     } else {
-      const page = await ctx.newPage();
-      await page.goto(`${BASE}${p.url}`, { waitUntil: 'networkidle' });
-      await page.waitForTimeout(800);
-      const out = join(OUT_DIR, `${p.name}.png`);
-      await page.screenshot({ path: out, fullPage: false });
-      console.log(`✓ ${p.name}.png`);
-      await page.close();
+      page = await ctx.newPage();
     }
+    await page.goto(`${BASE}${p.url}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(800);
+    // Sprint 5 扩展: 遮罩所有 data-test="loaded-at" 时间戳 + 冻结 Date.now()
+    // 让 matches.png 等含动态时间的页面在 baseline 和回归跑之间完全一致
+    await page.addStyleTag({ content: `
+      [data-test="loaded-at"] { visibility: hidden !important; }
+      .odds-chip.flash-up, .odds-chip.flash-down,
+      .odds-price.flash-up, .odds-price.flash-down {
+        animation: none !important;
+      }
+    ` });
+    await page.evaluate(() => {
+      const fixed = 1737158400000;
+      const _Date = Date;
+      window.Date = class extends _Date {
+        constructor(...args) { if (args.length === 0) super(fixed); else super(...args); }
+        static now() { return fixed; }
+      };
+    });
+    await page.waitForTimeout(100);
+    const out = join(OUT_DIR, `${p.name}.png`);
+    await page.screenshot({ path: out, fullPage: false });
+    console.log(`✓ ${p.name}.png`);
+    await page.close();
     count++;
   }
   await browser.close();

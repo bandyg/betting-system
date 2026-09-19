@@ -313,6 +313,16 @@ tr:hover td { background: var(--bg-elevated); }
   animation: flash-red 1.2s ease-out;
 }
 .odds-price .arrow { font-weight: bold; font-size: var(--text-sm); }
+
+/* Sprint 4 C3: matches 页面的 odds-chip 实时赔率闪动 */
+.odds-chip.flash-up {
+  animation: flash-green 1.2s ease-out;
+  font-weight: 700;
+}
+.odds-chip.flash-down {
+  animation: flash-red 1.2s ease-out;
+  font-weight: 700;
+}
 @keyframes flash-green {
   0% { background: var(--success-bg); transform: scale(1.1); }
   100% { background: transparent; transform: scale(1); }
