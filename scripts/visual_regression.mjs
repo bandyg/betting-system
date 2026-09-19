@@ -53,7 +53,7 @@ async function seed() {
   const adminTok = await getToken('admin', 'admin123');
   const ts = Date.now();
   const cr = await fetch(`${API}/matches`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `*** ${adminTok}` },
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: Bearer ${adminTok}` },
     body: JSON.stringify({
       homeTeam: `VR${ts}A`, awayTeam: `VR${ts}B`,
       kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VR',
@@ -61,18 +61,18 @@ async function seed() {
   });
   await cr.json();  // ensure response
   // 确保 vruser 存在 + 1000
-  const ur = await fetch(`${API}/users`, { headers: { Authorization: `*** ${adminTok}` } });
+  const ur = await fetch(`${API}/users`, { headers: { Authorization: Bearer ${adminTok}` } });
   const ud = await ur.json();
   let u = ud.users.find((x) => x.name === 'vruser');
   if (!u) {
     const r = await fetch(`${API}/users`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `*** ${adminTok}` },
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: Bearer ${adminTok}` },
       body: JSON.stringify({ name: 'vruser', password: '123456' }),
     });
     u = (await r.json()).user;
   }
   await fetch(`${API}/users/${u.id}/deposit`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `*** ${adminTok}` },
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: Bearer ${adminTok}` },
     body: JSON.stringify({ amount: 1000 }),
   });
 }
