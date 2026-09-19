@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -131,12 +131,10 @@ test('Storybook: README 索引', () => {
   assert.match(m, /Components Storybook/);
 });
 test('Storybook: 至少 25 个 markdown 文档', () => {
-  const { readdirSync, statSync } = await import('node:fs');
-  const { join: pathJoin } = await import('node:path');
   let count = 0;
   function walk(dir) {
     for (const f of readdirSync(dir)) {
-      const p = pathJoin(dir, f);
+      const p = join(dir, f);
       if (statSync(p).isDirectory()) walk(p);
       else if (f.endsWith('.md')) count++;
     }
