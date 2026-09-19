@@ -52,13 +52,14 @@ async function seed() {
   // 创建未来赛事 + 给 vruser 充钱
   const adminTok = await getToken('admin', 'admin123');
   const ts = Date.now();
-  await fetch(`${API}/matches`, {
+  const cr = await fetch(`${API}/matches`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `*** ${adminTok}` },
     body: JSON.stringify({
       homeTeam: `VR${ts}A`, awayTeam: `VR${ts}B`,
       kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VR',
     }),
   });
+  await cr.json();  // ensure response
   // 确保 vruser 存在 + 1000
   const ur = await fetch(`${API}/users`, { headers: { Authorization: `*** ${adminTok}` } });
   const ud = await ur.json();
