@@ -44,14 +44,14 @@ async function seed() {
   // Sprint 5: idempotent - skip create if VR match exists (avoid baseline/regression diff)
   const lr = await fetch(API + '/matches', { headers: { Authorization: 'Bearer ' + adminTok } });
   const ld = await lr.json();
-  const existing = (ld.matches || []).find((x) => x.league === 'VR');
+  const existing = (ld.matches || []).find((x) => x.league === 'VRLeague');
   if (!existing) {
     const ts = Date.now();
     const cr = await fetch(API + '/matches', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminTok },
       body: JSON.stringify({
         homeTeam: 'VR' + ts + 'A', awayTeam: 'VR' + ts + 'B',
-        kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VR',
+        kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VRLeague',
       }),
     });
     await cr.json();
