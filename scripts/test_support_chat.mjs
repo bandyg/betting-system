@@ -17,7 +17,8 @@ const supportSrc = readFileSync(join(root, 'apps/web/src/components/SupportChat.
 
 // 提取 FAQ 数组
 function extractFaq(src) {
-  const m = src.match(/const FAQ[\s\S]+?\];/);
+  // FAQ 数组结束于 \n]; (在文件中是数组结束标记, 前面有换行)
+  const m = src.match(/const FAQ[\s\S]+?\n\]\;/);
   if (!m) return [];
   // 提取每个 entry: { keywords: [...], reply: '...' }
   const re = /\{\s*keywords:\s*\[([^\]]+)\][\s\S]*?reply:\s*'([^']+)'/g;
