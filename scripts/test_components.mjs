@@ -78,9 +78,9 @@ const betsSrc = readSrc('apps/web/src/panels/BetsPanel.tsx');
 test('BetsPanel: flashIds state 跟踪', () => assert.match(betsSrc, /flashIds/));
 test('BetsPanel: prevBetsRef 比较 status', () => assert.match(betsSrc, /prevBetsRef/));
 test('BetsPanel: outcome win/lose 着色', () => {
-  // outcome-win/lose 是 CSS classNames (BetsPanel.tsx 用)
-  assert.match(betsSrc, /outcome-win|outcome-lose/);
-  assert.match(betsSrc, /flash-win|flash-lose/);
+  // 模板字符串: outcome-${outcome} / flash-${outcome}
+  assert.match(betsSrc, /outcome-\$\{outcome\}/);
+  assert.match(betsSrc, /flash-\$\{outcome\}/);
 });
 
 // ── MatchesExplorer (A6 智能筛选) ──
