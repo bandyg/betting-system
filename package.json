@@ -8,7 +8,9 @@
     "dev:api": "pnpm --filter api dev",
     "start:api": "pnpm --filter api start",
     "test:unit": "node scripts/run_unit_tests.mjs",
-    "test:unit:single": "node --test"
+    "test:unit:single": "node --test",
+    "test:visual": "node scripts/visual_regression.mjs",
+    "test:visual:baseline": "node scripts/capture_baseline.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
