@@ -1,18 +1,18 @@
 /* styles/components.css — 通用组件样式 */
 
 .card {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
   padding: 16px; box-shadow: var(--shadow-card);
   transition: border-color 0.15s, transform 0.15s;
 }
 .card h2 { font-size: 15px; margin-bottom: 12px; color: var(--fg-subtle); font-weight: 600; }
-.card h3 { font-size: 13px; margin: 12px 0 8px; color: var(--fg-subtle); font-weight: 600; }
+.card h3 { font-size: var(--text-md); margin: 12px 0 8px; color: var(--fg-subtle); font-weight: 600; }
 
-label { font-size: 13px; color: var(--fg-subtle); }
+label { font-size: var(--text-md); color: var(--fg-subtle); }
 
 input, select, textarea {
   background: var(--bg); border: 1px solid var(--border-strong); color: var(--fg);
-  border-radius: 6px; padding: 7px 10px; font-size: 14px; min-width: 90px;
+  border-radius: var(--radius-md); padding: 7px 10px; font-size: var(--text-base); min-width: 90px;
   transition: border-color 0.15s;
 }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
@@ -20,8 +20,8 @@ input[type='number'] { width: 110px; }
 input.wide, textarea.wide { flex: 1; min-width: 140px; }
 
 button {
-  background: var(--accent); color: #fff; border: none; border-radius: 6px;
-  padding: 8px 14px; font-size: 13px; cursor: pointer; font-weight: 600;
+  background: var(--accent); color: #fff; border: none; border-radius: var(--radius-md);
+  padding: 8px 14px; font-size: var(--text-md); cursor: pointer; font-weight: 600;
   transition: background 0.15s, transform 0.1s;
 }
 button:hover { background: var(--accent-hover); }
@@ -32,26 +32,26 @@ button.ghost { background: transparent; border: 1px solid var(--border-strong); 
 button.ghost:hover { background: var(--bg-elevated); border-color: var(--accent); color: var(--fg); }
 button.danger { background: var(--danger); color: #fff; }
 button.danger:hover { background: var(--danger); opacity: 0.85; }
-button.small { padding: 4px 10px; font-size: 12px; }
+button.small { padding: 4px 10px; font-size: var(--text-sm); }
 
-.msg { margin: 10px 0; padding: 9px 12px; border-radius: 6px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+.msg { margin: 10px 0; padding: 9px 12px; border-radius: var(--radius-md); font-size: var(--text-md); white-space: pre-wrap; word-break: break-word; }
 .msg.ok { background: var(--success-bg); border: 1px solid var(--success-border); color: var(--success); }
 .msg.err { background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--danger); }
 .msg.warn { background: var(--warning-bg); border: 1px solid var(--warning); color: var(--warning); }
 
 .auth-hint {
-  margin: 12px 0; padding: 14px 16px; border-radius: 8px;
+  margin: 12px 0; padding: 14px 16px; border-radius: var(--radius-md);
   background: var(--info-bg); border: 1px dashed var(--info-border); color: var(--info);
-  font-size: 13px; line-height: 1.6;
+  font-size: var(--text-md); line-height: 1.6;
 }
 
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-md); }
 th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
-th { color: var(--fg-subtle); font-weight: 600; font-size: 12px; }
+th { color: var(--fg-subtle); font-weight: 600; font-size: var(--text-sm); }
 tr:hover td { background: var(--bg-elevated); }
 
 .badge {
-  display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+  display: inline-block; padding: 2px 8px; border-radius: var(--radius-lg); font-size: var(--text-xs); font-weight: 600;
 }
 .badge.scheduled, .badge.open, .badge.in_progress { background: var(--info-bg); color: var(--info); }
 .badge.finished, .badge.waiting_user { background: var(--warning-bg); color: var(--warning); }
@@ -61,13 +61,13 @@ tr:hover td { background: var(--bg-elevated); }
 
 .odds-chip {
   display: inline-block; background: var(--bg); border: 1px solid var(--border-strong);
-  border-radius: 6px; padding: 3px 8px; margin: 2px 4px 2px 0; font-size: 12px; cursor: pointer;
-  transition: all 0.15s;
+  border-radius: var(--radius-md); padding: 3px 8px; margin: 2px 4px 2px 0; font-size: var(--text-sm); cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
 }
 .odds-chip:hover { background: var(--accent); color: #fff; border-color: var(--accent); transform: scale(1.05); }
 .odds-chip.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-.muted { color: var(--fg-muted); font-size: 12px; }
+.muted { color: var(--fg-muted); font-size: var(--text-sm); }
 .balance-inline { font-weight: 600; color: var(--fg); }
 
 /* ── Login Page (Sprint 1 A1) ── */
@@ -80,25 +80,25 @@ tr:hover td { background: var(--bg-elevated); }
 .login-card {
   width: 100%; max-width: 400px;
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 14px; padding: 36px 32px;
+  border-radius: var(--radius-xl); padding: 36px 32px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 .login-logo { font-size: 56px; text-align: center; margin-bottom: 8px; }
 .login-title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 4px; color: var(--fg); }
-.login-sub { font-size: 13px; text-align: center; color: var(--fg-muted); margin-bottom: 24px; }
+.login-sub { font-size: var(--text-md); text-align: center; color: var(--fg-muted); margin-bottom: 24px; }
 .login-form { display: flex; flex-direction: column; gap: 14px; }
 .login-form .field { display: flex; flex-direction: column; gap: 6px; }
-.login-form .field label { font-size: 12px; font-weight: 600; color: var(--fg-subtle); }
+.login-form .field label { font-size: var(--text-sm); font-weight: 600; color: var(--fg-subtle); }
 .login-form input[type='text'],
-.login-form input[type='password'] { font-size: 14px; padding: 10px 12px; }
-.login-form button.primary { font-size: 14px; padding: 11px; font-weight: 700; margin-top: 4px; }
-.login-form .remember { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg-subtle); }
+.login-form input[type='password'] { font-size: var(--text-base); padding: 10px 12px; }
+.login-form button.primary { font-size: var(--text-base); padding: 11px; font-weight: 700; margin-top: 4px; }
+.login-form .remember { display: flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--fg-subtle); }
 .login-form .remember input { width: auto; min-width: auto; }
-.login-form .msg.err { font-size: 13px; padding: 8px 12px; }
+.login-form .msg.err { font-size: var(--text-md); padding: 8px 12px; }
 .login-footer { margin-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.login-hint { margin-top: 14px; font-size: 11px; text-align: center; }
-.login-hint { margin-top: 14px; font-size: 11px; text-align: center; }
-.login-hint code { background: var(--bg); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+.login-hint { margin-top: 14px; font-size: var(--text-xs); text-align: center; }
+.login-hint { margin-top: 14px; font-size: var(--text-xs); text-align: center; }
+.login-hint code { background: var(--bg); padding: 1px 5px; border-radius: 3px; font-size: var(--text-xs); }
 
 /* ── ErrorBoundary (Sprint 1 B1) ── */
 .error-boundary {
@@ -109,26 +109,26 @@ tr:hover td { background: var(--bg-elevated); }
 .eb-card {
   max-width: 520px; width: 90%;
   background: var(--bg-card); border: 1px solid var(--danger-border);
-  border-radius: 14px; padding: 36px 32px; text-align: center;
+  border-radius: var(--radius-xl); padding: 36px 32px; text-align: center;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 .eb-icon { font-size: 56px; margin-bottom: 8px; }
-.eb-card h1 { font-size: 20px; font-weight: 700; color: var(--danger); margin-bottom: 8px; }
-.eb-msg { font-size: 14px; color: var(--fg); margin-bottom: 14px; word-break: break-word; }
+.eb-card h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--danger); margin-bottom: 8px; }
+.eb-msg { font-size: var(--text-base); color: var(--fg); margin-bottom: 14px; word-break: break-word; }
 .eb-stack { text-align: left; margin-bottom: 16px; }
-.eb-stack summary { font-size: 12px; color: var(--fg-muted); cursor: pointer; padding: 4px 0; }
+.eb-stack summary { font-size: var(--text-sm); color: var(--fg-muted); cursor: pointer; padding: 4px 0; }
 .eb-stack pre {
-  font-size: 11px; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 6px; padding: 10px; overflow-x: auto;
+  font-size: var(--text-xs); background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 10px; overflow-x: auto;
   color: var(--fg-muted); font-family: ui-monospace, monospace;
   margin-top: 6px;
 }
 .eb-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-.eb-actions button { font-size: 13px; padding: 8px 14px; }
+.eb-actions button { font-size: var(--text-md); padding: 8px 14px; }
 
 /* ── Match Detail Modal (Sprint 2 A2) ── */
 .md-backdrop {
-  position: fixed; inset: 0; z-index: 100;
+  position: fixed; inset: 0; z-index: var(--z-fab);
   background: rgba(0, 0, 0, 0.5);
   display: flex; align-items: flex-start; justify-content: center;
   padding: 40px 20px; overflow-y: auto;
@@ -137,8 +137,8 @@ tr:hover td { background: var(--bg-elevated); }
 .md-modal {
   max-width: 640px; width: 100%;
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
   overflow: hidden;
 }
 .md-head {
@@ -148,8 +148,8 @@ tr:hover td { background: var(--bg-elevated); }
   gap: 12px;
 }
 .md-head-info { flex: 1; }
-.md-teams { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
-.md-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; align-items: center; }
+.md-teams { font-size: var(--text-xl); font-weight: 700; margin-bottom: 6px; }
+.md-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: var(--text-sm); align-items: center; }
 .md-market-tabs {
   display: flex; gap: 4px; padding: 12px 16px 0;
   border-bottom: 1px solid var(--border);
@@ -157,31 +157,31 @@ tr:hover td { background: var(--bg-elevated); }
 }
 .md-market-tab {
   background: transparent; border: none;
-  padding: 8px 14px; font-size: 13px; font-weight: 500;
+  padding: 8px 14px; font-size: var(--text-md); font-weight: 500;
   color: var(--fg-muted); cursor: pointer; border-bottom: 2px solid transparent;
-  transition: all 0.15s; white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-out); white-space: nowrap;
 }
 .md-market-tab:hover { color: var(--fg); }
 .md-market-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .md-market-tab:disabled { opacity: 0.4; cursor: not-allowed; }
 .md-odds { width: 100%; border-collapse: collapse; }
-.md-odds th, .md-odds td { padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
-.md-odds th { background: var(--bg-card-2); font-weight: 600; color: var(--fg-muted); font-size: 12px; }
+.md-odds th, .md-odds td { padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: var(--text-md); }
+.md-odds th { background: var(--bg-card-2); font-weight: 600; color: var(--fg-muted); font-size: var(--text-sm); }
 .md-odds tr:hover td { background: var(--bg-card-2); }
-.md-hint { padding: 10px 16px; font-size: 11px; }
+.md-hint { padding: 10px 16px; font-size: var(--text-xs); }
 .md-team-btn {
   background: transparent; border: none; padding: 0; cursor: pointer;
-  color: var(--accent); font-size: 14px; text-align: left;
+  color: var(--accent); font-size: var(--text-base); text-align: left;
 }
 .md-team-btn:hover { text-decoration: underline; }
 .md-team-btn strong { font-weight: 600; }
 
 /* ── Mini Chart (Sprint 3 #C1) ── */
-.mini-chart { background: var(--bg-card-2); border-radius: 4px; padding: 2px; }
+.mini-chart { background: var(--bg-card-2); border-radius: var(--radius-sm); padding: 2px; }
 .mini-chart-svg { display: block; }
 .mini-chart-tip {
   position: absolute; background: var(--fg); color: var(--bg-card);
-  font-size: 10px; padding: 2px 6px; border-radius: 3px;
+  font-size: var(--text-xs); padding: 2px 6px; border-radius: 3px;
   pointer-events: none; white-space: nowrap;
   font-family: ui-monospace, monospace;
 }
@@ -190,27 +190,27 @@ tr:hover td { background: var(--bg-elevated); }
 /* ── Smart Filters (Sprint 2 A6) ── */
 .only-with-odds {
   display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
-  font-size: 12px; color: var(--fg-muted); user-select: none;
+  font-size: var(--text-sm); color: var(--fg-muted); user-select: none;
   margin-left: 8px;
 }
 .only-with-odds input { cursor: pointer; }
 .active-chip {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 3px 8px; background: var(--accent-bg); color: var(--accent);
-  border: 1px solid var(--accent-border); border-radius: 14px;
-  font-size: 11px; cursor: pointer; user-select: none;
-  transition: all 0.15s;
+  border: 1px solid var(--accent-border); border-radius: var(--radius-xl);
+  font-size: var(--text-xs); cursor: pointer; user-select: none;
+  transition: all var(--duration-fast) var(--ease-out);
 }
 .active-chip:hover { background: var(--accent); color: white; }
 .preset-chip {
   display: inline-flex; align-items: center; gap: 2px;
   background: var(--bg-card-2); border: 1px solid var(--border);
-  border-radius: 14px; padding: 1px 2px 1px 8px;
-  font-size: 12px;
+  border-radius: var(--radius-xl); padding: 1px 2px 1px 8px;
+  font-size: var(--text-sm);
 }
 .preset-chip button {
   background: transparent; border: none; padding: 2px 4px;
-  color: var(--fg); cursor: pointer; font-size: 12px;
+  color: var(--fg); cursor: pointer; font-size: var(--text-sm);
 }
 .preset-chip button:first-child:hover { color: var(--accent); }
 .preset-chip button:last-child { color: var(--fg-muted); padding: 2px 6px; }
@@ -220,24 +220,24 @@ tr:hover td { background: var(--bg-elevated); }
 .bet-slip-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .bet-slip-head h2 { margin: 0; }
 .mode-toggle {
-  display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+  display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden;
 }
 .mode-toggle button {
   background: transparent; border: none; padding: 4px 10px;
-  font-size: 12px; color: var(--fg-muted); cursor: pointer;
-  transition: all 0.15s;
+  font-size: var(--text-sm); color: var(--fg-muted); cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
 }
 .mode-toggle button:hover { background: var(--bg-card-2); color: var(--fg); }
 .mode-toggle button.active { background: var(--accent); color: white; font-weight: 600; }
 .bet-slip-item-accordion {
-  border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;
+  border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 6px;
   background: var(--bg-card-2);
 }
 .bet-slip-item-head {
   display: flex; align-items: center; gap: 8px; padding: 6px 10px;
   cursor: pointer; user-select: none;
 }
-.bet-slip-item-head .caret { color: var(--fg-muted); font-size: 10px; }
+.bet-slip-item-head .caret { color: var(--fg-muted); font-size: var(--text-xs); }
 .bet-slip-item-head .sel { font-weight: 600; }
 .bet-slip-item-head .price { color: var(--accent); font-weight: 500; }
 .bet-slip-item-head .bet-slip-remove { margin-left: auto; }
@@ -245,7 +245,7 @@ tr:hover td { background: var(--bg-elevated); }
 .parlay-preview {
   margin: 10px 0; padding: 10px 12px;
   background: linear-gradient(135deg, var(--accent-bg), var(--bg-card-2));
-  border: 1px solid var(--accent-border); border-radius: 8px;
+  border: 1px solid var(--accent-border); border-radius: var(--radius-md);
 }
 .parlay-preview .row { margin: 4px 0; }
 .parlay-win { padding-top: 6px; border-top: 1px solid var(--border); margin-top: 6px; }
@@ -254,7 +254,7 @@ tr:hover td { background: var(--bg-elevated); }
 
 /* ── Confirm Bet Modal (Sprint 2 #4) ── */
 .confirm-backdrop {
-  position: fixed; inset: 0; z-index: 200;
+  position: fixed; inset: 0; z-index: var(--z-confirm);
   background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(2px);
   display: flex; align-items: center; justify-content: center;
   padding: 24px 20px; animation: fade-in 0.15s ease-out;
@@ -262,49 +262,49 @@ tr:hover td { background: var(--bg-elevated); }
 .confirm-modal {
   max-width: 560px; width: 100%;
   background: var(--bg-card); border: 1px solid var(--accent-border);
-  border-radius: 12px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-  padding: 20px 24px;
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-xl);
+  padding: var(--space-5) var(--space-5);
 }
 .confirm-head {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
 }
-.confirm-head h2 { margin: 0; font-size: 18px; }
+.confirm-head h2 { margin: 0; font-size: var(--text-xl); }
 .confirm-mode { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
 .mode-badge {
-  display: inline-block; padding: 4px 10px; border-radius: 14px;
-  font-size: 12px; font-weight: 600;
+  display: inline-block; padding: 4px 10px; border-radius: var(--radius-xl);
+  font-size: var(--text-sm); font-weight: 600;
 }
 .mode-badge.single { background: var(--bg-card-2); color: var(--fg); border: 1px solid var(--border); }
 .mode-badge.parlay { background: var(--accent); color: white; }
-.combined-price { font-size: 13px; color: var(--fg-muted); }
-.combined-price strong { color: var(--accent); font-size: 16px; margin-left: 4px; }
-.confirm-items { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 13px; }
+.combined-price { font-size: var(--text-md); color: var(--fg-muted); }
+.combined-price strong { color: var(--accent); font-size: var(--text-lg); margin-left: 4px; }
+.confirm-items { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: var(--text-md); }
 .confirm-items th, .confirm-items td {
   padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border);
 }
-.confirm-items th { background: var(--bg-card-2); font-size: 11px; color: var(--fg-muted); }
+.confirm-items th { background: var(--bg-card-2); font-size: var(--text-xs); color: var(--fg-muted); }
 .confirm-items .match-cell { max-width: 220px; }
 .confirm-items .match-name { font-weight: 600; }
 .confirm-items .price { color: var(--accent); font-weight: 600; }
 .confirm-summary {
-  background: var(--bg-card-2); border-radius: 8px;
+  background: var(--bg-card-2); border-radius: var(--radius-md);
   padding: 10px 14px; margin-bottom: 12px;
 }
 .confirm-summary .row {
   display: flex; justify-content: space-between;
-  margin: 4px 0; font-size: 13px;
+  margin: 4px 0; font-size: var(--text-md);
 }
 .confirm-win { border-top: 1px solid var(--border); padding-top: 6px; margin-top: 6px; }
-.confirm-win strong { color: var(--success); font-size: 16px; }
+.confirm-win strong { color: var(--success); font-size: var(--text-lg); }
 .confirm-actions { display: flex; gap: 8px; }
-.confirm-actions button { padding: 10px 14px; font-size: 14px; font-weight: 600; }
-.confirm-hint { font-size: 11px; text-align: center; margin: 10px 0 0; }
+.confirm-actions button { padding: 10px 14px; font-size: var(--text-base); font-weight: 600; }
+.confirm-hint { font-size: var(--text-xs); text-align: center; margin: 10px 0 0; }
 
 /* ── Odds Flash (Sprint 2 #A5) ── */
 .odds-price {
   display: inline-flex; align-items: center; gap: 4px;
-  transition: all 0.2s;
+  transition: all var(--duration-normal) var(--ease-out);
 }
 .odds-price.flash-up {
   animation: flash-green 1.2s ease-out;
@@ -312,7 +312,7 @@ tr:hover td { background: var(--bg-elevated); }
 .odds-price.flash-down {
   animation: flash-red 1.2s ease-out;
 }
-.odds-price .arrow { font-weight: bold; font-size: 12px; }
+.odds-price .arrow { font-weight: bold; font-size: var(--text-sm); }
 @keyframes flash-green {
   0% { background: var(--success-bg); transform: scale(1.1); }
   100% { background: transparent; transform: scale(1); }
@@ -336,29 +336,29 @@ tr:hover td { background: var(--bg-elevated); }
   0%, 30% { background: var(--danger-bg); transform: scale(1.02); }
   100% { background: transparent; transform: scale(1); }
 }
-.outcome-icon { font-size: 14px; }
+.outcome-icon { font-size: var(--text-base); }
 
 /* ── League Chip (Sprint 3 #6) ── */
 .league-chip {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px 2px 2px; border-radius: 12px;
-  border: 1px solid; font-size: 12px; font-weight: 500;
+  padding: 2px 8px 2px 2px; border-radius: var(--radius-lg);
+  border: 1px solid; font-size: var(--text-sm); font-weight: 500;
   user-select: none; max-width: 240px;
 }
 .league-chip .lc-circle {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px; border-radius: 50%;
-  font-size: 11px; font-weight: 700;
+  width: 18px; height: 18px; border-radius: var(--radius-full);
+  font-size: var(--text-xs); font-weight: 700;
 }
-.league-chip .lc-emoji { font-size: 12px; line-height: 1; }
+.league-chip .lc-emoji { font-size: var(--text-sm); line-height: 1; }
 .league-chip .lc-name {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.league-chip.lc-xs { font-size: 11px; padding: 1px 6px 1px 1px; gap: 3px; }
-.league-chip.lc-xs .lc-circle { width: 16px; height: 16px; font-size: 10px; }
-.league-chip.lc-sm { font-size: 12px; }
-.league-chip.lc-md { font-size: 13px; padding: 4px 10px 4px 3px; }
-.league-chip.lc-md .lc-circle { width: 22px; height: 22px; font-size: 12px; }
+.league-chip.lc-xs { font-size: var(--text-xs); padding: 1px 6px 1px 1px; gap: 3px; }
+.league-chip.lc-xs .lc-circle { width: 16px; height: 16px; font-size: var(--text-xs); }
+.league-chip.lc-sm { font-size: var(--text-sm); }
+.league-chip.lc-md { font-size: var(--text-md); padding: 4px 10px 4px 3px; }
+.league-chip.lc-md .lc-circle { width: 22px; height: 22px; font-size: var(--text-sm); }
 
 /* ── Virtual Scroll (Sprint 3 #2) ── */
 .virtual-viewport {
@@ -374,21 +374,21 @@ tr:hover td { background: var(--bg-elevated); }
 .virtual-item {
   position: absolute;
   left: 0; right: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--duration-fast) var(--ease-out);
 }
 .virtual-badge {
   position: sticky; top: 0;
   background: var(--bg-card); border-bottom: 1px solid var(--border);
-  padding: 4px 12px; font-size: 11px; color: var(--fg-muted);
-  z-index: 1;
+  padding: 4px 12px; font-size: var(--text-xs); color: var(--fg-muted);
+  z-index: var(--z-base);
 }
 
 /* ── Layout user-greeting + lang-toggle (Sprint 3 batch2) ── */
 .user-greeting {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 8px; border-radius: 14px;
+  padding: 4px 8px; border-radius: var(--radius-xl);
   background: var(--bg-card-2); border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--text-md);
 }
 .user-name {
   font-weight: 600; max-width: 120px;
@@ -401,7 +401,7 @@ tr:hover td { background: var(--bg-elevated); }
 
 /* ── Offline Banner (Sprint 4 B5) ── */
 .offline-banner {
-  padding: 8px 16px; font-size: 13px; text-align: center;
+  padding: 8px 16px; font-size: var(--text-md); text-align: center;
   border-bottom: 1px solid var(--border);
   animation: slide-down 0.2s ease-out;
 }
@@ -415,10 +415,10 @@ tr:hover td { background: var(--bg-elevated); }
 /* ── Support Chat Widget (Sprint 5 C4) ── */
 .support-fab {
   position: fixed; bottom: 24px; right: 24px;
-  width: 52px; height: 52px; border-radius: 50%;
+  width: 52px; height: 52px; border-radius: var(--radius-full);
   background: var(--accent); color: white;
-  border: none; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  font-size: 22px; cursor: pointer; z-index: 100;
+  border: none; box-shadow: var(--shadow-lg);
+  font-size: 22px; cursor: pointer; z-index: var(--z-fab);
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.2s, background 0.2s;
 }
@@ -428,7 +428,7 @@ tr:hover td { background: var(--bg-elevated); }
   position: absolute; top: -2px; right: -2px;
   background: var(--danger); color: white;
   min-width: 18px; height: 18px; padding: 0 4px;
-  border-radius: 9px; font-size: 11px; font-weight: 700;
+  border-radius: 9px; font-size: var(--text-xs); font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   border: 2px solid var(--bg);
 }
@@ -436,8 +436,8 @@ tr:hover td { background: var(--bg-elevated); }
   position: fixed; bottom: 88px; right: 24px;
   width: 360px; max-width: calc(100vw - 48px); height: 540px; max-height: 70vh;
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
-  display: flex; flex-direction: column; z-index: 99;
+  border-radius: var(--radius-lg); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  display: flex; flex-direction: column; z-index: calc(var(--z-fab) - 1);
   overflow: hidden;
 }
 .support-head {
@@ -455,39 +455,39 @@ tr:hover td { background: var(--bg-elevated); }
 .support-msg.user { flex-direction: row-reverse; }
 .support-bubble {
   max-width: 75%;
-  padding: 8px 10px; border-radius: 12px;
+  padding: 8px 10px; border-radius: var(--radius-lg);
   background: var(--bg-card-2); border: 1px solid var(--border);
-  font-size: 13px; line-height: 1.5;
+  font-size: var(--text-md); line-height: 1.5;
   word-wrap: break-word;
 }
 .support-msg.user .support-bubble {
   background: var(--accent); color: white; border-color: var(--accent);
 }
-.support-time { display: block; font-size: 10px; margin-top: 4px; opacity: 0.7; }
+.support-time { display: block; font-size: var(--text-xs); margin-top: 4px; opacity: 0.7; }
 .support-msg.user .support-time { color: rgba(255, 255, 255, 0.8); }
 .support-quick {
   display: flex; flex-wrap: wrap; gap: 4px;
   padding: 8px 0 4px 32px;
 }
 .support-quick button {
-  font-size: 11px; padding: 4px 8px;
+  font-size: var(--text-xs); padding: 4px 8px;
 }
 .support-input-area {
   display: flex; gap: 6px; padding: 10px 12px;
   border-top: 1px solid var(--border); background: var(--bg-card-2);
 }
 .support-input-area textarea {
-  flex: 1; resize: none; font-size: 13px;
-  padding: 6px 8px; border-radius: 6px;
+  flex: 1; resize: none; font-size: var(--text-md);
+  padding: 6px 8px; border-radius: var(--radius-md);
   border: 1px solid var(--border); background: var(--bg-card);
   color: var(--fg);
 }
 .support-input-area button {
-  padding: 6px 12px; font-size: 13px;
+  padding: 6px 12px; font-size: var(--text-md);
 }
-.support-hint { font-size: 10px; text-align: center; padding: 4px 12px 8px; }
+.support-hint { font-size: var(--text-xs); text-align: center; padding: 4px 12px 8px; }
 @media (max-width: 600px) {
-  .support-fab { width: 44px; height: 44px; font-size: 18px; bottom: 16px; right: 16px; }
+  .support-fab { width: 44px; height: 44px; font-size: var(--text-xl); bottom: 16px; right: 16px; }
   .support-panel { width: calc(100vw - 32px); right: 16px; bottom: 72px; }
 }
 
@@ -501,7 +501,7 @@ tr:hover td { background: var(--bg-elevated); }
 /* lg: 800-1100px 小桌面/平板横屏 */
 @media (max-width: 1100px) {
   .lobby-layout { grid-template-columns: 1fr !important; }
-  .lobby-layout > .lobby-basket { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); }
+  .lobby-layout > .lobby-basket { position: sticky; bottom: 0; z-index: var(--z-sticky); box-shadow: var(--shadow-md); }
 }
 /* md: 600-800px 平板 */
 @media (max-width: 800px) {
@@ -510,7 +510,7 @@ tr:hover td { background: var(--bg-elevated); }
   .confirm-items { font-size: 11px !important; }
   .confirm-items th, .confirm-items td { padding: 4px 6px !important; }
   .league-chip { font-size: 11px !important; }
-  .league-chip.lc-md .lc-circle { width: 18px; height: 18px; font-size: 10px; }
+  .league-chip.lc-md .lc-circle { width: 18px; height: 18px; font-size: var(--text-xs); }
 }
 /* sm: <600px 手机 */
 @media (max-width: 600px) {
@@ -525,27 +525,27 @@ tr:hover td { background: var(--bg-elevated); }
 
 /* ── Keyboard Help Modal (Sprint 1 A4) ── */
 .kbd-help-backdrop {
-  position: fixed; inset: 0; z-index: 10000;
+  position: fixed; inset: 0; z-index: var(--z-help);
   background: rgba(0, 0, 0, 0.55);
   display: flex; align-items: center; justify-content: center;
   animation: fade-in 0.15s ease-out;
 }
 .kbd-help-modal {
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 12px; padding: 24px 28px;
+  border-radius: var(--radius-lg); padding: 24px 28px;
   max-width: 480px; width: 90%;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-xl);
 }
 .kbd-help-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.kbd-help-head h2 { font-size: 18px; font-weight: 700; }
-.kbd-help-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.kbd-help-head h2 { font-size: var(--text-xl); font-weight: 700; }
+.kbd-help-table { width: 100%; border-collapse: collapse; font-size: var(--text-md); }
 .kbd-help-table th { text-align: left; color: var(--fg-muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
 .kbd-help-table td { padding: 8px; border-bottom: 1px solid var(--border); }
 .kbd-help-table td:first-child { white-space: nowrap; }
 .kbd-help-table kbd {
   display: inline-block; min-width: 22px; padding: 2px 6px; margin: 0 2px;
   background: var(--bg-elevated); border: 1px solid var(--border-strong);
-  border-radius: 4px; font-family: ui-monospace, monospace; font-size: 12px;
+  border-radius: var(--radius-sm); font-family: ui-monospace, monospace; font-size: var(--text-sm);
   text-align: center; color: var(--fg);
 }
-.kbd-help-hint { margin-top: 10px; font-size: 11px; }
+.kbd-help-hint { margin-top: 10px; font-size: var(--text-xs); }
