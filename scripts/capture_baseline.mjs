@@ -47,12 +47,12 @@ async function ensureUser(token, name, balance) {
   const data = await res.json();
   const adminTok = data.token;
   // 找 user 或建
-  const users = await (await fetch(`${API}/users`, { headers: { Authorization: Bearer adminTok } })).json();
+  const users = await (await fetch(`${API}/users`, { headers: { Authorization: 'Bearer ' + adminTok } })).json();
   let u = users.users.find((x) => x.name === name);
   if (!u) {
     const r = await fetch(`${API}/users`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: Bearer adminTok },
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminTok },
       body: JSON.stringify({ name, password: '123456' }),
     });
     const d = await r.json();
@@ -61,7 +61,7 @@ async function ensureUser(token, name, balance) {
   // deposit
   await fetch(`${API}/users/${u.id}/deposit`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: Bearer adminTok },
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminTok },
     body: JSON.stringify({ amount: balance }),
   });
   // login as user
@@ -86,20 +86,20 @@ async function ensureMatchAndBets() {
   const ts = Date.now();
   await fetch(`${API}/matches`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: Bearer aTok },
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + aTok },
     body: JSON.stringify({
       homeTeam: `VRHome${ts}`, awayTeam: `VRAway${ts}`,
       kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VRLeague',
     }),
   });
   const mr = await fetch(`${API}/matches`, {
-    headers: { Authorization: Bearer aTok },
+    headers: { Authorization: 'Bearer ' + aTok },
   });
   const md = await mr.json();
   const m = md.matches.find((x) => x.homeTeam === `VRHome${ts}`);
   await fetch(`${API}/matches/${m.id}/markets`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: Bearer aTok },
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + aTok },
     body: JSON.stringify({ type: '1x2', odds: { home: 2.10, draw: 3.40, away: 3.20 } }),
   });
 }
