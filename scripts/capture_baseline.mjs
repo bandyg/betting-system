@@ -75,7 +75,7 @@ async function ensureUser(token, name, balance) {
 }
 
 async function ensureMatchAndBets() {
-  // 创建未来赛事 + market 让页面有数据
+  // Sprint 5: idempotent - reuse VRLeague match if exists (avoid baseline/regression diff)
   const ar = await fetch(`${API}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -83,22 +83,29 @@ async function ensureMatchAndBets() {
   });
   const ad = await ar.json();
   const aTok = ad.token;
-  const ts = Date.now();
-  const cr = await fetch(`${API}/matches`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + aTok },
-    body: JSON.stringify({
-      homeTeam: `VRHome${ts}`, awayTeam: `VRAway${ts}`,
-      kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VRLeague',
-    }),
-  });
-  const cd = await cr.json();
-  const m = cd.match ?? cd;
-  await fetch(`${API}/matches/${m.id}/markets`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + aTok },
-    body: JSON.stringify({ type: '1x2', odds: { home: 2.10, draw: 3.40, away: 3.20 } }),
-  });
+  const lr = await fetch(`${API}/matches`, { headers: { Authorization: 'Bearer ' + aTok } });
+  const ld = await lr.json();
+  let m = (ld.matches || []).find((x) => x.league === 'VRLeague');
+  if (!m) {
+    const ts = Date.now();
+    const cr = await fetch(`${API}/matches`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + aTok },
+      body: JSON.stringify({
+        homeTeam: `VRHome${ts}`, awayTeam: `VRAway${ts}`,
+        kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VRLeague',
+      }),
+    });
+    const cd = await cr.json();
+    m = cd.match ?? cd;
+  }
+  if (!m.markets || m.markets.length === 0) {
+    await fetch(`${API}/matches/${m.id}/markets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + aTok },
+      body: JSON.stringify({ type: '1x2', odds: { home: 2.10, draw: 3.40, away: 3.20 } }),
+    });
+  }
 }
 
 async function main() {
