@@ -84,7 +84,7 @@ async function ensureMatchAndBets() {
   const ad = await ar.json();
   const aTok = ad.token;
   const ts = Date.now();
-  await fetch(`${API}/matches`, {
+  const cr = await fetch(`${API}/matches`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + aTok },
     body: JSON.stringify({
@@ -92,11 +92,8 @@ async function ensureMatchAndBets() {
       kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VRLeague',
     }),
   });
-  const mr = await fetch(`${API}/matches`, {
-    headers: { Authorization: 'Bearer ' + aTok },
-  });
-  const md = await mr.json();
-  const m = md.matches.find((x) => x.homeTeam === `VRHome${ts}`);
+  const cd = await cr.json();
+  const m = cd.match ?? cd;
   await fetch(`${API}/matches/${m.id}/markets`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + aTok },
