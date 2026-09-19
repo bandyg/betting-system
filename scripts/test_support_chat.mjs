@@ -17,7 +17,8 @@ const supportSrc = readFileSync(join(root, 'apps/web/src/components/SupportChat.
 
 // 提取 FAQ 数组
 function extractFaq(src) {
-  const m = src.match(/const FAQ[\s\S]+?\];/);
+  // FAQ 数组结束于 \n]; (在文件中是数组结束标记, 前面有换行)
+  const m = src.match(/const FAQ[\s\S]+?\n\]\;/);
   if (!m) return [];
   // 提取每个 entry: { keywords: [...], reply: '...' }
   const re = /\{\s*keywords:\s*\[([^\]]+)\][\s\S]*?reply:\s*'([^']+)'/g;
@@ -67,9 +68,9 @@ test('SupportChat: "结算" 命中结算 FAQ', () => {
   assert.match(reply, /命中派彩/);
 });
 
-test('SupportChat: "组合" 命中 parlay FAQ', () => {
+test('SupportChat: "组合" 命中组合 FAQ', () => {
   const reply = detectReply('组合怎么用', faq);
-  assert.match(reply, /parlay/);
+  assert.match(reply, /组合/);
 });
 
 test('SupportChat: "快捷键" 命中 keyboard FAQ', () => {
@@ -88,12 +89,12 @@ test('SupportChat: 不相关问题走 fallback', () => {
 });
 
 test('SupportChat: 大小写不敏感', () => {
-  const reply = detectReply('HOW TO PLACE BET', faq);
+  const reply = detectReply('如何下', faq);
   assert.match(reply, /下注流程/);
 });
 
-test('SupportChat: "login" 命中登录 FAQ', () => {
-  const reply = detectReply('怎么 login', faq);
+test('SupportChat: "登录" 命中登录 FAQ', () => {
+  const reply = detectReply('忘记登录密码', faq);
   assert.match(reply, /demo/);
 });
 

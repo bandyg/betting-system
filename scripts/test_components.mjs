@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -78,9 +78,9 @@ const betsSrc = readSrc('apps/web/src/panels/BetsPanel.tsx');
 test('BetsPanel: flashIds state 跟踪', () => assert.match(betsSrc, /flashIds/));
 test('BetsPanel: prevBetsRef 比较 status', () => assert.match(betsSrc, /prevBetsRef/));
 test('BetsPanel: outcome win/lose 着色', () => {
-  assert.match(betsSrc, /outcome-win/);
-  assert.match(betsSrc, /outcome-lose/);
-  assert.match(betsSrc, /flash-win/);
+  // 模板字符串: outcome-${outcome} / flash-${outcome}
+  assert.match(betsSrc, /outcome-\$\{outcome\}/);
+  assert.match(betsSrc, /flash-\$\{outcome\}/);
 });
 
 // ── MatchesExplorer (A6 智能筛选) ──
@@ -131,13 +131,11 @@ test('Storybook: README 索引', () => {
   assert.match(m, /Components Storybook/);
 });
 test('Storybook: 至少 25 个 markdown 文档', () => {
-  const fs = require('node:fs');
-  const path = require('node:path');
   let count = 0;
   function walk(dir) {
-    for (const f of fs.readdirSync(dir)) {
-      const p = path.join(dir, f);
-      if (fs.statSync(p).isDirectory()) walk(p);
+    for (const f of readdirSync(dir)) {
+      const p = join(dir, f);
+      if (statSync(p).isDirectory()) walk(p);
       else if (f.endsWith('.md')) count++;
     }
   }
