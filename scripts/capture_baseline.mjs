@@ -109,7 +109,7 @@ async function main() {
   const userTok = await ensureUser(null, 'vruser', 1000);
   console.log('user token:', userTok ? 'OK' : 'FAIL');
 
-  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+  const browser = await chromium.launch({ executablePath: '/home/bandyg/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome', args: ['--no-sandbox'] });
   const ctx = await browser.newContext({ viewport: VIEWPORT });
   // 注入 user token to localStorage
   await ctx.addInitScript((token) => {
