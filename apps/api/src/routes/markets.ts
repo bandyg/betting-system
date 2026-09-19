@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { requireAuth, requireRole } from './middleware.js';
+import { broadcastOddsUpdate } from '../wsHub.js';
 
 export const marketsRouter = Router();
 
@@ -186,6 +187,8 @@ marketsRouter.put('/markets/:id/odds', requireAuth, requireRole('admin'), (req, 
   const oddsRows = db
     .prepare('SELECT selection, price FROM odds WHERE market_id = ? ORDER BY id')
     .all(id);
+  // Sprint 4 C3: 广播实时赔率变更到所有 ws 客户端
+  broadcastOddsUpdate(id, updates);
   res.json({ market: { ...market, odds: oddsRows } });
 });
 

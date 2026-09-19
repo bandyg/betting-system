@@ -123,8 +123,8 @@ async function main() {
 
   let count = 0;
   for (const p of pages) {
+    let page;
     if (p.role === 'admin') {
-      // 单独 admin context
       const adminTok = await (async () => {
         const r = await fetch(`${API}/auth/login`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -136,22 +136,34 @@ async function main() {
       await aCtx.addInitScript((t) => {
         localStorage.setItem('app.auth', JSON.stringify({ user: { name: 'admin' }, token: t, role: 'admin' }));
       }, adminTok);
-      const page = await aCtx.newPage();
-      await page.goto(`${BASE}${p.url}`, { waitUntil: 'networkidle' });
-      await page.waitForTimeout(800);  // 等动画
-      const out = join(OUT_DIR, `${p.name}.png`);
-      await page.screenshot({ path: out, fullPage: false });
-      console.log(`✓ ${p.name}.png`);
-      await aCtx.close();
+      page = await aCtx.newPage();
     } else {
-      const page = await ctx.newPage();
-      await page.goto(`${BASE}${p.url}`, { waitUntil: 'networkidle' });
-      await page.waitForTimeout(800);
-      const out = join(OUT_DIR, `${p.name}.png`);
-      await page.screenshot({ path: out, fullPage: false });
-      console.log(`✓ ${p.name}.png`);
-      await page.close();
+      page = await ctx.newPage();
     }
+    await page.goto(`${BASE}${p.url}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(800);
+    // Sprint 5 扩展: 遮罩所有 data-test="loaded-at" 时间戳 + 冻结 Date.now()
+    // 让 matches.png 等含动态时间的页面在 baseline 和回归跑之间完全一致
+    await page.addStyleTag({ content: `
+      [data-test="loaded-at"] { visibility: hidden !important; }
+      .odds-chip.flash-up, .odds-chip.flash-down,
+      .odds-price.flash-up, .odds-price.flash-down {
+        animation: none !important;
+      }
+    ` });
+    await page.evaluate(() => {
+      const fixed = 1737158400000;
+      const _Date = Date;
+      window.Date = class extends _Date {
+        constructor(...args) { if (args.length === 0) super(fixed); else super(...args); }
+        static now() { return fixed; }
+      };
+    });
+    await page.waitForTimeout(100);
+    const out = join(OUT_DIR, `${p.name}.png`);
+    await page.screenshot({ path: out, fullPage: false });
+    console.log(`✓ ${p.name}.png`);
+    await page.close();
     count++;
   }
   await browser.close();

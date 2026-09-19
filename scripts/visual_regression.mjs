@@ -109,6 +109,23 @@ async function main() {
     const page = await ctx.newPage();
     await page.goto(BASE + p.url, { waitUntil: 'networkidle' });
     await page.waitForTimeout(800);
+    // Sprint 5 扩展: 同步遮罩 + 冻结时间戳（与 capture_baseline.mjs 一致）
+    await page.addStyleTag({ content: `
+      [data-test="loaded-at"] { visibility: hidden !important; }
+      .odds-chip.flash-up, .odds-chip.flash-down,
+      .odds-price.flash-up, .odds-price.flash-down {
+        animation: none !important;
+      }
+    ` });
+    await page.evaluate(() => {
+      const fixed = 1737158400000;
+      const _Date = Date;
+      window.Date = class extends _Date {
+        constructor(...args) { if (args.length === 0) super(fixed); else super(...args); }
+        static now() { return fixed; }
+      };
+    });
+    await page.waitForTimeout(100);
     const currentPath = join(CURRENT_DIR, p.name + '.png');
     await page.screenshot({ path: currentPath, fullPage: false });
     const baselinePath = join(BASELINE_DIR, p.name + '.png');
