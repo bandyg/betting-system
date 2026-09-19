@@ -7,6 +7,7 @@ import { ToastHost } from './Toast.js';
 import { KeyboardHelp } from './KeyboardHelp.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboard.js';
 import { OfflineBanner } from './OfflineBanner.js';
+import { SupportChat } from './SupportChat.js';
 import { useT } from '../i18n.js';
 import { Avatar } from './Avatar.js';
 import { useAuth } from '../store.js';
@@ -60,6 +61,7 @@ export function Layout() {
       </main>
       <ToastHost />
       <KeyboardHelp open={kbd.helpOpen} onClose={kbd.closeHelp} />
+      <SupportChat />
     </>
   );
 }

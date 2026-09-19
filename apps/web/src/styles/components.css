@@ -412,6 +412,85 @@ tr:hover td { background: var(--bg-elevated); }
   to { transform: translateY(0); opacity: 1; }
 }
 
+/* ── Support Chat Widget (Sprint 5 C4) ── */
+.support-fab {
+  position: fixed; bottom: 24px; right: 24px;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--accent); color: white;
+  border: none; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  font-size: 22px; cursor: pointer; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.2s, background 0.2s;
+}
+.support-fab:hover { transform: scale(1.08); }
+.support-fab.open { background: var(--fg-muted); }
+.support-unread {
+  position: absolute; top: -2px; right: -2px;
+  background: var(--danger); color: white;
+  min-width: 18px; height: 18px; padding: 0 4px;
+  border-radius: 9px; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--bg);
+}
+.support-panel {
+  position: fixed; bottom: 88px; right: 24px;
+  width: 360px; max-width: calc(100vw - 48px); height: 540px; max-height: 70vh;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  display: flex; flex-direction: column; z-index: 99;
+  overflow: hidden;
+}
+.support-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+  background: var(--bg-card-2);
+}
+.support-head-info { display: flex; align-items: center; gap: 8px; }
+.support-head-actions { display: flex; gap: 4px; }
+.support-list {
+  flex: 1; overflow-y: auto; padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.support-msg { display: flex; gap: 6px; align-items: flex-start; }
+.support-msg.user { flex-direction: row-reverse; }
+.support-bubble {
+  max-width: 75%;
+  padding: 8px 10px; border-radius: 12px;
+  background: var(--bg-card-2); border: 1px solid var(--border);
+  font-size: 13px; line-height: 1.5;
+  word-wrap: break-word;
+}
+.support-msg.user .support-bubble {
+  background: var(--accent); color: white; border-color: var(--accent);
+}
+.support-time { display: block; font-size: 10px; margin-top: 4px; opacity: 0.7; }
+.support-msg.user .support-time { color: rgba(255, 255, 255, 0.8); }
+.support-quick {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 8px 0 4px 32px;
+}
+.support-quick button {
+  font-size: 11px; padding: 4px 8px;
+}
+.support-input-area {
+  display: flex; gap: 6px; padding: 10px 12px;
+  border-top: 1px solid var(--border); background: var(--bg-card-2);
+}
+.support-input-area textarea {
+  flex: 1; resize: none; font-size: 13px;
+  padding: 6px 8px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg-card);
+  color: var(--fg);
+}
+.support-input-area button {
+  padding: 6px 12px; font-size: 13px;
+}
+.support-hint { font-size: 10px; text-align: center; padding: 4px 12px 8px; }
+@media (max-width: 600px) {
+  .support-fab { width: 44px; height: 44px; font-size: 18px; bottom: 16px; right: 16px; }
+  .support-panel { width: calc(100vw - 32px); right: 16px; bottom: 72px; }
+}
+
 /* ── Responsive Breakpoints (Sprint 3 #B4) ── */
 /* 默认 (>1280px) 桌面端 */
 /* xl: 1100-1280px 桌面缩小 */
