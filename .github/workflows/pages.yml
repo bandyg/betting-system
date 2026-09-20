@@ -1,0 +1,55 @@
+name: pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docs/storybook/**'
+      - 'docs/visual-baseline/**'
+      - 'docs/index.template.html'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# cancel in-progress runs on the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Pages
+        with:
+          enablement: repositories
+
+      - name: Build Pages artifact
+        run: |
+          mkdir -p _pages
+          # Storybook index + 子文档
+          cp -r docs/storybook/* _pages/
+          # Visual regression baselines
+          mkdir -p _pages/visual-baseline
+          cp docs/visual-baseline/*.png _pages/visual-baseline/ 2>/dev/null || true
+          # Landing page (from template, committed to repo)
+          cp docs/index.template.html _pages/index.html
+          echo "Pages built: $(find _pages -type f | wc -l) files"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
