@@ -55,15 +55,20 @@ jobs:
           NODE_ENV: test
         run: |
           rm -f /tmp/ci-betting.db
-          # 重定向 API log 到 file 便于调试
           node apps/api/dist/index.js > /tmp/api-ci.log 2>&1 &
           API_PID=$!
-          sleep 4
+          # CI ubuntu-latest 跑 better-sqlite3 build 首次启动较慢, 等久一点
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            sleep 1
+            if curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:14100/health 2>/dev/null | grep -q 200; then
+              echo "API ready after ${i}s"
+              break
+            fi
+          done
           echo "=== api startup log ==="
           cat /tmp/api-ci.log
-          echo "=== health check ==="
-          curl -sS -i http://127.0.0.1:14100/health || (echo "health check failed, dumping log"; cat /tmp/api-ci.log; exit 1)
-          echo
+          echo "=== final health check ==="
+          curl -sS -i http://127.0.0.1:14100/health || (echo "health check failed after 10s"; exit 1)
           python3 scripts/verify_accounts.py    http://127.0.0.1:14100/api /tmp/ci-betting.db
           python3 scripts/verify_matches.py     http://127.0.0.1:14100/api /tmp/ci-betting.db
           python3 scripts/verify_markets.py     http://127.0.0.1:14100/api /tmp/ci-betting.db
