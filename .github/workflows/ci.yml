@@ -57,18 +57,8 @@ jobs:
           rm -f /tmp/ci-betting.db
           node apps/api/dist/index.js > /tmp/api-ci.log 2>&1 &
           API_PID=$!
-          # CI ubuntu-latest 跑 better-sqlite3 build 首次启动较慢, 等久一点
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            sleep 1
-            if curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:14100/health 2>/dev/null | grep -q 200; then
-              echo "API ready after ${i}s"
-              break
-            fi
-          done
-          echo "=== api startup log ==="
-          cat /tmp/api-ci.log
-          echo "=== final health check ==="
-          curl -sS -i http://127.0.0.1:14100/health || (echo "health check failed after 10s"; exit 1)
+          sleep 4
+          curl -fsS http://127.0.0.1:14100/health
           python3 scripts/verify_accounts.py    http://127.0.0.1:14100/api /tmp/ci-betting.db
           python3 scripts/verify_matches.py     http://127.0.0.1:14100/api /tmp/ci-betting.db
           python3 scripts/verify_markets.py     http://127.0.0.1:14100/api /tmp/ci-betting.db
@@ -80,7 +70,7 @@ jobs:
           python3 scripts/verify_support.py      http://127.0.0.1:14100/api /tmp/ci-betting.db
           python3 scripts/verify_vip.py          http://127.0.0.1:14100/api /tmp/ci-betting.db
           kill $API_PID 2>/dev/null
-          rm -f /tmp/ci-betting.db /tmp/api-ci.log
+          rm -f /tmp/ci-betting.db
 
       # ── 健康检查 ──
       - name: Run health e2e
