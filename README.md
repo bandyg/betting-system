@@ -2,11 +2,12 @@
 
 一个像 [Amelco](https://www.amelco.co.uk/) 的完整投注系统 MVP：**赛前 + 滚球** 固定赔率、下注、结算闭环，足球/篮球/网球/棒球等 18 运动，三端（Web 后台 / 移动 Web / API）。面向学习/演示的轻量实现。
 
-> **状态**：`db7c53f` (master) / **30+ feature 完成** / **1700+ 行 docs** / **三层测试金字塔 100%**
+> **状态**：`6f131a7` (master) / **30+ feature 完成** / **1700+ 行 docs** / **三层测试金字塔 100%**
 > - ✅ Unit Tests: **92/92 PASS**
 > - ✅ E2E: backend 11 verify + UI 3 playwright + WebSocket real-time odds
 > - ✅ Visual Regression: **8/8 PASS** (Playwright + pixelmatch)
-> - ✅ CI: GitHub Actions auto-runs all 3 on every push
+> - ✅ CI: GitHub Actions 18 步全部 PASS
+> - 🚀 GitHub Pages: `.github/workflows/pages.yml` 已就绪，**需手动 enable** (Settings → Pages → Source: GitHub Actions) 才会 deploy Storybook + Visual Baseline gallery
 
 > 详细现状见 [`docs/system-status.md`](docs/system-status.md)
 > 架构与数据流见 [`docs/architecture.md`](docs/architecture.md)
