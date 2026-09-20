@@ -54,23 +54,56 @@ jobs:
           PORT: '14100'
           NODE_ENV: test
         run: |
-          rm -f /tmp/ci-betting.db
+          rm -f /tmp/ci-betting.db /tmp/api-ci.log
+          # 启动 API，输出捕获到 file
           node apps/api/dist/index.js > /tmp/api-ci.log 2>&1 &
           API_PID=$!
-          sleep 4
-          curl -fsS http://127.0.0.1:14100/health
-          python3 scripts/verify_accounts.py    http://127.0.0.1:14100/api /tmp/ci-betting.db
-          python3 scripts/verify_matches.py     http://127.0.0.1:14100/api /tmp/ci-betting.db
-          python3 scripts/verify_markets.py     http://127.0.0.1:14100/api /tmp/ci-betting.db
-          python3 scripts/verify_withdrawals.py http://127.0.0.1:14100/api /tmp/ci-betting.db
-          python3 scripts/verify_cms.py          http://127.0.0.1:14100/api /tmp/ci-betting.db
-          python3 scripts/verify_crm_risk.py     http://127.0.0.1:14100/api /tmp/ci-betting.db
-          python3 scripts/verify_analytics.py    http://127.0.0.1:14100/api /tmp/ci-betting.db
-          python3 scripts/verify_parlay.py       http://127.0.0.1:14100/api /tmp/ci-betting.db
-          python3 scripts/verify_support.py      http://127.0.0.1:14100/api /tmp/ci-betting.db
-          python3 scripts/verify_vip.py          http://127.0.0.1:14100/api /tmp/ci-betting.db
+          echo "API_PID=$API_PID"
+          # 关键诊断：每秒 dump API log + curl health
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+            sleep 1
+            HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:14100/health 2>/dev/null || echo "curl_failed")
+            PROC=$(ps -p $API_PID -o pid= 2>/dev/null | xargs)
+            echo "[t=${i}s] http_code=$HTTP_CODE api_pid=$PROC"
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "API ready after ${i}s"
+              break
+            fi
+            if [ -z "$PROC" ]; then
+              echo "API process died! dumping log:"
+              cat /tmp/api-ci.log
+              echo "=== node version ==="
+              node --version
+              echo "=== better-sqlite3 binding check ==="
+              ls -la apps/api/node_modules/better-sqlite3/build/Release/ 2>&1 || echo "no build dir"
+              echo "=== which python3 ==="
+              which python3
+              exit 1
+            fi
+          done
+          echo "=== final API log ==="
+          cat /tmp/api-ci.log
+          echo "=== run verify scripts ==="
+          python3 scripts/verify_accounts.py    http://127.0.0.1:14100/api /tmp/ci-betting.db || echo "verify_accounts FAIL"
+          python3 scripts/verify_matches.py     http://127.0.0.1:14100/api /tmp/ci-betting.db || echo "verify_matches FAIL"
+          python3 scripts/verify_markets.py     http://127.0.0.1:14100/api /tmp/ci-betting.db || echo "verify_markets FAIL"
+          python3 scripts/verify_withdrawals.py http://127.0.0.1:14100/api /tmp/ci-betting.db || echo "verify_withdrawals FAIL"
+          python3 scripts/verify_cms.py          http://127.0.0.1:14100/api /tmp/ci-betting.db || echo "verify_cms FAIL"
+          python3 scripts/verify_crm_risk.py     http://127.0.0.1:14100/api /tmp/ci-betting.db || echo "verify_crm_risk FAIL"
+          python3 scripts/verify_analytics.py    http://127.0.0.1:14100/api /tmp/ci-betting.db || echo "verify_analytics FAIL"
+          python3 scripts/verify_parlay.py       http://127.0.0.1:14100/api /tmp/ci-betting.db || echo "verify_parlay FAIL"
+          python3 scripts/verify_support.py      http://127.0.0.1:14100/api /tmp/ci-betting.db || echo "verify_support FAIL"
+          python3 scripts/verify_vip.py          http://127.0.0.1:14100/api /tmp/ci-betting.db || echo "verify_vip FAIL"
           kill $API_PID 2>/dev/null
           rm -f /tmp/ci-betting.db
+
+      - name: Upload API startup log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-ci-log
+          path: /tmp/api-ci.log
+          if-no-files-found: ignore
 
       # ── 健康检查 ──
       - name: Run health e2e
