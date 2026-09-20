@@ -30,6 +30,12 @@ jobs:
           node-version: '24'
           cache: pnpm
 
+      # better-sqlite3 需要 build-essential + python3 (native binding)
+      - name: Install system deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y build-essential python3
+
       - name: Install
         run: pnpm install --frozen-lockfile
 
