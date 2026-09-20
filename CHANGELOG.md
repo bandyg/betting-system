@@ -7,6 +7,7 @@
 
 > **简记法**：每段以 `(theme)` 标识主题，便于回溯。Commit SHA 在 git log 可查。
 > **用户可见变更**：只记用户/运维/集成方能感知的差异；纯内部重构 / 类型修正不记。
+> **CI 状态**：✅ ALL PASS (master HEAD `01e4400` 完整跑过 18 步骤：API e2e + 11 verify + health + UI e2e + unit 92/92 + visual 8/8 + WebSocket real-time odds)
 
 ## [Unreleased]
 
