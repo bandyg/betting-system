@@ -48,18 +48,17 @@ jobs:
         run: pnpm --filter web build
 
       # ── 隔离 API + 11 个后端 verify 脚本 ──
+      # CI ubuntu-latest 与 bhs-4 环境差异导致 API 启动较慢, 用 if: always() 让其他 job 仍跑
       - name: Run API e2e
+        if: always()
         env:
           BETTING_DB_PATH: /tmp/ci-betting.db
           PORT: '14100'
           NODE_ENV: test
         run: |
           rm -f /tmp/ci-betting.db /tmp/api-ci.log
-          # 启动 API，输出捕获到 file
           node apps/api/dist/index.js > /tmp/api-ci.log 2>&1 &
           API_PID=$!
-          echo "API_PID=$API_PID"
-          # 关键诊断：每秒 dump API log + curl health
           for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
             sleep 1
             HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:14100/health 2>/dev/null || echo "curl_failed")
@@ -72,18 +71,12 @@ jobs:
             if [ -z "$PROC" ]; then
               echo "API process died! dumping log:"
               cat /tmp/api-ci.log
-              echo "=== node version ==="
-              node --version
-              echo "=== better-sqlite3 binding check ==="
-              ls -la apps/api/node_modules/better-sqlite3/build/Release/ 2>&1 || echo "no build dir"
-              echo "=== which python3 ==="
-              which python3
               exit 1
             fi
           done
           echo "=== final API log ==="
           cat /tmp/api-ci.log
-          echo "=== run verify scripts (continue on error to surface each failure) ==="
+          echo "=== run verify scripts ==="
           set +e
           for s in accounts matches markets withdrawals cms crm_risk analytics parlay support vip; do
             echo "--- verify_${s}.py ---"
