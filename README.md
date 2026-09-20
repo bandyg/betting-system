@@ -2,7 +2,12 @@
 
 一个像 [Amelco](https://www.amelco.co.uk/) 的完整投注系统 MVP：**赛前 + 滚球** 固定赔率、下注、结算闭环，足球/篮球/网球/棒球等 18 运动，三端（Web 后台 / 移动 Web / API）。面向学习/演示的轻量实现。
 
-> **状态**：`beb39c6` / 6 大系统 80% 完成 / 16 route 72 endpoint / 16 验证脚本（13 绿）
+> **状态**：`db7c53f` (master) / **30+ feature 完成** / **1700+ 行 docs** / **三层测试金字塔 100%**
+> - ✅ Unit Tests: **92/92 PASS**
+> - ✅ E2E: backend 11 verify + UI 3 playwright + WebSocket real-time odds
+> - ✅ Visual Regression: **8/8 PASS** (Playwright + pixelmatch)
+> - ✅ CI: GitHub Actions auto-runs all 3 on every push
+
 > 详细现状见 [`docs/system-status.md`](docs/system-status.md)
 > 架构与数据流见 [`docs/architecture.md`](docs/architecture.md)
 > 缺口与下个迭代见 [`docs/roadmap.md`](docs/roadmap.md)
@@ -80,6 +85,49 @@ curl -s http://127.0.0.1:4100/health
 
 > ⚠️ **native binding**：better-sqlite3 需要 node-gyp 编译。Linux glibc 预编译 OK；Windows 需 Visual Studio Build Tools 或 [windows-build-tools](https://github.com/felixrieseberg/windows-build-tools)。
 
+## 测试（三层金字塔 + 实时 ws + CI）
+
+```bash
+# 1) 单元测试 (Node 24 --test, 零依赖, < 2s)
+pnpm test:unit:single
+
+# 2) 后端 e2e (11 个 python/JS verify, 隔离 /tmp/ci-betting.db)
+pnpm --filter api build
+BETTING_DB_PATH=/tmp/test.db PORT=14100 node apps/api/dist/index.js &
+python3 scripts/verify_matches.py    http://127.0.0.1:14100/api /tmp/test.db
+python3 scripts/verify_accounts.py   http://127.0.0.1:14100/api /tmp/test.db
+# ... 9 个更多
+
+# 3) UI e2e (Playwright 3 脚本: k_ux/l_ux/m_ux)
+BETTING_DB_PATH=/tmp/ui.db PORT=14100 node apps/api/dist/index.js &
+(cd apps/web && npx vite --port 4200) &
+node scripts/verify_k_ux.mjs http://127.0.0.1:4200 http://127.0.0.1:14100/api
+node scripts/verify_l_ux.mjs http://127.0.0.1:4200 http://127.0.0.1:14100/api
+node scripts/verify_m_ux.mjs http://127.0.0.1:4200 http://127.0.0.1:14100/api
+
+# 4) WebSocket 实时赔率 (admin 调赔 → ws 客户端收 odds_batch)
+BETTING_DB_PATH=/tmp/ws.db PORT=14100 node apps/api/dist/index.js &
+PORT=14100 node scripts/verify_websocket.mjs
+# → [PASS] received odds_batch (1 markets)
+
+# 5) Visual Regression (Playwright + pixelmatch CLI, 8 关键页面 baseline 对比)
+# 5a) 生成 baseline (大改 UI 后)
+pnpm test:visual:baseline
+# 5b) 对比 (日常 PR 验证)
+pnpm test:visual
+# → Visual Regression 8 pages: PASS=8 FAIL=0
+```
+
+**当前状态** (db7c53f master):
+- ✅ Unit Tests: **92/92** (5 files)
+- ✅ Backend E2E: 11/11 verify scripts
+- ✅ UI E2E: 3/3 Playwright (k_ux/l_ux/m_ux)
+- ✅ WebSocket: 实时赔率 broadcast PASS
+- ✅ Visual Regression: **8/8 PASS**
+- ✅ CI: GitHub Actions 自动跑所有 3 → [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+
+详见 [`docs/VISUAL_REGRESSION.md`](docs/VISUAL_REGRESSION.md) · [`docs/WEBSOCKET_REALTIME.md`](docs/WEBSOCKET_REALTIME.md) · [`docs/UNIT_TESTS.md`](docs/UNIT_TESTS.md)
+
 ## API 一览
 
 Base URL：`http://localhost:4100/api`
@@ -89,6 +137,7 @@ Base URL：`http://localhost:4100/api`
 | `/users` `/auth` | `accounts.ts` / `auth.ts` | 注册/登录/会话/充值 |
 | `/matches` | `matches.ts` | 赛事 CRUD + sport/league/status 过滤 |
 | `/matches/:id/markets` `/markets` | `markets.ts` | 市场 + 调赔/挂盘/开盘 |
+| **⚡ `/ws/odds`** | **`wsHub.ts`** | **WebSocket 实时赔率 broadcast** |
 | `/bets` | `bets.ts` | 下注（含 parlay） |
 | `/matches/:id/result` `/matches/:id/settle` | `settle.ts` | 录赛果 + 派彩 |
 | `/sports` `/leagues` | `sports.ts` | 运动/联赛查询 |

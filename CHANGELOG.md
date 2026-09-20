@@ -10,10 +10,38 @@
 
 ## [Unreleased]
 
-### 计划中（Planned）
+### Added（新增）
+- **Sprint 5 全部完成** (30+ feature, 5000+ 行代码)
+  - C4 客服聊天增强（markdown + 表情 + 文件附件 + 已读）
+  - C5 设计 tokens 化（reset.css + tokens.ts + DESIGN_TOKENS.md）
+  - C6 Storybook（30 文件 + index.html）
+  - C7 单元测试（92/92 PASS, Node --test 零依赖）
+- **Visual Regression**（Sprint 5 扩展）
+  - `scripts/capture_baseline.mjs` (161 行): Playwright 截 8 个关键页面 baseline
+  - `scripts/visual_regression.mjs` (181 行): pixelmatch CLI 对比 baseline
+  - `docs/VISUAL_REGRESSION.md` + 8 baseline PNGs committed
+  - matches.png 时间戳遮罩 + 冻结 Date.now() 让 baseline 完全可重现
+- **Sprint 4 C3 WebSocket 实时赔率**（backend + frontend）
+  - `apps/api/src/wsHub.ts` (98 行): WebSocketServer on `/ws/odds`
+  - `apps/web/src/hooks/useLiveOdds.ts` (93 行): 自动重连 + 心跳
+  - MatchesExplorer 集成 WS flash 动画
+  - vite proxy `/ws` 启用 WebSocket 升级 (`ws: true`)
+- **CI 集成** (`.github/workflows/ci.yml`)
+  - Run unit tests job
+  - Visual regression job
+  - WebSocket real-time odds job
+
+### Fixed（修复）
+- matches.png 时间戳 footer 导致 3892 px diff → 0 px diff (mask + 冻结 Date)
+- baseline/regression 内容不一致 → idempotent seed + stable VRHome/VRAway team names
+- chromium-1234 explicit executablePath (after pnpm install reset npx cache)
+- ws package resolve via createRequire (pnpm not hoisted to root)
+
+### Planned（计划中）
 - README / CHANGELOG 自动化（roadmap R10，conventional commits 解析）
 - 修复 verify_analytics.py 硬编码 REF（roadmap R3，测试基线自助对账）
 - 补 verify_health.mjs 内容（roadmap R4，空文件）
+- C8 真实赔率 source 接入（roadmap R7，the-odds-api 增量）
 
 ## [0.1.0] - 2026-08-15 → 2026-09-17
 
@@ -160,6 +188,7 @@
 
 ## 版本说明
 
-- 0.1.0 — 第一个 MVP；6 大系统 80% 完成；13 verify 全绿；3 UI 验证待跑；监控/CI/KB 缺口
+- 0.1.0 — 第一个 MVP；6 大系统 80% 完成；13 verify全绿；3 UI 验证待跑；监控/CI/KB 缺口
 - 计划 0.2.0 — 监控 + rate limit + Support 知识库（roadmap P1）
 - 计划 0.3.0 — 实时分析 + CRM 分群自动化 + 审计日志（roadmap P2）
+- **当前（Unreleased）** — Sprint 5 全完成 + Visual Regression 8/8 + WebSocket + CI；92 unit tests 100%；下一步走 0.2.0
