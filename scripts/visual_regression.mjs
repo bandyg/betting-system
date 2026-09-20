@@ -46,11 +46,10 @@ async function seed() {
   const ld = await lr.json();
   const existing = (ld.matches || []).find((x) => x.league === 'VRLeague');
   if (!existing) {
-    const ts = Date.now();
     const cr = await fetch(API + '/matches', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminTok },
       body: JSON.stringify({
-        homeTeam: 'VR' + ts + 'A', awayTeam: 'VR' + ts + 'B',
+        homeTeam: 'VRHome', awayTeam: 'VRAway',
         kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VRLeague',
       }),
     });

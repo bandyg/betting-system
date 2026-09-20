@@ -114,6 +114,7 @@ jobs:
         run: node scripts/run_unit_tests.mjs
 
       # ── 视觉回归 (Sprint 5 扩展) ──
+      # 必须先跑: db 干净 + 仅 1 个 VRLeague match
       - name: Visual regression
         env:
           BETTING_DB_PATH: /tmp/ci-visual.db
@@ -122,7 +123,7 @@ jobs:
           NODE_ENV: test
           PW_DIR: ${{ github.workspace }}/.cache/ms-playwright
         run: |
-          # 起 API
+          # 起 API (fresh db)
           PORT=$PORT_API node apps/api/dist/index.js &
           API_PID=$!
           sleep 2
@@ -131,7 +132,7 @@ jobs:
           (cd apps/web && npx vite preview --port $PORT_WEB --host 0.0.0.0) &
           WEB_PID=$!
           sleep 5
-          # 跑 visual regression (8 页对比 baseline)
+          # 跑 visual regression (8 页对比 baseline, idempotent seed 复用 VRLeague)
           node scripts/visual_regression.mjs
           RESULT=$?
           kill $API_PID $WEB_PID 2>/dev/null
@@ -149,7 +150,7 @@ jobs:
           API_PID=$!
           sleep 2
           # 跑 ws e2e: create match+market → admin 调赔 → ws client 收 odds_batch
-          PORT=$PORT_API node scripts/test_websocket.mjs
+          PORT=$PORT_API node scripts/verify_websocket.mjs
           RESULT=$?
           kill $API_PID 2>/dev/null
           rm -f /tmp/ci-ws.db
