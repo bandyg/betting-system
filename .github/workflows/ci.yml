@@ -37,7 +37,9 @@ jobs:
           sudo apt-get install -y build-essential python3
 
       - name: Install
-        run: pnpm install --frozen-lockfile
+        # 不加 --frozen-lockfile 因为 bhs-4/local 各自生成 lockfile 可能 hash 不同;
+        # 默认行为是 keep lockfile if matches package.json, regenerate if changed
+        run: pnpm install --prefer-offline
 
       - name: Build apps/api
         run: pnpm --filter api build
