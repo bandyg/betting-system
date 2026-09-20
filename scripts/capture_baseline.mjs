@@ -92,7 +92,7 @@ async function ensureMatchAndBets() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + aTok },
       body: JSON.stringify({
-        homeTeam: `VRHome${ts}`, awayTeam: `VRAway${ts}`,
+        homeTeam: 'VRHome', awayTeam: 'VRAway',
         kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VRLeague',
       }),
     });

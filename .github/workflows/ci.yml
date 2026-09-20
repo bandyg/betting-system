@@ -109,6 +109,53 @@ jobs:
           kill $API_PID $WEB_PID 2>/dev/null
           rm -f /tmp/ci-ui.db
 
+      # ── 单元测试 (Sprint 5 C7) ──
+      - name: Run unit tests
+        run: node scripts/run_unit_tests.mjs
+
+      # ── 视觉回归 (Sprint 5 扩展) ──
+      # 必须先跑: db 干净 + 仅 1 个 VRLeague match
+      - name: Visual regression
+        env:
+          BETTING_DB_PATH: /tmp/ci-visual.db
+          PORT_API: '14101'
+          PORT_WEB: '14201'
+          NODE_ENV: test
+          PW_DIR: ${{ github.workspace }}/.cache/ms-playwright
+        run: |
+          # 起 API (fresh db)
+          PORT=$PORT_API node apps/api/dist/index.js &
+          API_PID=$!
+          sleep 2
+          curl -fsS http://127.0.0.1:$PORT_API/health
+          # 起 vite preview
+          (cd apps/web && npx vite preview --port $PORT_WEB --host 0.0.0.0) &
+          WEB_PID=$!
+          sleep 5
+          # 跑 visual regression (8 页对比 baseline, idempotent seed 复用 VRLeague)
+          node scripts/visual_regression.mjs
+          RESULT=$?
+          kill $API_PID $WEB_PID 2>/dev/null
+          rm -f /tmp/ci-visual.db
+          exit $RESULT
+
+      # ── WebSocket 端到端 (Sprint 4 C3) ──
+      - name: WebSocket real-time odds
+        env:
+          BETTING_DB_PATH: /tmp/ci-ws.db
+          PORT_API: '14102'
+          NODE_ENV: test
+        run: |
+          PORT=$PORT_API node apps/api/dist/index.js &
+          API_PID=$!
+          sleep 2
+          # 跑 ws e2e: create match+market → admin 调赔 → ws client 收 odds_batch
+          PORT=$PORT_API node scripts/verify_websocket.mjs
+          RESULT=$?
+          kill $API_PID 2>/dev/null
+          rm -f /tmp/ci-ws.db
+          exit $RESULT
+
       # ── 汇总 ──
       - name: Notify failure
         if: failure()
