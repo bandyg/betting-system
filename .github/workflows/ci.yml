@@ -34,7 +34,7 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y build-essential python3
+          sudo apt-get install -y build-essential python3 libssl-dev
 
       - name: Install
         # 不加 --frozen-lockfile 因为 bhs-4/local 各自生成 lockfile 可能 hash 不同;
@@ -54,10 +54,16 @@ jobs:
           PORT: '14100'
           NODE_ENV: test
         run: |
-          node apps/api/dist/index.js &
+          rm -f /tmp/ci-betting.db
+          # 重定向 API log 到 file 便于调试
+          node apps/api/dist/index.js > /tmp/api-ci.log 2>&1 &
           API_PID=$!
-          sleep 3
-          curl -fsS http://127.0.0.1:14100/health
+          sleep 4
+          echo "=== api startup log ==="
+          cat /tmp/api-ci.log
+          echo "=== health check ==="
+          curl -sS -i http://127.0.0.1:14100/health || (echo "health check failed, dumping log"; cat /tmp/api-ci.log; exit 1)
+          echo
           python3 scripts/verify_accounts.py    http://127.0.0.1:14100/api /tmp/ci-betting.db
           python3 scripts/verify_matches.py     http://127.0.0.1:14100/api /tmp/ci-betting.db
           python3 scripts/verify_markets.py     http://127.0.0.1:14100/api /tmp/ci-betting.db
@@ -68,8 +74,8 @@ jobs:
           python3 scripts/verify_parlay.py       http://127.0.0.1:14100/api /tmp/ci-betting.db
           python3 scripts/verify_support.py      http://127.0.0.1:14100/api /tmp/ci-betting.db
           python3 scripts/verify_vip.py          http://127.0.0.1:14100/api /tmp/ci-betting.db
-          kill $API_PID
-          rm -f /tmp/ci-betting.db
+          kill $API_PID 2>/dev/null
+          rm -f /tmp/ci-betting.db /tmp/api-ci.log
 
       # ── 健康检查 ──
       - name: Run health e2e
