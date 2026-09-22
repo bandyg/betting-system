@@ -71,6 +71,8 @@ async function pollOnceSingle(
   const client = createTheOddsClient();
   try {
     // 'upcoming' 萬能端點：一次請求回傳所有運動的 live + 近期場次（免費額度友好）。
+    // 每筆 payload 自帶 sport_key → 由 upsertMatch 持久化到 matches.match_feed_key，
+    // 供 scores 輪詢反查真實 sport key（/scores 不認 'upcoming'，直接打必 404 UNKNOWN_SPORT）。
     const raw = await client.pendingMatches(sportKey, cfg.apiKey);
     const res = ingestVendorUpdate(db, raw, cfg.provider, { overwriteManualOdds: false, sportKey });
     return { ok: !res.error, detail: res, sportKey };
@@ -83,10 +85,40 @@ async function pollOnceSingle(
   }
 }
 
+/**
+ * Resolve which sport keys to poll on the /scores endpoint (free-tier budget aware).
+ * Priority:
+ *   1. FEED_SCORE_KEYS (env / ~/.betting-feed.env) — explicit override, comma separated.
+ *   2. DB 反查：matches.match_feed_key（由 odds ingest 持久化）按未結算場次數排序取前 limit 個。
+ *   3. fallback：odds sportKeys 去掉 'upcoming'（/scores 對 'upcoming' 恆 404 UNKNOWN_SPORT）。
+ */
+export function resolveScoreKeys(
+  db: Database,
+  cfg: FeedConfig,
+  limit = 3,
+): string[] {
+  const env = process.env.FEED_SCORE_KEYS ?? loadSecretsFile().FEED_SCORE_KEYS;
+  const clean = (v: string | undefined) =>
+    (v ?? '').split(',').map((k) => k.trim()).filter((k) => k && k !== 'upcoming');
+  const fromEnv = clean(env);
+  if (fromEnv.length > 0) return fromEnv.slice(0, limit);
+
+  const rows = db.prepare(
+    `SELECT match_feed_key AS k, COUNT(*) AS c FROM matches
+     WHERE status IN ('scheduled','finished') AND match_feed_key IS NOT NULL
+       AND match_feed_key != 'upcoming'
+     GROUP BY match_feed_key ORDER BY c DESC LIMIT ?`,
+  ).all(limit) as Array<{ k: string; c: number }>;
+  if (rows.length > 0) return rows.map((r) => r.k);
+
+  return cfg.sportKeys.filter((k) => k !== 'upcoming').slice(0, limit);
+}
+
 /** One poll cycle: fetch provider odds for all sport keys → ingest → fetch scores → auto-settle. Never throws. */
 export async function pollOnce(
   db: Database,
   cfg: FeedConfig,
+  opts: { pollScores?: boolean } = {},
 ): Promise<{ ok: boolean; detail: unknown; scores?: { ok: boolean; detail: unknown }; autoMarket?: { switched: number; matches: number } }> {
   const results: Array<{ ok: boolean; detail: unknown; sportKey: string }> = [];
 
@@ -108,20 +140,24 @@ export async function pollOnce(
 
   if (!cfg.apiKey) return { ok: allOddsOk, detail: oddsResult.detail };
 
-  // Poll scores for each sport key
+  // Poll scores for each sport key（額度治理：scores 端點比 odds 更新頻率低也夠用，
+  // 由 startFeedScheduler 每 N 輪才傳 pollScores=true；admin 手動「立即拉取」仍每輪拉）
   const scoresResults: Array<{ ok: boolean; detail: unknown; sportKey: string }> = [];
-  const client = createTheOddsClient();
-  for (const sk of keys) {
-    try {
-      const rawScores = await client.scores(sk, cfg.apiKey);
-      const res = ingestScores(db, rawScores, cfg.provider);
-      scoresResults.push({ ok: true, detail: res, sportKey: sk });
-    } catch (e) {
-      db.prepare(
-        `INSERT INTO feed_log (provider, requested_at, status, matches_seen, matches_upserted, errors)
-         VALUES (?, datetime('now'), 'error', 0, 0, ?)`,
-      ).run(cfg.provider, (e as Error).message);
-      scoresResults.push({ ok: false, detail: { error: (e as Error).message }, sportKey: sk });
+  if (opts.pollScores !== false) {
+    const client = createTheOddsClient();
+    const scoreKeys = resolveScoreKeys(db, cfg);
+    for (const sk of scoreKeys) {
+      try {
+        const rawScores = await client.scores(sk, cfg.apiKey);
+        const res = ingestScores(db, rawScores, cfg.provider);
+        scoresResults.push({ ok: true, detail: res, sportKey: sk });
+      } catch (e) {
+        db.prepare(
+          `INSERT INTO feed_log (provider, requested_at, status, matches_seen, matches_upserted, errors)
+           VALUES (?, datetime('now'), 'error', 0, 0, ?)`,
+        ).run(cfg.provider, `[scores:${sk}] ${(e as Error).message}`);
+        scoresResults.push({ ok: false, detail: { error: (e as Error).message }, sportKey: sk });
+      }
     }
   }
 
@@ -144,14 +180,21 @@ export function startFeedScheduler(db: Database, cfg: FeedConfig, log = console)
   const ms = Math.max(1, cfg.intervalMin) * 60_000;
   log.log(`[feed] scheduled every ${cfg.intervalMin}m (sports=${cfg.sportKeys.join(',')})`);
   let stopped = false;
+  let tickCount = 0;
   const tick = async () => {
     if (stopped) return;
     if (isManualMode(db)) {
       log.log('[feed] manual mode, skip');
       return;
     }
-    const r = await pollOnce(db, cfg);
-    log.log(`[feed] poll: ${r.ok ? 'ok' : 'error'}`, r.detail);
+    tickCount += 1;
+    // 額度治理：scores 每 SCORES_EVERY 輪才拉一次（比分變化頻率遠低於賠率，每輪拉純浪費 quota）。
+    // 例：intervalMin=240 + SCORES_EVERY=2 → odds 6 次/日 + scores ≤3keys×3 次/日 ≤ 15 req/日 ≈ 450/月。
+    const rawEvery = process.env.FEED_SCORES_EVERY ?? loadSecretsFile().FEED_SCORES_EVERY;
+    const scoresEvery = Math.max(1, Number(rawEvery ?? '2') || 2);
+    const pollScores = tickCount % scoresEvery === 1 || scoresEvery === 1; // 第一輪即拉，之後每 N 輪
+    const r = await pollOnce(db, cfg, { pollScores });
+    log.log(`[feed] poll#${tickCount}${pollScores ? '+scores' : ''}: ${r.ok ? 'ok' : 'error'}`, r.detail);
   };
   void tick(); // immediate first poll
   const iv = setInterval(tick, ms);

@@ -19,6 +19,7 @@ export interface IngestMatch {
   kickoff: string;              // ISO 8601
   league?: string;
   sport?: string;
+  feedSportKey?: string;        // vendor 原始 sport key（scores 端點反查用；upcoming 模式必帶）
   markets: IngestMarket[];
   finalHome: number | null;
   finalAway: number | null;
@@ -45,6 +46,7 @@ export interface MatchRowSets {
     away_score: number | null;
     sport: string | null;
     league: string | null;
+    match_feed_key: string | null;   // 原始 vendor sport key（scores 反查）
     source: string;
   };
   markets: MarketRow[];

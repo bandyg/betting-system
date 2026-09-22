@@ -14,6 +14,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  administration: write   # configure-pages enablement:true 需要（首次自動啟用 repo Pages）
 
 # cancel in-progress runs on the same ref
 concurrency:
@@ -29,9 +30,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # enablement=true: 首次跑自動啟用 repo Pages（此前 repo 從未啟用 → /pages REST 404）
       - name: Setup Pages
+        uses: actions/configure-pages@v5
         with:
-          enablement: repositories
+          enablement: true
 
       - name: Build Pages artifact
         run: |

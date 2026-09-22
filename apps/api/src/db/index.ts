@@ -187,6 +187,7 @@ addCol('matches', 'external_id', "external_id TEXT");
   addCol('matches', 'source', "source TEXT NOT NULL DEFAULT 'manual'");
   addCol('matches', 'sport', "sport TEXT");
   addCol('matches', 'league', "league TEXT");
+  addCol('matches', 'match_feed_key', "match_feed_key TEXT");
   addCol('markets', 'external_id', "external_id TEXT");
   addCol('markets', 'source', "source TEXT NOT NULL DEFAULT 'manual'");
   addCol('contents', 'view_count', "view_count INTEGER NOT NULL DEFAULT 0");
@@ -194,6 +195,10 @@ addCol('matches', 'external_id', "external_id TEXT");
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_matches_ext ON matches(external_id) WHERE external_id IS NOT NULL;
     CREATE INDEX IF NOT EXISTS idx_markets_ext ON markets(external_id) WHERE external_id IS NOT NULL;
+    -- feed-scores-fix: scores 輪詢反查 index（僅未結算場次，覆蓋面小）。
+    -- 放在 addCol 之後（schema.sql 不得對舊庫尚未存在的欄位建 index —— migrate 順序坑）。
+    CREATE INDEX IF NOT EXISTS idx_matches_feed_key ON matches(match_feed_key)
+      WHERE match_feed_key IS NOT NULL AND status IN ('scheduled','finished');
     CREATE TABLE IF NOT EXISTS feed_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       provider TEXT,

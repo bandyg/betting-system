@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS matches (
   source TEXT NOT NULL DEFAULT 'manual',  -- 'manual' | 'the-odds-api' | ...
   sport TEXT,
   league TEXT,
+  match_feed_key TEXT,              -- vendor 原始 sport key（/scores 端點反查用；upcoming 模式必填）
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
