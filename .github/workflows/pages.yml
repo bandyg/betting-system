@@ -14,7 +14,9 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  administration: write   # configure-pages enablement:true 需要（首次自動啟用 repo Pages）
+  # 注意：不可加 administration:write —— 不是 GITHUB_TOKEN 合法權限鍵，
+  # workflow schema validator 會拒整個檔案（0 jobs startup failure，實測 bda729d）。
+  # enablement:true 若 403（GITHUB_TOKEN 無權啟用 Pages），改 repo Settings → Pages 手動啟用一次。
 
 # cancel in-progress runs on the same ref
 concurrency:
