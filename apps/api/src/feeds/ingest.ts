@@ -37,17 +37,19 @@ export function upsertMatch(db: Database, rows: MatchRowSets, opts: { overwriteM
       db.prepare(
         `UPDATE matches SET home_team=?, away_team=?, kickoff_time=?, status=?,
            home_score=COALESCE(?,home_score), away_score=COALESCE(?,away_score),
-           sport=?, league=?, source=?
+           sport=?, league=?, source=?,
+           match_feed_key=COALESCE(?, match_feed_key)
          WHERE id=?`,
       ).run(match.home_team, match.away_team, match.kickoff_time, match.status,
-        match.home_score, match.away_score, match.sport, match.league, match.source, matchId);
+        match.home_score, match.away_score, match.sport, match.league, match.source,
+        match.match_feed_key, matchId);
     } else {
       isNew = true;
       const info = db.prepare(
-        `INSERT INTO matches (home_team, away_team, kickoff_time, status, home_score, away_score, external_id, sport, league, source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO matches (home_team, away_team, kickoff_time, status, home_score, away_score, external_id, sport, league, match_feed_key, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(match.home_team, match.away_team, match.kickoff_time, match.status,
-        match.home_score, match.away_score, match.external_id, match.sport, match.league, match.source);
+        match.home_score, match.away_score, match.external_id, match.sport, match.league, match.match_feed_key, match.source);
       matchId = Number(info.lastInsertRowid);
     }
 

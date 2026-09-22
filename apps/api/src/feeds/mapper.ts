@@ -66,6 +66,7 @@ export function toRows(m: IngestMatch, source = 'the-odds-api'): MatchRowSets {
       away_score: m.finalAway,
       sport: m.sport ?? null,
       league: m.league ?? null,
+      match_feed_key: m.feedSportKey ?? null,
       source,
     },
     markets: marketRows,
@@ -81,6 +82,8 @@ export function deriveMatchStatus(m: IngestMatch, markets: MarketRow[]): 'schedu
 }
 
 export function deriveMarketStatus(mk: IngestMarket): 'open' | 'suspended' | 'settled' {
+  // supplier says result final → market settled（历史语义误标 'suspended'，导致 feed 回流的
+  // completed 場次永遠不落 settled、match 也不落 settled——settle 斷鏈的成因之一）
   if (mk.settled) return 'settled';
   if (mk.suspended) return 'suspended';
   return 'open'; // live or pre-match open → open
@@ -179,6 +182,9 @@ export function normalizeTheOddsMatch(raw: TheOddsMatch, sportKey?: string): Ing
     away: raw.away_team,
     kickoff: new Date(raw.commence_time).toISOString(),
     ...(raw.sport_key ? mapSportKey(raw.sport_key) : sportKey ? mapSportKey(sportKey) : { sport: 'soccer', league: raw.sport_title ?? undefined }),
+    // 供 scores 端點反查的原始 the-odds-api sport key（upcoming 模式下每筆 payload 自帶，優先），
+    // fallback 為 pollOnce 傳入的 sportKey（單一 sport 模式，此时即真实 key）。
+    feedSportKey: raw.sport_key ?? sportKey,
     markets,
     finalHome,
     finalAway,

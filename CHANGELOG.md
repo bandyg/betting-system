@@ -12,6 +12,19 @@
 ## [Unreleased]
 
 ### Added（新增）
+- **feed-scores-fix：比分回灌斷鏈修復 + 額度治理**
+  - 根因：`FEED_SPORT_KEYS=upcoming` 模式下 scheduler 每輪對 `/v4/sports/upcoming/scores/` 打請求 →
+    the-odds-api 404 UNKNOWN_SPORT（`upcoming` 只對 /odds 合法），auto-settle 斷鏈 ≥1 個月
+    （feed_log 279 筆同一錯誤、production finished=0、open bets 永不結算）
+  - 修法：matches 加 `match_feed_key` 欄位持久化 payload 自帶的原始 sport_key（冪等遷移 + 回填）；
+    scheduler 新增 `resolveScoreKeys()`（FEED_SCORE_KEYS 覆蓋 → DB 反查 top3 → fallback）；
+    scores 每 N 輪才拉（`FEED_SCORES_EVERY`，預設 2）→ 額度 ≤450 req/月（免費 500 內）
+  - `deriveMarketStatus`：supplier 完賽市場 `settled:true` 由誤標 `suspended` 改正為 `settled`
+    → odds 回流 completed 場次直接落 settled
+  - `apps/api/scripts/backfill_feed_keys.mjs`：歷史場次 sport/league→feed key 反查回填（冪等、dry-run 預設）
+  - 新增 `__verify_scores__.ts`（14 斷言：sport_key 捕獲/回填/反查/派彩/冪等）
+  - pages.yml `Setup Pages` 補 `uses: actions/configure-pages@v5` + `enablement: true`
+    （原 step 缺 uses 直接 fail；repo Pages 從未啟用）
 - **Sprint 5 全部完成** (30+ feature, 5000+ 行代码)
   - C4 客服聊天增强（markdown + 表情 + 文件附件 + 已读）
   - C5 设计 tokens 化（reset.css + tokens.ts + DESIGN_TOKENS.md）
