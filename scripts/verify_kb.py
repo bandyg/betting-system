@@ -21,6 +21,7 @@ import sys
 import json
 import urllib.request
 import urllib.error
+from urllib.parse import quote
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:4100/api"
 DB_PATH = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("BETTING_DB_PATH", "")
@@ -80,8 +81,8 @@ check("GET /kb/articles 200", st == 200)
 check("默认 5 篇文章（seed FAQ）", len(arts) >= 5, f"got={len(arts)}")
 check("articles 仅含 published", all(a.get("status") == "published" for a in arts))
 
-# 3. 搜索：q=充值 → 应命中 how-to-deposit
-st, res = call("GET", "/kb/articles?q=" + "充值")
+# 3. 搜索：q=充值 → 应命中 how-to-deposit（query 必须 percent-encode，非 ASCII 直接拼 URL 会 UnicodeEncodeError）
+st, res = call("GET", "/kb/articles?q=" + quote("充值"))
 hits = res.get("articles", []) if isinstance(res, dict) else []
 check("搜索 q=充值 命中", len(hits) >= 1, f"got={len(hits)}")
 check("搜索 top1 = how-to-deposit", hits and hits[0].get("slug") == "how-to-deposit")

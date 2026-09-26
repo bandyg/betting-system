@@ -18,6 +18,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    env:
+      # R7 限流在 CI 放宽（verify 套件按设计在同一 IP/用户上高频请求）。
+      # rate-limit 专属 step 用 step 级 env 覆盖回低阈值做 429 行为验证。
+      RATE_LIMIT_REGISTER_MAX: '100000'
+      RATE_LIMIT_BET_MAX: '100000'
+      RATE_LIMIT_WITHDRAW_MAX: '100000'
+      RATE_LIMIT_ODDS_UPDATE_MAX: '100000'
+
     steps:
       - uses: actions/checkout@v4
 

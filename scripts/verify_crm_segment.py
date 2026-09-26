@@ -166,17 +166,18 @@ if DB_PATH and os.path.exists(DB_PATH) and uid is not None:
     check("accounts.balance 增加 50", bal_after == bal_before + 50, f"before={bal_before} after={bal_after}")
     check("transactions 写入 adjust 行", tx_count >= 1, f"count={tx_count}")
 
-# 12. admin 不被 segment 命中
+# 12. admin 不被 segment 命中（sample 里不应出现 admin；不硬断言 count=0，
+#     因 CI 共享 DB 可能被 verify_vip 造出 diamond 非 admin 用户）
 st, res = call("POST", "/admin/crm/segments", token=atoken, body={
     "slug": "verify-diamond-any",
     "name": "diamond+ 测试",
-    "rules": {"vipTier": "diamond+"},  # 应匹配所有 diamond，含 admin；但 crmSegments 排除 admin
+    "rules": {"vipTier": "diamond+"},
 })
 seg3_id = res.get("id") if isinstance(res, dict) else None
 st, res = call("POST", f"/admin/crm/segments/{seg3_id}/preview", token=atoken, body={})
-# admin 是 diamond 但 u.role != 'admin 排除；production 用户无 diamond，所以 count=0
-check("diamond segment 排除 admin（count=0，无 diamond 非 admin user）",
-      isinstance(res, dict) and res.get("count") == 0, f"count={res.get('count')}")
+sample = res.get("sample", []) if isinstance(res, dict) else []
+check("diamond segment 排除 admin（sample 无 admin）",
+      all(u.get("name") != "admin" for u in sample), f"sample_names={[u.get('name') for u in sample]}")
 
 passed = sum(1 for _, ok in results if ok)
 print(f"\n===== {passed}/{len(results)} PASSED =====")

@@ -44,7 +44,7 @@ kbRouter.get('/kb/articles', (req, res) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
   const categorySlug = typeof req.query.category === 'string' ? req.query.category.trim() : '';
   const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
-  let sql = `SELECT a.id, a.category_id, a.slug, a.title, a.tags, a.view_count, a.helpful_yes, a.helpful_no,
+  let sql = `SELECT a.id, a.category_id, a.slug, a.title, a.status, a.tags, a.view_count, a.helpful_yes, a.helpful_no,
                     a.created_at, a.updated_at, c.slug AS category_slug, c.title AS category_title
              FROM kb_articles a JOIN kb_categories c ON c.id = a.category_id
              WHERE a.status = 'published'`;
