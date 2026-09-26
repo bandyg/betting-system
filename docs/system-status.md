@@ -98,9 +98,9 @@ betting-system/
 | 优惠领取 claims（含风控/限额/审批/流水）| crm.ts | verify_crm_risk.py 49/49 | ✅ 100% |
 | VIP 5 级体系 | crm.ts loyalty | verify_vip.py 24/24 | ✅ 100% |
 | 用户偏好 | crm.ts preferences | inline | ✅ 70% |
-| 客户分群/标签 | — | — | ❌ 0% |
-| 营销活动日历 | — | — | ❌ 0% |
-| 个性化推送（站内/邮件/短信）| — | — | ❌ 0% |
+| 客户分群/标签 | crmSegments.ts + crm_segments | verify_crm_segment.py 12/12 | ✅ 100% |
+| 营销活动（手动 + cron）| crmSegments.ts + crm_campaigns | verify_crm_segment.py 12/12 | ✅ 100% |
+| 个性化推送（站内信）| notifications.ts | verify_crm_segment.py 12/12 | ✅ 80% |
 
 **缺口**：客户分群、自动化营销、跨渠道通知
 

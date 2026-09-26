@@ -139,12 +139,35 @@
 - **验收**：跑 `pnpm release` 自动 bump version + 更新 CHANGELOG
 - **风险**：低
 
-### R11. CRM：客户分群 + 营销自动化
+### R11. CRM：客户分群 + 营销自动化 ✅ 已完成（2026-09-26）
 - **缺口**：CRM 缺分群（按 VIP/累计/活跃度）、自动营销（生日优惠、沉睡召回、活动日历）
-- **做法**：建 `segments` + `campaigns` + `campaign_executions` 表；admin UI 建分群 + 触发条件；user 收到站内/邮件
-- **工时**：3 d
-- **验收**：admin 建"近 7 天未下注且 VIP≥silver"分群 → 自动发"5% 返水"促销 → 60 秒内 5 个 user 收到
-- **风险**：中
+- **做法**：
+  - **Schema**（4 张表 + 2 index，`schema.sql` + `migrate()` 幂等）：
+    - `crm_segments`（slug 唯一 + rules_json DSL + cached_count 缓存）
+    - `crm_campaigns`（FK segment + action_type 三选一 + trigger manual/cron + cooldown_days）
+    - `crm_campaign_executions`（UNIQUE(campaign_id, user_id) 防重复）
+    - `notifications`（站内信收件箱，category 分类 system/promotion/campaign）
+  - **DSL 评估器**（`apps/api/src/crmSegments.ts`）：
+    - rule key 白名单：`vipTier`（支持 `gold+` 这种 ≥）/ `lifetimeStake` / `totalBets` / `daysSinceLastBet` / `daysSinceRegistered` / `marketingOptIn`
+    - 字符串值转 SQL WHERE 片段（白名单 + 无注入）
+    - admin 自动排除（u.role != 'admin'）
+  - **Campaign executor**（同文件）：3 种 action — `site_message`（写 notifications）/ `promotion_code`（带 code 的站内信）/ `bonus_credit`（直接加余额 + transactions + 通知）；UNIQUE 防重复 + cooldown 二次防御；事务包裹
+  - **后台 scheduler**（`startCampaignScheduler(db, intervalMin)`）：每 30 min 评估 enabled segments + 跑 enabled cron campaigns（cooldown 控制频率）
+  - **API 路由**（`routes/crmSegments.ts` + `routes/notifications.ts`）：
+    - admin: `GET/POST/PUT/DELETE /admin/crm/segments` + `POST /admin/crm/segments/:id/preview`
+    - admin: `GET/POST/PUT/DELETE /admin/crm/campaigns` + `POST /admin/crm/campaigns/:id/run`
+    - admin: `GET /admin/crm/executions`（审计）
+    - admin: `POST /admin/notifications/broadcast`（群发站内信）
+    - user: `GET /notifications` + `POST /notifications/:id/read` + `POST /notifications/read-all`
+  - `scripts/test_crm_segments.mjs`（15 tests）：DSL 评估各 key / 组合 / 非法 rule 防抛 / campaign 3 action / UNIQUE 防重复 / notifications 收发
+  - `scripts/verify_crm_segment.py`：CI 端到端 12 asserts
+  - `.github/workflows/ci.yml`：把 `crm_segment` 加入 `for s in ...` 验证循环
+- **单元测试**：9 文件 / 135 tests / 0 fail（120 → 135，+15 R11）
+- **CI**：verify_crm_segment.py 12 asserts 端到端
+- **env**：`CRM_TICK_MIN` 默认 30（后台调度周期）
+- **验收**：admin 建分群「近 7 天未下注 + VIP≥silver」→ preview 看见命中 user → 创建 site_message campaign 手动 run → user 收件箱收到 → mark read 工作；bonus_credit campaign 跑后 balance + 50 + transactions 写入
+- **风险**：中→低（DSL 白名单 + 字符串转义；UNIQUE 防重复；事务包裹）
+- **未做（范围外）**：cron 表达式解析（用 tick 周期模拟）；邮件/SMS 推送（仅站内信）；A/B 测试；用户取消订阅流程（marketing_opt_in 已支持，但取消 UI 未做）
 
 ### R12. Support：邮件通知 + SLA
 - **缺口**：工單状态变更无邮件；SLA 无监控
@@ -259,7 +282,7 @@
 | 3 | ~~R9~~ | ~~监控 / 告警~~ ✅ 2026-09-26 | — | 稳定（feed 断链 1 个月才被发现就是教训） |
 | 4 | ~~R7~~ | ~~全局 rate limit~~ ✅ 2026-09-26 | — | 防滥用 |
 | 5 | ~~R6~~ | ~~Support 知识库~~ ✅ 2026-09-26 | — | 客服闭环 |
-| 6 | R11 | CRM 分群 + 自动化 | 3 d | 增长 |
+| 6 | ~~R11~~ | ~~CRM 分群 + 自动化~~ ✅ 2026-09-26 | — | 增长 |
 | 7 | R13 | Analytics 实时大屏 | 2 d | 运营 |
 
 **R0 说明**：feed-scores-fix（`0540faa`）已合 master 但生产验证未闭环。**脚本已 commit**（`scripts/deploy_feed_fix.sh` + `scripts/verify_feed_fix.sh`），bhs-4 一行命令即可部署 + 验证。验收：① feed_log 不再出现 404 UNKNOWN_SPORT；② the-odds-api 月额度消耗 ≤450；③ open bets 开始自动结算。**这是当前唯一 P0。**

@@ -275,6 +275,68 @@ CREATE TABLE IF NOT EXISTS kb_articles (
 CREATE INDEX IF NOT EXISTS idx_kb_articles_category ON kb_articles(category_id);
 CREATE INDEX IF NOT EXISTS idx_kb_articles_status ON kb_articles(status);
 
+-- ============ CRM 分群 + 营销自动化（R11）============
+-- 分群定义（DSL rules 转 SQL WHERE）；自动评估 + campaign 触发
+CREATE TABLE IF NOT EXISTS crm_segments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,                    -- 'high-value-dormant', 'newbie-week1'
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  rules_json TEXT NOT NULL,                       -- DSL: {"vipTier":"gold+","daysSinceLastBet":">7","lifetimeStake":">=10000"}
+  enabled INTEGER NOT NULL DEFAULT 1,             -- 0=停用
+  cached_count INTEGER NOT NULL DEFAULT 0,        -- 最近一次评估的人数（调试/UI 显示）
+  cached_at TEXT,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- 营销活动：手动触发 / 周期触发；action 是 promotion_code / site_message / bonus_credit 三选一
+CREATE TABLE IF NOT EXISTS crm_campaigns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  segment_id INTEGER NOT NULL REFERENCES crm_segments(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  action_type TEXT NOT NULL CHECK (action_type IN ('promotion_code','site_message','bonus_credit')),
+  action_payload_json TEXT NOT NULL DEFAULT '{}',  -- {'code':'PROMO5','message':'...','bonus':50}
+  trigger_type TEXT NOT NULL DEFAULT 'manual' CHECK (trigger_type IN ('manual','cron')),
+  cron_expr TEXT,                                  -- 预留：'0 9 * * 1' 周一 9 点（实际执行由 scheduler）
+  max_executions INTEGER NOT NULL DEFAULT 0,       -- 0=不限
+  cooldown_days INTEGER NOT NULL DEFAULT 7,        -- 同一 user 多久内不重复触发
+  enabled INTEGER NOT NULL DEFAULT 1,
+  last_run_at TEXT,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- 活动执行记录：每次触发记一行，避免重复 + 审计
+CREATE TABLE IF NOT EXISTS crm_campaign_executions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  campaign_id INTEGER NOT NULL REFERENCES crm_campaigns(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  segment_id INTEGER NOT NULL REFERENCES crm_segments(id),
+  action_type TEXT NOT NULL,
+  action_payload_json TEXT NOT NULL DEFAULT '{}',
+  delivered INTEGER NOT NULL DEFAULT 0,         -- 1=成功投递
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(campaign_id, user_id)                 -- 同一 user 同一 campaign 仅一次（cooldown 在 scheduler 检查）
+);
+
+-- 站内信收件箱（user 看；agent/admin 群发）
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  link TEXT NOT NULL DEFAULT '',                  -- 可选跳转 URL
+  category TEXT NOT NULL DEFAULT 'system',        -- 'system' / 'promotion' / 'campaign'
+  read_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, read_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+
 -- ============ CRM VIP 等級（忠誠度計劃） ============
 CREATE TABLE IF NOT EXISTS vip_tiers (
   tier TEXT PRIMARY KEY,

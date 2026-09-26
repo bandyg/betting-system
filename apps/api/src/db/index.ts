@@ -280,6 +280,63 @@ addCol('matches', 'external_id', "external_id TEXT");
     db.pragma('foreign_keys = ON');
   }
 
+  // 迁移（R11 CRM 分群 + 营销自动化）：4 张表（idempotent CREATE IF NOT EXISTS）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS crm_segments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      rules_json TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      cached_count INTEGER NOT NULL DEFAULT 0,
+      cached_at TEXT,
+      created_by INTEGER REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS crm_campaigns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      segment_id INTEGER NOT NULL REFERENCES crm_segments(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      action_type TEXT NOT NULL CHECK (action_type IN ('promotion_code','site_message','bonus_credit')),
+      action_payload_json TEXT NOT NULL DEFAULT '{}',
+      trigger_type TEXT NOT NULL DEFAULT 'manual' CHECK (trigger_type IN ('manual','cron')),
+      cron_expr TEXT,
+      max_executions INTEGER NOT NULL DEFAULT 0,
+      cooldown_days INTEGER NOT NULL DEFAULT 7,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      last_run_at TEXT,
+      created_by INTEGER REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS crm_campaign_executions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      campaign_id INTEGER NOT NULL REFERENCES crm_campaigns(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      segment_id INTEGER NOT NULL REFERENCES crm_segments(id),
+      action_type TEXT NOT NULL,
+      action_payload_json TEXT NOT NULL DEFAULT '{}',
+      delivered INTEGER NOT NULL DEFAULT 0,
+      error TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(campaign_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      link TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'system',
+      read_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, read_at);
+    CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+  `);
+
   // 迁移（CRM 促销风控）：promotion_claims 重建 — 去掉 UNIQUE(promotion_id,user_id)，加审核/流水字段
   const claimsSql = db
     .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='promotion_claims'")

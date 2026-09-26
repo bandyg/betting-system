@@ -17,6 +17,9 @@ import { feedRouter } from './routes/feed.js';
 import { supportRouter } from './routes/support.js';
 import { sportsRouter } from './routes/sports.js';
 import { kbRouter, adminKbRouter } from './routes/kb.js';
+import { crmAdminRouter } from './routes/crmSegments.js';
+import { notificationsRouter } from './routes/notifications.js';
+import { startCampaignScheduler } from './crmSegments.js';
 import { healthRouter } from './routes/health.js';
 import { attachWsHub } from './wsHub.js';
 import { monitorMiddleware, startMonitorTick } from './monitor.js';
@@ -68,6 +71,8 @@ app.use('/api', supportRouter);
 app.use('/api', sportsRouter);
 app.use('/api', kbRouter);
 app.use('/api', adminKbRouter);
+app.use('/api', crmAdminRouter);
+app.use('/api', notificationsRouter);
 app.use('/api', healthRouter);
 
 attachWsHub(httpServer);
@@ -77,4 +82,6 @@ httpServer.listen(PORT, () => {
   // 后台告警扫描：默认 15 分钟一轮扫 feed_log 错误数 + DB size（env 可调）
   startMonitorTick(db, process.env.BETTING_DB_PATH);
   startRateLimitCleanup(); // R7 限流桶过期清理（5 分钟扫一次）
+  // R11 CRM 调度器（默认 30 min 一轮评估 segments + 跑 cron campaigns；env 可调）
+  startCampaignScheduler(db, Number(process.env.CRM_TICK_MIN ?? '30'));
 });

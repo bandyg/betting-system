@@ -78,7 +78,7 @@ jobs:
           cat /tmp/api-ci.log
           echo "=== run verify scripts ==="
           set +e
-          for s in accounts matches markets withdrawals cms crm_risk analytics parlay support vip kb; do
+          for s in accounts matches markets withdrawals cms crm_risk analytics parlay support vip kb crm_segment; do
             echo "--- verify_${s}.py ---"
             python3 scripts/verify_${s}.py http://127.0.0.1:14100/api /tmp/ci-betting.db
             echo "RC=$?"

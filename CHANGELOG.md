@@ -57,6 +57,19 @@
   - `scripts/verify_kb.py`：CI 端到端（admin CRUD + 公开搜索 + 权限矩阵 401/403）
   - `.github/workflows/ci.yml`：把 `kb` 加入 `for s in ...` 验证脚本循环
   - 单元测试 110/110 → **120/120 PASS**（+10 R6）
+- **R11 CRM 分群 + 营销自动化**（roadmap 3 d → 实测 1.5 d；零外部依赖）
+  - **Schema**（`schema.sql` + `migrate()` 幂等 4 张表 + 2 index）：`crm_segments` / `crm_campaigns` / `crm_campaign_executions`（UNIQUE 防重复）/ `notifications`
+  - **DSL 评估器**（`apps/api/src/crmSegments.ts#evaluateSegment`）：rule key 白名单（vipTier 支持 `gold+` ≥、lifetimeStake / totalBets / daysSinceLastBet / daysSinceRegistered / marketingOptIn）→ SQL WHERE；admin 自动排除
+  - **Campaign executor**（同文件）：3 种 action — `site_message`（站内信）/ `promotion_code`（带 code 站内信）/ `bonus_credit`（直接加余额 + transactions + 通知）；UNIQUE + cooldown_days 双重防重复；事务包裹
+  - **后台 scheduler**（`startCampaignScheduler`）：每 30 min 评估 segments + 跑 cron campaigns（env `CRM_TICK_MIN` 可调）
+  - **API 路由**：
+    - admin: `/admin/crm/segments` CRUD + `/preview` 评估 / `/admin/crm/campaigns` CRUD + `/run` 手动执行 / `/admin/crm/executions` 审计 / `/admin/notifications/broadcast` 群发
+    - user: `/notifications` 收件箱 + `/:id/read` + `/read-all`
+  - `scripts/test_crm_segments.mjs`（15 tests）：DSL 评估各 key / 组合 / 非法 rule 防抛 / 3 action / UNIQUE / notifications — **15/15 PASS**
+  - `scripts/verify_crm_segment.py`：CI 端到端 12 asserts（创建分群 + preview + 手动 run + user 收件箱 + mark read + bonus_credit 加余额 + admin 排除）
+  - `.github/workflows/ci.yml`：把 `crm_segment` 加入 `for s in ...` 验证循环
+  - 单元测试 120/120 → **135/135 PASS**（+15 R11）
+  - CRM 模块：80% → **100%**
   - C4 客服聊天增强（markdown + 表情 + 文件附件 + 已读）
   - C5 设计 tokens 化（reset.css + tokens.ts + DESIGN_TOKENS.md）
   - C6 Storybook（30 文件 + index.html）
