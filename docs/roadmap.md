@@ -77,12 +77,23 @@
 - **验收**：admin 建 5 篇 FAQ，user 搜索关键词命中 3 篇；verify_kb.py 全 PASS
 - **风险**：中（搜索实现：LIKE %?% vs FTS5）
 
-### R7. 风控：注册/下注/提现全局 rate limit
-- **缺口**：只有 login 5/5min；注册、下注、提现无任何限流；admin 改赔无 audit
-- **做法**：写中间件 `rateLimit({windowMs, max, byIp|byUser})`，挂到 POST /users、POST /bets、POST /withdrawals、PUT /markets/:id/odds
-- **工时**：1 d
-- **验收**：同一 IP 1 秒内 10 次 POST /bets → 后 5 次 429；verify_rate_limit.py 10/10 PASS
-- **风险**：低
+### R7. 风控：注册/下注/提现全局 rate limit ✅ 已完成（2026-09-26）
+- **缺口**：只有 login 5/5min；注册、下注、提现无任何限流；admin 改赔无 audit（audit 是 R15，未做）
+- **做法**（零依赖，内存态固定窗口 + fail-open）：
+  - `apps/api/src/rateLimit.ts`（108 行）— `rateLimit({scope, keyBy: 'ip'|'user', max?, windowMs?})` 工厂；env 覆盖 `RATE_LIMIT_<SCOPE>_MAX` / `_WINDOW_MS`；标准 `429 + Retry-After + X-RateLimit-Limit/Remaining/Reset` 头；异常 fail-open
+  - 4 个端点接入：
+    - `POST /users`（公开注册）：`scope=register, keyBy=ip, max=5/min`
+    - `POST /bets` + `/bets/parlay`（下注/串关）：`scope=bet, keyBy=user, max=30/min`
+    - `POST /withdrawals`（提现申请）：`scope=withdraw, keyBy=user, max=10/min`
+    - `PUT /markets/:id/odds`（admin 调赔）：`scope=odds_update, keyBy=user, max=60/min`
+  - `apps/api/src/index.ts`：启动 `startRateLimitCleanup()` 每 5min 删过期 bucket（防 Map 无限增长）
+  - `scripts/test_rate_limit.mjs`（9 tests）：IP/user 维度 / 跨 scope 独立 / 头设置 / 窗口过期 / 默认值 / cleanup
+  - `scripts/verify_rate_limit.py`：CI 端到端验证（独立隔离 API + 低阈值 env 让脚本快速触 429）
+- **单元测试**：7 文件 / 110 tests / 0 fail（101 → 110，+9 R7）
+- **CI**：新增 `Run rate-limit e2e` job（独立隔离 API + RATE_LIMIT_*_MAX=5 让触发可控）
+- **env 默认值（生产建议）**：register 5/min · bet 30/min · withdraw 10/min · odds_update 60/min — 单进程适用（pm2 cluster 需 Redis 共享）
+- **验收**：人肉 1 秒 10 次 POST /bets → 后 5 次 429 + Retry-After；verify_rate_limit.py 全 PASS
+- **风险**：低（fail-open 保证限流器 bug 不影响主流程）
 
 ### R8. 真实支付通道联调
 - **缺口**：payments 三个 provider 抽象（mock / nowpayments / provider）都在，但 nowpayments 未真实联调
@@ -234,7 +245,7 @@
 | 1 | **R0** | **bhs-4 部署 feed-scores-fix + 验证 settle 恢复** | **0.25 d** ⏳ 脚本就绪 | **54 笔 open bets 结算 + 额度达标（当前唯一 P0）** |
 | 2 | ~~R3~~ | ~~verify_analytics.py 修基线~~ ✅ `5129296` 已完成 | — | 测试可信（roadmap stale，需文档校准） |
 | 3 | ~~R9~~ | ~~监控 / 告警~~ ✅ 2026-09-26 | — | 稳定（feed 断链 1 个月才被发现就是教训） |
-| 4 | R7 | 全局 rate limit | 1 d | 防滥用 |
+| 4 | ~~R7~~ | ~~全局 rate limit~~ ✅ 2026-09-26 | — | 防滥用 |
 | 5 | R6 | Support 知识库 | 2 d | 客服闭环 |
 | 6 | R11 | CRM 分群 + 自动化 | 3 d | 增长 |
 | 7 | R13 | Analytics 实时大屏 | 2 d | 运营 |

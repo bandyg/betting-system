@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import db, { hashPassword, DEFAULT_PASSWORD } from '../db/index.js';
 import { requireAuth, requireRole } from './middleware.js';
+import { rateLimit } from '../rateLimit.js';
 import { signSessionToken } from '../jwt.js';
 
 export const accountsRouter = Router();
 
 // POST /users — create user + account (balance 0)，password 可选（默认 123456，demo）
 // 公开注册端点（也用于 admin 面板新建用户，注册后即返回可用的 session token）
-accountsRouter.post('/users', (req, res) => {
+// R7：5/min/IP 防刷号
+accountsRouter.post('/users', rateLimit({ scope: 'register', keyBy: 'ip' }), (req, res) => {
   const { name, password } = req.body ?? {};
   if (typeof name !== 'string' || name.trim() === '') {
     return res.status(400).json({ error: 'name is required (non-empty string)' });

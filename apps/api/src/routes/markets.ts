@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { requireAuth, requireRole } from './middleware.js';
+import { rateLimit } from '../rateLimit.js';
 import { broadcastOddsUpdate } from '../wsHub.js';
 
 export const marketsRouter = Router();
@@ -130,7 +131,8 @@ marketsRouter.get('/markets/:id', (req, res) => {
 
 // PUT /markets/:id/odds — 调赔：更新部分或全部 selection 的赔率（admin）
 // body: { odds: { <selection>: price, ... } }
-marketsRouter.put('/markets/:id/odds', requireAuth, requireRole('admin'), (req, res) => {
+// R7：60/min/admin 防误操作 / 脚本滥用
+marketsRouter.put('/markets/:id/odds', requireAuth, requireRole('admin'), rateLimit({ scope: 'odds_update', keyBy: 'user' }), (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'invalid market id' });

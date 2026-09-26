@@ -19,6 +19,7 @@ import { sportsRouter } from './routes/sports.js';
 import { healthRouter } from './routes/health.js';
 import { attachWsHub } from './wsHub.js';
 import { monitorMiddleware, startMonitorTick } from './monitor.js';
+import { startRateLimitCleanup } from './rateLimit.js';
 import db from './db/index.js';
 
 const app = express();
@@ -72,4 +73,5 @@ httpServer.listen(PORT, () => {
   console.log(`[betting-api] listening on :${PORT} (ws: /ws/odds)`);
   // 后台告警扫描：默认 15 分钟一轮扫 feed_log 错误数 + DB size（env 可调）
   startMonitorTick(db, process.env.BETTING_DB_PATH);
+  startRateLimitCleanup(); // R7 限流桶过期清理（5 分钟扫一次）
 });

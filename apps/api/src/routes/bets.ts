@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { requireAuth } from './middleware.js';
+import { rateLimit } from '../rateLimit.js';
 import { checkRisk } from '../risk.js';
 
 export const betsRouter = Router();
@@ -84,7 +85,8 @@ function resolveBetUid(
 
 // POST /bets — place a bet: validate user/market/selection, check balance, deduct stake, create bet
 // body: { marketId, selection, stake }（userId 从登录 token 取，不信任客户端传值；admin/support 可代客下注）
-betsRouter.post('/bets', requireAuth, (req, res) => {
+// R7：30/min/user 防脚本
+betsRouter.post('/bets', requireAuth, rateLimit({ scope: 'bet', keyBy: 'user' }), (req, res) => {
   const me = res.locals.user as { id: number; role: string };
   const { marketId, selection, stake, userId } = req.body ?? {};
   const resolved = resolveBetUid(me, userId);
@@ -174,7 +176,8 @@ betsRouter.post('/bets', requireAuth, (req, res) => {
 // body: { legs: [{ marketId, selection }, ...], stake }（userId 从 token 取；admin/support 可代客下注）
 //   Combined odds = product of all leg odds. All legs must be on 'open' markets and on distinct matches.
 //   Deducts stake once; each leg lands in bet_legs. Settled together by settleMatch once every leg's market is settled.
-betsRouter.post('/bets/parlay', requireAuth, (req, res) => {
+// R7：30/min/user（与单注共用 scope 'bet'，组合时已受同一上限约束）
+betsRouter.post('/bets/parlay', requireAuth, rateLimit({ scope: 'bet', keyBy: 'user' }), (req, res) => {
   const me = res.locals.user as { id: number; role: string };
   const { legs, stake, userId } = req.body ?? {};
   const resolved = resolveBetUid(me, userId);

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import db from '../db/index.js';
 import { requireAuth, requireRole } from './middleware.js';
+import { rateLimit } from '../rateLimit.js';
 
 export const withdrawalsRouter = Router();
 
@@ -45,7 +46,7 @@ function todayWithdrawn(userId: number): number {
 /** POST /withdrawals — 提交提现申请（登录用户）
  *  body: { amount, method?, account_info? }
  *  校验：单笔限额 + 余额充足 + 日累计限额；pending 去重（同一用户同一金额未决只允许一笔） */
-withdrawalsRouter.post('/withdrawals', requireAuth, (req, res) => {
+withdrawalsRouter.post('/withdrawals', requireAuth, rateLimit({ scope: 'withdraw', keyBy: 'user' }), (req, res) => {
   const user = res.locals.user as { id: number };
   const { amount, method = 'bank', account_info = '' } = req.body ?? {};
   const amt = Number(amount);

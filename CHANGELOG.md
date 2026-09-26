@@ -39,6 +39,14 @@
   - `apps/api/src/routes/health.ts`：`/api/health` 响应附加 metrics（feed_log_errors_24h / open_bets / db_size_bytes / uptime_s）
   - `scripts/test_monitor.mjs`（9 tests）：webhook 投递 / 去抖动 / 阈值触发 / fail-quiet / Feishu 格式 / collectMetrics 数值
   - 单元测试从 92/92 → **101/101 PASS**（+9 R9）
+- **R7 全局限流**（roadmap 1 d → 实测 0.5 d；零依赖内存态固定窗口）
+  - `apps/api/src/rateLimit.ts`（108 行）— `rateLimit({scope, keyBy: 'ip'|'user'})` 工厂；env 覆盖 `RATE_LIMIT_<SCOPE>_MAX/_WINDOW_MS`；标准 429 + Retry-After + X-RateLimit-* 头；fail-open（限流器异常不阻断主流程）
+  - 4 个端点接入：`POST /users`（register 5/min/IP）、`POST /bets` + `/bets/parlay`（bet 30/min/user）、`POST /withdrawals`（withdraw 10/min/user）、`PUT /markets/:id/odds`（odds_update 60/min/admin）
+  - `apps/api/src/index.ts`：启动 `startRateLimitCleanup()` 每 5min 删过期 bucket（防内存泄漏）
+  - `scripts/test_rate_limit.mjs`（9 tests）：IP/user 维度 / 跨 scope 独立 / 头设置 / 窗口过期 / 默认值 / cleanup
+  - `scripts/verify_rate_limit.py`：CI 端到端验证（独立隔离 API + 低阈值 env 快速触 429）
+  - `.github/workflows/ci.yml`：新增 `Run rate-limit e2e` job（独立隔离 API + RATE_LIMIT_*_MAX=5）
+  - 单元测试 101/101 → **110/110 PASS**（+9 R7）
   - C4 客服聊天增强（markdown + 表情 + 文件附件 + 已读）
   - C5 设计 tokens 化（reset.css + tokens.ts + DESIGN_TOKENS.md）
   - C6 Storybook（30 文件 + index.html）

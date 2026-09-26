@@ -142,7 +142,7 @@ betting-system/
 | 自动派彩 | ✅ 100% | settings.feed_auto_settle 开关 + 幂等 settleMatch + **scores 断链已修**（match_feed_key + resolveScoreKeys） |
 | WebSocket 实时赔率 | ✅ 100% | wsHub `/ws/odds` + 前端 useLiveOdds（自动重连 + 心跳 + flash 动画） |
 | 共享 packages | ✅ 100% | core（types/api/hooks）+ ui（设计系统 + tokens 化） |
-| **CI/CD** | ✅ 100% | GitHub Actions 18 步：API e2e 11 verify + health + UI e2e 3 + unit 92/92 + visual 8/8 + WebSocket |
+| **CI/CD** | ✅ 100% | GitHub Actions 19 步：API e2e 11 verify + health + rate-limit + UI e2e 3 + unit 110/110 + visual 8/8 + WebSocket |
 | **GitHub Pages** | 🟡 90% | pages.yml 就绪（storybook + visual baseline gallery），需 repo Settings 手动 enable 一次 |
 | **README** | ✅ 90% | 已重写（6 系统 / API / 测试 / 部署 / 边界） |
 | **CHANGELOG** | ✅ 90% | Keep-a-Changelog 格式，0.1.0 全量回溯 |

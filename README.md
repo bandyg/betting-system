@@ -3,8 +3,9 @@
 一个像 [Amelco](https://www.amelco.co.uk/) 的完整投注系统 MVP：**赛前 + 滚球** 固定赔率、下注、结算闭环，足球/篮球/网球/棒球等 18 运动，三端（Web 后台 / 移动 Web / API）。面向学习/演示的轻量实现。
 
 > **状态**：master（`6d13584` + docs-system-overview 合入）/ **30+ feature 完成** / **2400+ 行 docs** / **三层测试金字塔 100%**
-> - ✅ Unit Tests: **101/101 PASS**
-> - ✅ E2E: backend 11 verify + UI 3 playwright + WebSocket real-time odds
+> - ✅ Unit Tests: **110/110 PASS**
+> - ✅ E2E: backend 11 verify + UI 3 playwright + WebSocket real-time odds + rate-limit
+> - ✅ Rate Limit (R7): register 5/min · bet 30/min · withdraw 10/min · odds_update 60/min
 > - ✅ Visual Regression: **8/8 PASS** (Playwright + pixelmatch)
 > - ✅ CI: GitHub Actions 18 步全部 PASS
 > - 🚀 GitHub Pages: `.github/workflows/pages.yml` 已就绪，**需手动 enable** (Settings → Pages → Source: GitHub Actions) 才会 deploy Storybook + Visual Baseline gallery
@@ -120,7 +121,7 @@ pnpm test:visual
 ```
 
 **当前状态** (db7c53f master):
-- ✅ Unit Tests: **101/101** (6 files; test_monitor.mjs 新增 R9 告警测试)
+- ✅ Unit Tests: **110/110** (7 files; test_monitor.mjs R9 + test_rate_limit.mjs R7)
 - ✅ Backend E2E: 11/11 verify scripts
 - ✅ UI E2E: 3/3 Playwright (k_ux/l_ux/m_ux)
 - ✅ WebSocket: 实时赔率 broadcast PASS
@@ -229,7 +230,10 @@ python3 scripts/verify_accounts.py  http://127.0.0.1:14100/api /tmp/iso.db   # 1
 python3 scripts/verify_matches.py   http://127.0.0.1:14100/api /tmp/iso.db   # 15/15
 python3 scripts/verify_markets.py   http://127.0.0.1:14100/api /tmp/iso.db   # 26/26
 python3 scripts/verify_withdrawals.py http://127.0.0.1:14100/api /tmp/iso.db # 29/29
-# ... 共 16 个 verify_*.{py,ts,mjs}，13 绿 + 3 UI 未跑过 + 1 空文件
+# ... 共 17 个 verify_*.{py,ts,mjs}，13 绿 + 3 UI 在 CI 跑（|| true）+ 1 verify_rate_limit + 1 空
+# R7 限流验证（独立隔离 API + 低阈值 env 跑）：
+RATE_LIMIT_REGISTER_MAX=5 BETTING_DB_PATH=/tmp/rl.db PORT=14100 node apps/api/dist/index.js &
+python3 scripts/verify_rate_limit.py http://127.0.0.1:14100/api /tmp/rl.db
 
 kill $API_PID && rm -f /tmp/iso.db
 ```

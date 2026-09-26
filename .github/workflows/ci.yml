@@ -110,6 +110,25 @@ jobs:
           kill $API_PID
           rm -f /tmp/ci-betting.db
 
+      # ── R7 全局限流验证（独立隔离 API + 低阈值 env，让 6 次触 429）──
+      - name: Run rate-limit e2e
+        env:
+          BETTING_DB_PATH: /tmp/ci-ratelimit.db
+          PORT: '14100'
+          NODE_ENV: test
+          # 把阈值压低，让脚本在合理次数内就触发 429（生产默认仍为 5/30/10/60 per min）
+          RATE_LIMIT_REGISTER_MAX: '5'
+          RATE_LIMIT_BET_MAX: '5'
+          RATE_LIMIT_WITHDRAW_MAX: '5'
+          RATE_LIMIT_ODDS_UPDATE_MAX: '5'
+        run: |
+          node apps/api/dist/index.js &
+          API_PID=$!
+          sleep 2
+          python3 scripts/verify_rate_limit.py http://127.0.0.1:14100/api /tmp/ci-ratelimit.db
+          kill $API_PID 2>/dev/null
+          rm -f /tmp/ci-ratelimit.db
+
       # ── UI e2e（playwright 隔离 second vite preview :14200）──
       - name: Install Playwright browser
         continue-on-error: true
