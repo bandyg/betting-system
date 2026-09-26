@@ -247,6 +247,34 @@ CREATE TABLE IF NOT EXISTS support_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_support_messages_ticket ON support_messages(ticket_id);
 
+-- ============ 客服知识库 / FAQ（R6）============
+-- 公开搜索走 status='published'；admin CRUD 可发布/草稿/归档；按 view_count DESC 排序
+CREATE TABLE IF NOT EXISTS kb_categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,           -- URL 友好标识（e.g. 'deposit', 'bet-rule', 'account'）
+  title TEXT NOT NULL,                  -- 分类显示名
+  sort_order INTEGER NOT NULL DEFAULT 0,  -- admin 可调
+  icon TEXT NOT NULL DEFAULT '',        -- emoji 或图标类
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS kb_articles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category_id INTEGER NOT NULL REFERENCES kb_categories(id) ON DELETE CASCADE,
+  slug TEXT NOT NULL UNIQUE,            -- URL 友好标识（e.g. 'how-to-deposit'）
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,                   -- Markdown
+  tags TEXT NOT NULL DEFAULT '',         -- 逗号分隔关键词（搜索辅助）
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published','archived')),
+  view_count INTEGER NOT NULL DEFAULT 0,
+  helpful_yes INTEGER NOT NULL DEFAULT 0,   -- 「这个有帮助」投票
+  helpful_no INTEGER NOT NULL DEFAULT 0,
+  author_user_id INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_kb_articles_category ON kb_articles(category_id);
+CREATE INDEX IF NOT EXISTS idx_kb_articles_status ON kb_articles(status);
+
 -- ============ CRM VIP 等級（忠誠度計劃） ============
 CREATE TABLE IF NOT EXISTS vip_tiers (
   tier TEXT PRIMARY KEY,

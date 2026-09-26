@@ -318,6 +318,90 @@ addCol('matches', 'external_id', "external_id TEXT");
 
   // 迁移（N 轮生产化第一阶）：sessions 表加 expires_at（JWT 会话过期时间，幂等）
   addCol('sessions', 'expires_at', 'expires_at TEXT');
+
+  // 迁移（R6 客服知识库）：kb_categories + kb_articles 表（idempotent CREATE IF NOT EXISTS）
+  //   搜索走 LIKE 全文模糊匹配 + status='published' 过滤；可后续升级 FTS5 虚拟表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS kb_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL UNIQUE,           -- URL 友好标识（e.g. 'deposit', 'bet-rule', 'account'）
+      title TEXT NOT NULL,                  -- 分类显示名
+      sort_order INTEGER NOT NULL DEFAULT 0,  -- admin 可调
+      icon TEXT NOT NULL DEFAULT '',        -- emoji 或图标类
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS kb_articles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category_id INTEGER NOT NULL REFERENCES kb_categories(id) ON DELETE CASCADE,
+      slug TEXT NOT NULL UNIQUE,            -- URL 友好标识（e.g. 'how-to-deposit'）
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,                   -- Markdown
+      tags TEXT NOT NULL DEFAULT '',         -- 逗号分隔关键词（搜索辅助）
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published','archived')),
+      view_count INTEGER NOT NULL DEFAULT 0,
+      helpful_yes INTEGER NOT NULL DEFAULT 0,   -- 「这个有帮助」投票
+      helpful_no INTEGER NOT NULL DEFAULT 0,
+      author_user_id INTEGER REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_kb_articles_category ON kb_articles(category_id);
+    CREATE INDEX IF NOT EXISTS idx_kb_articles_status ON kb_articles(status);
+  `);
+  // seed 默认分类（首次启动幂等 INSERT OR IGNORE）+ 5 篇示例 FAQ
+  const seedCategories = [
+    { slug: 'deposit',   title: '充值与支付',   icon: '💳', order: 1 },
+    { slug: 'withdraw',  title: '提现相关',     icon: '🏦', order: 2 },
+    { slug: 'bet-rule',  title: '投注规则',     icon: '🎯', order: 3 },
+    { slug: 'account',   title: '账户与安全',   icon: '🔐', order: 4 },
+    { slug: 'promotion', title: '优惠与活动',   icon: '🎁', order: 5 },
+  ];
+  const insCat = db.prepare(
+    'INSERT OR IGNORE INTO kb_categories (slug, title, icon, sort_order) VALUES (?, ?, ?, ?)'
+  );
+  for (const c of seedCategories) insCat.run(c.slug, c.title, c.icon, c.order);
+
+  const seedArticles = [
+    {
+      cat_slug: 'deposit', slug: 'how-to-deposit',
+      title: '如何充值？支持哪些支付方式？',
+      body: '## 充值流程\n\n1. 进入 **我的账户** → **充值**\n2. 选择金额（最低 10 元 / 最高 50,000 元 / 单笔）\n3. 选择支付方式：银行卡 / USDT / 支付宝\n4. 完成支付后系统自动入账（通常 30 秒内）\n\n## 支付方式说明\n\n- **银行卡**：Visa / MasterCard / JCB\n- **USDT**：TRC20 网络，请确认地址正确\n- **支付宝**：扫码支付，订单 5 分钟有效\n\n如有疑问可联系右下角在线客服。',
+      tags: '充值,支付,银行卡,USDT,支付宝',
+    },
+    {
+      cat_slug: 'withdraw', slug: 'withdraw-time',
+      title: '提现需要多久到账？',
+      body: '## 提现时效\n\n- **银行卡**：1–3 个工作日\n- **USDT**：30 分钟内（24x7 受理）\n- **支付宝**：2 小时内\n\n## 最低提现金额\n\n单笔最低 10 元，最高 50,000 元；日累计 100,000 元。\n\n## 为什么提现被拒？\n\n常见原因：账户余额不足 / 风控限额触发 / 银行卡信息错误。具体可在 **提现记录** 查看拒绝原因。',
+      tags: '提现,到账时间,银行卡,USDT',
+    },
+    {
+      cat_slug: 'bet-rule', slug: 'void-rule',
+      title: '比赛取消/平盘后注单如何处理？',
+      body: '## 平盘（Void）规则\n\n让球盘（亚盘）比赛结果**正好命中盘口**时，整张注单按 **退款（void）** 处理：\n\n- 单注：退还本金 stake，无盈利\n- 串关：仅该腿 void，整单继续结算其余腿\n\n## 比赛取消\n\n若赛事在开赛前取消或全场无效：\n- 该赛事的**所有市场** void\n- 已下注单全数退款\n- 串关中只要有任一腿赛事取消，整单 void 退款\n\n参考 [结算规则说明](https://example.com/rules)。',
+      tags: '平盘,退款,void,串关,比赛取消',
+    },
+    {
+      cat_slug: 'account', slug: 'forgot-password',
+      title: '忘记密码怎么办？',
+      body: '## 密码找回\n\n1. 登录页点击 **忘记密码**\n2. 输入注册用户名 / 邮箱\n3. 系统发送重置链接（5 分钟有效）\n4. 设置新密码（至少 6 位）\n\n## 仍然无法登录？\n\n- 确认用户名拼写（小写敏感）\n- 检查浏览器是否禁用了 cookie\n- 连续 5 次密码错误会触发 15 分钟登录冷却\n\n如需人工协助，请联系在线客服并提供：注册时间 / 最近登录时间 / 充值记录。',
+      tags: '密码,找回,登录,账户',
+    },
+    {
+      cat_slug: 'promotion', slug: 'wagering-requirement',
+      title: '优惠的流水要求怎么算？',
+      body: '## 流水要求（wagering requirement）\n\n领取优惠后需在规定时间内完成对应倍数的投注流水方可提现。\n\n## 示例\n\n- 奖金 100 元，流水要求 5 倍 → 累计投注 500 元可提现\n- 单注最低赔率 1.50 才计入流水\n- 串关各腿赔率 ≥ 1.50 也计入\n- **退款（void）和对冲注单不计入流水**\n\n## 进度查询\n\n**我的优惠** → 选择已领取优惠 → 查看「流水进度 X / Y」。',
+      tags: '流水,wagering,优惠,提现',
+    },
+  ];
+  const insArt = db.prepare(
+    'INSERT OR IGNORE INTO kb_articles (category_id, slug, title, body, tags, status, author_user_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  );
+  for (const a of seedArticles) {
+    const catRow = db.prepare('SELECT id FROM kb_categories WHERE slug = ?').get(a.cat_slug) as { id: number } | undefined;
+    if (catRow) {
+      insArt.run(catRow.id, a.slug, a.title, a.body, a.tags, 'published', null);
+    }
+  }
 }
 
 // Ensure schema exists on import (idempotent)

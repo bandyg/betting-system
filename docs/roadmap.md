@@ -70,12 +70,24 @@
 - **验收**：3 个 mjs 在 bhs-4 隔离环境跑通 16+19+19 = 54/54 PASS
 - **风险**：高（playwright 在 CI 里装、headless 行为、动态加载等待都要测）
 
-### R6. Customer Support 知识库
+### R6. Customer Support 知识库 ✅ 已完成（2026-09-26）
 - **缺口**：support.ts 9 endpoint 全在，但客服知识库（FAQ / 分类 / 搜索 / 用户自助查询）= 0；support 工單做完了，前置知识库没做
-- **做法**：建 `kb_categories` + `kb_articles` 表；admin CRUD；user GET 公开接口；UI 在 mobile support 页加搜索
-- **工时**：2 d
-- **验收**：admin 建 5 篇 FAQ，user 搜索关键词命中 3 篇；verify_kb.py 全 PASS
-- **风险**：中（搜索实现：LIKE %?% vs FTS5）
+- **做法**：
+  - `apps/api/src/db/schema.sql` + `apps/api/src/db/index.ts` 的 `migrate()` — 幂等创建 `kb_categories` + `kb_articles` 表（FK ON DELETE CASCADE、status CHECK 约束、2 个 index），seed 默认 5 分类（充值/提现/投注规则/账户安全/优惠活动）+ 5 篇 FAQ（Markdown body）
+  - `apps/api/src/routes/kb.ts`（180 行）— 两组路由：
+    - **公开** `kbRouter`：`GET /kb/categories` / `GET /kb/articles?q=&category=&limit=` / `GET /kb/articles/:slugOrId`（view_count 自增）/ `POST /kb/articles/:id/helpful`（yes/no 投票）
+    - **admin** `adminKbRouter`：分类 CRUD + 文章 CRUD（status=draft/published/archived）+ reset-views 运维
+  - 搜索：LIKE '%q%' 模糊匹配 title/body/tags，按 view_count DESC + updated_at DESC 排序（足够 MVP；后续可升级 FTS5）
+  - `apps/api/src/index.ts`：挂 kbRouter + adminKbRouter
+  - `scripts/test_kb.mjs`（10 tests）：分类 CRUD / CASCADE / 文章 CRUD / status 过滤 / slug 唯一 / 搜索 / 投票 / view_count 自增 / CHECK 约束
+  - `scripts/verify_kb.py`：CI 端到端验证（10 个 assert）
+  - `.github/workflows/ci.yml`：把 `kb` 加进 `for s in ...` 验证脚本循环
+- **单元测试**：8 文件 / 120 tests / 0 fail（110 → 120，+10 R6）
+- **CI**：新增 verify_kb.py 端到端（admin CRUD + 公开搜索 + 权限矩阵）
+- **env**：无（功能完全在 DB 层）
+- **验收**：admin 创建 5+ FAQ → user 搜索关键词命中；helpful 投票工作；权限 401/403 正确；CHECK 约束防非法 status
+- **风险**：中→低（LIKE 搜索足够；后续量大再升级 FTS5；CASCADE 防孤儿）
+- **未做（范围外）**：FTS5 全文索引（性能）；UI admin panel 编辑器（前端）；多语言 FAQ（locale 字段可后续加）
 
 ### R7. 风控：注册/下注/提现全局 rate limit ✅ 已完成（2026-09-26）
 - **缺口**：只有 login 5/5min；注册、下注、提现无任何限流；admin 改赔无 audit（audit 是 R15，未做）
@@ -246,7 +258,7 @@
 | 2 | ~~R3~~ | ~~verify_analytics.py 修基线~~ ✅ `5129296` 已完成 | — | 测试可信（roadmap stale，需文档校准） |
 | 3 | ~~R9~~ | ~~监控 / 告警~~ ✅ 2026-09-26 | — | 稳定（feed 断链 1 个月才被发现就是教训） |
 | 4 | ~~R7~~ | ~~全局 rate limit~~ ✅ 2026-09-26 | — | 防滥用 |
-| 5 | R6 | Support 知识库 | 2 d | 客服闭环 |
+| 5 | ~~R6~~ | ~~Support 知识库~~ ✅ 2026-09-26 | — | 客服闭环 |
 | 6 | R11 | CRM 分群 + 自动化 | 3 d | 增长 |
 | 7 | R13 | Analytics 实时大屏 | 2 d | 运营 |
 

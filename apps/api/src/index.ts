@@ -16,6 +16,7 @@ import { analyticsRouter } from './routes/analytics.js';
 import { feedRouter } from './routes/feed.js';
 import { supportRouter } from './routes/support.js';
 import { sportsRouter } from './routes/sports.js';
+import { kbRouter, adminKbRouter } from './routes/kb.js';
 import { healthRouter } from './routes/health.js';
 import { attachWsHub } from './wsHub.js';
 import { monitorMiddleware, startMonitorTick } from './monitor.js';
@@ -65,6 +66,8 @@ app.use('/api', analyticsRouter);
 app.use('/api', feedRouter);
 app.use('/api', supportRouter);
 app.use('/api', sportsRouter);
+app.use('/api', kbRouter);
+app.use('/api', adminKbRouter);
 app.use('/api', healthRouter);
 
 attachWsHub(httpServer);

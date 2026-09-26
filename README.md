@@ -3,7 +3,7 @@
 一个像 [Amelco](https://www.amelco.co.uk/) 的完整投注系统 MVP：**赛前 + 滚球** 固定赔率、下注、结算闭环，足球/篮球/网球/棒球等 18 运动，三端（Web 后台 / 移动 Web / API）。面向学习/演示的轻量实现。
 
 > **状态**：master（`6d13584` + docs-system-overview 合入）/ **30+ feature 完成** / **2400+ 行 docs** / **三层测试金字塔 100%**
-> - ✅ Unit Tests: **110/110 PASS**
+> - ✅ Unit Tests: **120/120 PASS**
 > - ✅ E2E: backend 11 verify + UI 3 playwright + WebSocket real-time odds + rate-limit
 > - ✅ Rate Limit (R7): register 5/min · bet 30/min · withdraw 10/min · odds_update 60/min
 > - ✅ Visual Regression: **8/8 PASS** (Playwright + pixelmatch)
@@ -121,7 +121,7 @@ pnpm test:visual
 ```
 
 **当前状态** (db7c53f master):
-- ✅ Unit Tests: **110/110** (7 files; test_monitor.mjs R9 + test_rate_limit.mjs R7)
+- ✅ Unit Tests: **120/120** (8 files; + test_kb.mjs R6)
 - ✅ Backend E2E: 11/11 verify scripts
 - ✅ UI E2E: 3/3 Playwright (k_ux/l_ux/m_ux)
 - ✅ WebSocket: 实时赔率 broadcast PASS
@@ -150,6 +150,7 @@ Base URL：`http://localhost:4100/api`
 | `/cms` | `cms.ts` | 内容 CRUD + 多语言 + 生命周期 |
 | `/analytics` | `analytics.ts` | 仪表盘/趋势/Top（admin） |
 | `/support` | `support.ts` | 客服工單 |
+| `/kb` `/admin/kb` | `kb.ts` | 客服知识库（FAQ 分类 + 文章 + 公开搜索 + helpful 投票） |
 | `/feeds` | `feed.ts` | 数据源管理（admin） |
 | `/health` | `health.ts` | 健康检查（O1 round：db + redis + pg + web 真探活） |
 

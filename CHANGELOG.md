@@ -47,6 +47,16 @@
   - `scripts/verify_rate_limit.py`：CI 端到端验证（独立隔离 API + 低阈值 env 快速触 429）
   - `.github/workflows/ci.yml`：新增 `Run rate-limit e2e` job（独立隔离 API + RATE_LIMIT_*_MAX=5）
   - 单元测试 101/101 → **110/110 PASS**（+9 R7）
+- **R6 客服知识库 / FAQ**（roadmap 2 d → 实测 1 d；零外部依赖）
+  - `apps/api/src/db/schema.sql` + `apps/api/src/db/index.ts#migrate()`：幂等创建 `kb_categories` + `kb_articles` 表（FK ON DELETE CASCADE + status CHECK 约束 + 2 index）；seed 5 分类（充值/提现/投注规则/账户安全/优惠活动）+ 5 篇 published FAQ（Markdown）
+  - `apps/api/src/routes/kb.ts`（180 行）— 两组路由：
+    - **公开** `kbRouter`：`GET /kb/categories` / `GET /kb/articles?q=&category=&limit=` / `GET /kb/articles/:slugOrId`（view_count 自增）/ `POST /kb/articles/:id/helpful`（yes/no 投票）
+    - **admin** `adminKbRouter`：分类 CRUD + 文章 CRUD（status=draft/published/archived）+ reset-views 运维
+  - 搜索：LIKE '%q%' 模糊匹配 title/body/tags，按 view_count DESC + updated_at DESC 排序
+  - `scripts/test_kb.mjs`（10 tests）：分类 CRUD / CASCADE / 文章 CRUD / status 过滤 / slug 唯一 / 搜索 / 投票 / view_count 自增 / CHECK 约束
+  - `scripts/verify_kb.py`：CI 端到端（admin CRUD + 公开搜索 + 权限矩阵 401/403）
+  - `.github/workflows/ci.yml`：把 `kb` 加入 `for s in ...` 验证脚本循环
+  - 单元测试 110/110 → **120/120 PASS**（+10 R6）
   - C4 客服聊天增强（markdown + 表情 + 文件附件 + 已读）
   - C5 设计 tokens 化（reset.css + tokens.ts + DESIGN_TOKENS.md）
   - C6 Storybook（30 文件 + index.html）

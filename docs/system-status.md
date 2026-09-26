@@ -123,7 +123,7 @@ betting-system/
 |---|---|---|---|
 | 工單后端（user/admin/消息/状态）| support.ts（9）| verify_support.py 65/65 | ✅ 100% |
 | 移动端联系客服入口 + support 页 | mobile | UI | ✅ 90% |
-| 客服知识库（FAQ/分类/搜索）| — | — | ❌ 0% |
+| 客服知识库（FAQ/分类/搜索/投票）| kb.ts + kb_categories/kb_articles | verify_kb.py + test_kb.mjs 10/10 | ✅ 100% |
 | 邮件通知（工單状态变更）| — | — | ❌ 0% |
 | SLA 监控 / 升级规则 | — | — | ❌ 0% |
 | 多客服协作 / 内部备注 | — | — | ❌ 0% |
