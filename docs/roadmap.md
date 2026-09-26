@@ -176,12 +176,26 @@
 - **验收**：工單创建 → user 5 秒内收到邮件；admin 看板显示 SLA 倒计时
 - **风险**：中（需要 SMTP 凭据）
 
-### R13. Analytics：实时大屏 + 数据导出
+### R13. Analytics：实时大屏 + 数据导出 ✅ 已完成（2026-09-26）
 - **缺口**：当前 analytics 4 端点是 admin 个人看，没有大屏；数据无法导出
-- **做法**：加 `/api/analytics/realtime` (WebSocket 或 SSE) + CSV 导出端点
-- **工时**：2 d
-- **验收**：admin 实时看 30s 滚动的下注/充值/在线人数；导出 14 天趋势为 CSV
-- **风险**：低
+- **做法**：
+  - **SSE 实时大屏**（`GET /api/analytics/realtime`）：
+    - Server-Sent Events 每 5s 推一次 dashboard 快照（`data: {dashboard, ws, ts}`，首帧立即）
+    - 认证双通道：`Authorization: Bearer`（脚本/fetch）+ `?token=`（浏览器 EventSource 无法设头的标准解法）
+    - admin-only（手动 verifySessionToken + 查 users.role）；连接数上限 `ANALYTICS_REALTIME_MAX_CLIENTS`（默认 10，429 防泄漏）；`req.on('close')` 清理 interval
+    - 推送周期 env `ANALYTICS_REALTIME_INTERVAL_S`（默认 5s，最小 2s）
+  - **CSV 导出**（3 端点，admin-only，`Content-Disposition: attachment`）：
+    - `GET /analytics/export/trends.csv?days=14`
+    - `GET /analytics/export/users.csv?limit=100`
+    - `GET /analytics/export/hot-matches.csv?limit=50`
+  - **CSV 序列化**（`apps/api/src/csv.ts`）：RFC 4180 转义（逗号/引号/换行 → 引号包裹 + 内部翻倍；对象 → JSON）；CRLF 行分隔
+  - `scripts/test_csv.mjs`（13 tests）：转义各形态 / 空集 / headers 指定 / CRLF
+  - `scripts/verify_analytics_export.py`：11 asserts e2e（CSV 内容 + 转义 + SSE 双通道认证 + 401/403 权限）
+  - `.github/workflows/ci.yml`：verify 循环加 `analytics_export`（共 13 个 verify 脚本）
+- **单元测试**：10 文件 / 148 tests / 0 fail（135 → 148，+13 R13）
+- **验收**：admin 拿到合法 CSV（含引号转义字段）；SSE admin 双通道 200 + 首帧 dashboard；普通用户 403 / anon 401
+- **风险**：低（SSE 手动认证 + 连接数上限；CSV 纯序列化无注入面）
+- **未做（范围外）**：前端大屏 UI（recharts 可视化）——后端数据源已就绪；WebSocket 版推送（SSE 已满足单向场景）
 
 ### R14. UI 主题切换
 - **缺口**：当前只有 dark neon 一套主题
@@ -283,12 +297,11 @@
 | 4 | ~~R7~~ | ~~全局 rate limit~~ ✅ 2026-09-26 | — | 防滥用 |
 | 5 | ~~R6~~ | ~~Support 知识库~~ ✅ 2026-09-26 | — | 客服闭环 |
 | 6 | ~~R11~~ | ~~CRM 分群 + 自动化~~ ✅ 2026-09-26 | — | 增长 |
-| 7 | R13 | Analytics 实时大屏 | 2 d | 运营 |
+| 7 | ~~R13~~ | ~~Analytics 实时大屏~~ ✅ 2026-09-26 | — | 运营 |
 
 **R0 说明**：feed-scores-fix（`0540faa`）已合 master 但生产验证未闭环。**脚本已 commit**（`scripts/deploy_feed_fix.sh` + `scripts/verify_feed_fix.sh`），bhs-4 一行命令即可部署 + 验证。验收：① feed_log 不再出现 404 UNKNOWN_SPORT；② the-odds-api 月额度消耗 ≤450；③ open bets 开始自动结算。**这是当前唯一 P0。**
 
-**1-5（5 d）是上线前必做**，构成"生产就绪"门槛。
-**6-7（5 d）属于"上线后第一个月"**，要看业务压力再排。
+**2026-09-26 状态：推荐表 1-7 全部完成**（R0 待 bhs-4 执行，其余代码级全部落地）。剩余未做 = P3 长期项（R14 主题切换 / R15 审计日志 / R16 多源聚合 / R17 cashout / R18 SEO / R19 i18n / R20 PWA / R21 AI 推荐 / R22 KYC）+ 版本化 0.2.0 收口（打 tag + release）。
 
 ## 范围外（不做）
 

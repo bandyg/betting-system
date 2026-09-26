@@ -3,7 +3,7 @@
 一个像 [Amelco](https://www.amelco.co.uk/) 的完整投注系统 MVP：**赛前 + 滚球** 固定赔率、下注、结算闭环，足球/篮球/网球/棒球等 18 运动，三端（Web 后台 / 移动 Web / API）。面向学习/演示的轻量实现。
 
 > **状态**：master（`6d13584` + docs-system-overview 合入）/ **30+ feature 完成** / **2400+ 行 docs** / **三层测试金字塔 100%**
-> - ✅ Unit Tests: **135/135 PASS**
+> - ✅ Unit Tests: **148/148 PASS**
 > - ✅ E2E: backend 11 verify + UI 3 playwright + WebSocket real-time odds + rate-limit
 > - ✅ Rate Limit (R7): register 5/min · bet 30/min · withdraw 10/min · odds_update 60/min
 > - ✅ Visual Regression: **8/8 PASS** (Playwright + pixelmatch)
@@ -21,9 +21,9 @@
 | **PAM**（账户/支付/认证） | 80% | JWT 7d + bcrypt + 注册/充值/提现 + 风控限额 + mock 支付通道 |
 | **SPORTBOOK**（核心投注） | **85%** | 18 运动 + 滚球 autoMarket + parlay 串关 + 调赔/挂盘 + the-odds-api live 接入 |
 | **CMS**（内容管理） | 75% | 多语言 + 生命周期（草稿/定时/归档/恢复）+ 富文本 |
-| **CRM**（营销/客户） | 80% | 促销/优惠/VIP 5 级/用户偏好 |
-| **Data Analytics**（数据分析） | 70% | 仪表盘 + 14 天趋势 + 热门 Top5 + 用户画像 |
-| **Customer Support**（客服工單） | 60% | 工單 + 消息 + 状态机（**缺知识库**） |
+| **CRM**（营销/客户） | **100%** | 促销/优惠/VIP 5 级/用户偏好 + **R11 分群 DSL + 营销自动化 + 站内信** |
+| **Data Analytics**（数据分析） | 90% | 仪表盘 + 14 天趋势 + 热门 Top5 + 用户画像 + **R13 SSE 实时大屏 + CSV 导出** |
+| **Customer Support**（客服工單） | 80% | 工單 + 消息 + 状态机 + **R6 知识库 FAQ（分类/搜索/投票）**（缺邮件通知/SLA） |
 
 ## 技术栈
 
@@ -121,7 +121,7 @@ pnpm test:visual
 ```
 
 **当前状态** (db7c53f master):
-- ✅ Unit Tests: **135/135** (9 files; + test_crm_segments.mjs R11)
+- ✅ Unit Tests: **148/148** (10 files; + test_csv.mjs R13)
 - ✅ Backend E2E: 11/11 verify scripts
 - ✅ UI E2E: 3/3 Playwright (k_ux/l_ux/m_ux)
 - ✅ WebSocket: 实时赔率 broadcast PASS
@@ -149,7 +149,7 @@ Base URL：`http://localhost:4100/api`
 | `/crm` `/admin/crm` | `crm.ts` | 促销/优惠/VIP + R11 分群 + 营销自动化 |
 | `/notifications` `/admin/notifications` | `notifications.ts` | R11 站内信收件箱 + admin 群发 |
 | `/cms` | `cms.ts` | 内容 CRUD + 多语言 + 生命周期 |
-| `/analytics` | `analytics.ts` | 仪表盘/趋势/Top（admin） |
+| `/analytics` | `analytics.ts` | 仪表盘/趋势/Top（admin）+ R13 SSE 实时大屏 `/analytics/realtime` + CSV 导出 `/analytics/export/*.csv` |
 | `/support` | `support.ts` | 客服工單 |
 | `/kb` `/admin/kb` | `kb.ts` | 客服知识库（FAQ 分类 + 文章 + 公开搜索 + helpful 投票） |
 | `/feeds` | `feed.ts` | 数据源管理（admin） |

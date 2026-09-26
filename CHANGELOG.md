@@ -70,6 +70,19 @@
   - `.github/workflows/ci.yml`：把 `crm_segment` 加入 `for s in ...` 验证循环
   - 单元测试 120/120 → **135/135 PASS**（+15 R11）
   - CRM 模块：80% → **100%**
+- **R13 Analytics 实时大屏 + CSV 导出**（roadmap 2 d → 实测 1 d；零外部依赖）
+  - **SSE 实时大屏**（`GET /api/analytics/realtime`）：每 5s 推 dashboard 快照（首帧立即）；认证双通道（Authorization 头 + `?token=` 查询参数，兼容浏览器 EventSource）；admin-only；连接数上限 429 防泄漏；断开自动清理（env `ANALYTICS_REALTIME_INTERVAL_S` / `ANALYTICS_REALTIME_MAX_CLIENTS`）
+  - **CSV 导出** 3 端点：`/analytics/export/trends.csv` / `users.csv` / `hot-matches.csv`（admin-only，Content-Disposition attachment）
+  - **CSV 序列化**（`apps/api/src/csv.ts`）：RFC 4180 转义（逗号/引号/换行），CRLF 行分隔
+  - `scripts/test_csv.mjs`（13 tests）+ `scripts/verify_analytics_export.py`（11 asserts e2e）
+  - CI verify 循环加 `analytics_export`（共 13 个 verify 脚本）
+  - 单元测试 135/135 → **148/148 PASS**（+13 R13）
+  - Data Analytics 模块：70% → **90%**（剩前端大屏 UI 可视化）
+- **fix(types)：修复 7 处 tsc 错误**（R6/R9/R11 遗留，push 前由 `tsc --noEmit` 门禁发现）
+  - `monitor.ts`：3/4 参数重载 hack 重写为 `monitorMiddleware` + `monitorErrorMiddleware` 两个显式函数（原实现 `typeof b === 'function'` 判断错误导致 Function→Response 非法转换）
+  - `crmSegments.ts`：`.all()` 返回 unknown[] 先断言再 map
+  - `routes/health.ts`：metrics 以展开合并进 json 响应（原直接给具体类型加属性）
+  - `routes/kb.ts` ×2：`.get()` 结果显式断言；响应对象去掉重复 id 键
   - C4 客服聊天增强（markdown + 表情 + 文件附件 + 已读）
   - C5 设计 tokens 化（reset.css + tokens.ts + DESIGN_TOKENS.md）
   - C6 Storybook（30 文件 + index.html）

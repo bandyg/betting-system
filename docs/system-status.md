@@ -104,7 +104,7 @@ betting-system/
 
 **缺口**：客户分群、自动化营销、跨渠道通知
 
-### 4.5 Data Analytics（数据分析）— **70%**
+### 4.5 Data Analytics（数据分析）— **90%**
 | 子系统 | 入口 | 验证 | 完成度 |
 |---|---|---|---|
 | 仪表盘聚合（stake/payout/deposit/active/users）| analytics.ts（4）| verify_analytics.py 双模式（isolated 自助对账 19/19 + production REF 校验）| ✅ 80% |
@@ -112,13 +112,15 @@ betting-system/
 | 热门赛事 Top5 | analytics.ts | 同上 | ✅ 80% |
 | 用户画像 Top5 | analytics.ts | 同上 | 🟡 60% |
 | Admin 报表 tab | mobile | UI | 🟡 70% |
-| 实时大屏 / 漏斗 / 留存 / cohort | — | — | ❌ 0% |
-| 数据导出（CSV/Excel）| — | — | ❌ 0% |
+| 实时大屏（SSE 推送）| analytics.ts /analytics/realtime | verify_analytics_export.py | ✅ 90% |
+| 漏斗 / 留存 / cohort | — | — | ❌ 0% |
+| 数据导出（CSV）| analytics.ts /analytics/export/*.csv | verify_analytics_export.py | ✅ 90% |
+| Excel/BI 对接 | — | — | ❌ 0% |
 | BI 工具对接 | — | — | ❌ 0% |
 
 **缺口**：实时分析、漏斗/留存分析、cohort、BI 接入、数据导出
 
-### 4.6 Customer Support（客服工單）— **60%**
+### 4.6 Customer Support（客服工單）— **80%**
 | 子系统 | 入口 | 验证 | 完成度 |
 |---|---|---|---|
 | 工單后端（user/admin/消息/状态）| support.ts（9）| verify_support.py 65/65 | ✅ 100% |
@@ -142,7 +144,7 @@ betting-system/
 | 自动派彩 | ✅ 100% | settings.feed_auto_settle 开关 + 幂等 settleMatch + **scores 断链已修**（match_feed_key + resolveScoreKeys） |
 | WebSocket 实时赔率 | ✅ 100% | wsHub `/ws/odds` + 前端 useLiveOdds（自动重连 + 心跳 + flash 动画） |
 | 共享 packages | ✅ 100% | core（types/api/hooks）+ ui（设计系统 + tokens 化） |
-| **CI/CD** | ✅ 100% | GitHub Actions 19 步：API e2e 11 verify + health + rate-limit + UI e2e 3 + unit 110/110 + visual 8/8 + WebSocket |
+| **CI/CD** | ✅ 100% | GitHub Actions：API e2e 13 verify（含 kb/crm_segment/analytics_export）+ health + rate-limit + UI e2e 3 + unit 148/148 + visual 8/8 + WebSocket |
 | **GitHub Pages** | 🟡 90% | pages.yml 就绪（storybook + visual baseline gallery），需 repo Settings 手动 enable 一次 |
 | **README** | ✅ 90% | 已重写（6 系统 / API / 测试 / 部署 / 边界） |
 | **CHANGELOG** | ✅ 90% | Keep-a-Changelog 格式，0.1.0 全量回溯 |
@@ -200,9 +202,9 @@ betting-system/
 | 维度 | 评估 |
 |---|---|
 | 核心投注闭环 | ✅ **90%**，可投产 demo |
-| 6 大系统 | 平均 **75%**（PAM/SPORTBOOK/CMS/CRM/Analytics/Support 都成型，**Support 缺知识库**） |
+| 6 大系统 | 平均 **85%**（PAM/SPORTBOOK/CMS/CRM/Analytics/Support 都成型；R6 知识库 + R11 分群 + R13 实时大屏/导出已补） |
 | 生产稳定性 | ✅ **85%**（feed scores 斷鏈已修復，待 bhs-4 上線驗證） |
-| 自动化验证 | ✅ **95%**，CI 18 步全绿（unit 92 + e2e 11 verify + UI 3 + visual 8/8 + ws） |
+| 自动化验证 | ✅ **95%**，CI 全绿（unit 148 + e2e 13 verify + UI 3 + visual 8/8 + ws + rate-limit + SSE/CSV） |
 | 文档 | ✅ **85%**，README/CHANGELOG/架构/现状/roadmap 齐（`feature/docs-system-overview` 已合） |
 | 代码卫生 | ✅ **80%**，pm2 ecosystem / pnpm-workspace / 隔离 DB e2e 都齐 |
 
