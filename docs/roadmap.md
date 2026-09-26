@@ -91,12 +91,19 @@
 - **验收**：沙箱环境能完成 1 笔真实充值（10 USDT 等价），回调入账
 - **风险**：高（外部依赖）
 
-### R9. 监控 / 告警
-- **缺口**：pm2 进程崩了没人知道；DB 写满 100% 没人知道；登录失败激增没人知道
-- **做法**：sentry.io 接入（前端+后端）+ pm2 pm2-logrotate + 简单告警（关键 metric 5xx > 1% 触发 Feishu webhook）
-- **工时**：1 d
-- **验收**：人为制造 5xx，10s 内收到 Feishu 通知
-- **风险**：低
+### R9. 监控 / 告警 ✅ 已完成（2026-09-26）
+- **缺口**：pm2 进程崩了没人知道；DB 写满 100% 没人知道；登录失败激增没人知道；feed 断链 1 个月才被发现是直接教训
+- **做法**（零外部依赖，纯 Node http + 标准库）：
+  - `apps/api/src/monitor.ts`（167 行）— 错误中间件（4 参数错误兜底）+ 5xx rate 阈值告警 + 后台 tick 扫 feed_log 错误数 / DB size + 去抖动（5min 同 key 不重发）+ Webhook 投递（Slack / Feishu 双格式）
+  - `apps/api/src/index.ts` — 挂 `monitorMiddleware` + 启动 `startMonitorTick(db)`
+  - `apps/api/src/routes/health.ts` — `/api/health` 响应附加 `metrics: {feed_log_errors_24h, open_bets, db_size_bytes, uptime_s}`，外部 probe 可一并观察
+  - `scripts/test_monitor.mjs`（9 tests）— 覆盖 webhook 投递 / 去抖动 / 阈值触发 / fail-quiet / Feishu 格式 / collectMetrics 数值
+  - `scripts/run_unit_tests.mjs` — 6 文件 / 101 tests（92 → 101，+9 R9）
+- **配置**（env，全部默认关闭）：`ALERT_WEBHOOK_URL` / `ALERT_WEBHOOK_FORMAT` (slack|feishu) / `ALERT_DEDUPE_MS` / `ALERT_5XX_RATE_THRESHOLD` / `ALERT_5XX_MIN_SAMPLES` / `ALERT_FEED_LOG_ERR_THRESHOLD` / `ALERT_TICK_INTERVAL_MIN` / `SERVICE_NAME`
+- **验收**：人为制造 5xx → webhook 10s 内收到 → 5min 内重复不重发（去抖）→ webhook 失败不影响主请求（fail-quiet）
+- **风险**：低（运行时读 env，测试可动态配；fail-quiet 兜底）
+- **未做（范围外）**：Sentry SDK 接入（重型外部依赖）、pm2 pm2-logrotate（运维侧）；如需后续加，可在 monitor.ts 加新 category 类型
+- **剩余小建议**：bhs-4 上 `~/.betting-feed.env` 加 `ALERT_WEBHOOK_URL=<Feishu webhook URL>` + `SERVICE_NAME=betting-bhs-4`，feed-scores-fix 的 R0 一并设上
 
 ---
 
@@ -226,7 +233,7 @@
 | ~~4~~ | ~~R5~~ | ~~UI e2e~~ ✅ 进 CI（非阻塞） | — | UI 安全网 |
 | 1 | **R0** | **bhs-4 部署 feed-scores-fix + 验证 settle 恢复** | **0.25 d** ⏳ 脚本就绪 | **54 笔 open bets 结算 + 额度达标（当前唯一 P0）** |
 | 2 | ~~R3~~ | ~~verify_analytics.py 修基线~~ ✅ `5129296` 已完成 | — | 测试可信（roadmap stale，需文档校准） |
-| 3 | R9 | 监控 / 告警 | 1 d | 稳定（feed 断链 1 个月才被发现就是教训） |
+| 3 | ~~R9~~ | ~~监控 / 告警~~ ✅ 2026-09-26 | — | 稳定（feed 断链 1 个月才被发现就是教训） |
 | 4 | R7 | 全局 rate limit | 1 d | 防滥用 |
 | 5 | R6 | Support 知识库 | 2 d | 客服闭环 |
 | 6 | R11 | CRM 分群 + 自动化 | 3 d | 增长 |

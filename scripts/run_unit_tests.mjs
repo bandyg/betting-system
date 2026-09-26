@@ -25,8 +25,13 @@ let totalFiles = 0;
 for (const f of tests) {
   totalFiles++;
   process.stdout.write(`  ${f.padEnd(40)} `);
+  // test_*.mjs 纯 Node --test；test_monitor.mjs 因 import TS 用 tsx 跑（避免 better-sqlite3 native 编译）
+  // Windows: npx 实际是 npx.cmd；Git Bash 需 shell:true 才能找到 .cmd
+  const useShell = f === 'test_monitor.mjs' && process.platform === 'win32';
+  const runner = f === 'test_monitor.mjs' ? 'npx' : 'node';
+  const args = f === 'test_monitor.mjs' ? ['tsx', '--test', f] : ['--test', f];
   const result = await new Promise((resolve) => {
-    const p = spawn('node', ['--test', f], { cwd: __dirname, stdio: ['ignore', 'pipe', 'pipe'] });
+    const p = spawn(runner, args, { cwd: __dirname, stdio: ['ignore', 'pipe', 'pipe'], shell: useShell });
     let out = '';
     let err = '';
     p.stdout.on('data', (d) => out += d.toString());

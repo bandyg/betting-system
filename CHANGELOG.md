@@ -33,6 +33,12 @@
   - pages.yml `Setup Pages` 補 `uses: actions/configure-pages@v5` + `enablement: true`
     （原 step 缺 uses 直接 fail；repo Pages 從未啟用）
 - **Sprint 5 全部完成** (30+ feature, 5000+ 行代码)
+- **R9 监控 / 告警**（roadmap 1 d 工时 → 实测 0.5 d；零外部依赖）
+  - `apps/api/src/monitor.ts`（167 行）— 错误中间件 + 5xx rate 阈值告警 + 后台 tick 扫 feed_log 错误数 / DB size + 去抖动（5 min 同 key 不重发）+ Webhook 投递（Slack / Feishu 双格式）；env-gated，未配 ALERT_WEBHOOK_URL 全程静默
+  - `apps/api/src/index.ts`：挂 monitorMiddleware + 启动 startMonitorTick
+  - `apps/api/src/routes/health.ts`：`/api/health` 响应附加 metrics（feed_log_errors_24h / open_bets / db_size_bytes / uptime_s）
+  - `scripts/test_monitor.mjs`（9 tests）：webhook 投递 / 去抖动 / 阈值触发 / fail-quiet / Feishu 格式 / collectMetrics 数值
+  - 单元测试从 92/92 → **101/101 PASS**（+9 R9）
   - C4 客服聊天增强（markdown + 表情 + 文件附件 + 已读）
   - C5 设计 tokens 化（reset.css + tokens.ts + DESIGN_TOKENS.md）
   - C6 Storybook（30 文件 + index.html）
@@ -60,7 +66,7 @@
 
 ### Planned（计划中）
 - **R0：bhs-4 部署 feed-scores-fix + 验证 settle 恢复**（脚本已就绪 `scripts/{deploy,verify}_feed_fix.sh`，待 bhs-4 执行；54 笔 open bets 结算 + 额度 ≤450/月达标）
-- 监控 / 告警（roadmap R9；feed 断链一个月才被发现是直接教训）
+- bhs-4 上 `~/.betting-feed.env` 加 `ALERT_WEBHOOK_URL=<Feishu webhook>` + `SERVICE_NAME=betting-bhs-4` 启用 R9 监控告警
 - README / CHANGELOG 自动化（roadmap R10，conventional commits 解析）
 - 多 feed 源聚合 / 真滚球赔率（roadmap R16）
 

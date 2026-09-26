@@ -12,6 +12,7 @@ import { Router, type Request, type Response } from 'express';
 import http from 'node:http';
 import net from 'node:net';
 import db from '../db/index.js';
+import { collectMetrics } from '../monitor.js';
 
 const healthRouter = Router();
 
@@ -214,6 +215,9 @@ healthRouter.get('/health', async (req: Request, res: Response) => {
   try {
     const result = await getHealth(bypass);
     const { httpStatus, ...body } = result;
+    // R9：把 monitor 指标拼进健康响应（5xx rate / feed_log 错误数 / open bets / DB size）
+    //   不影响既有 httpStatus；外部 probe 可一并观察
+    body.metrics = collectMetrics(db, process.env.BETTING_DB_PATH);
     res.status(httpStatus).json(body);
   } catch (err) {
     res.status(500).json({ status: 'error', detail: err instanceof Error ? err.message : String(err) });

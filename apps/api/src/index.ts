@@ -18,6 +18,8 @@ import { supportRouter } from './routes/support.js';
 import { sportsRouter } from './routes/sports.js';
 import { healthRouter } from './routes/health.js';
 import { attachWsHub } from './wsHub.js';
+import { monitorMiddleware, startMonitorTick } from './monitor.js';
+import db from './db/index.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -25,6 +27,12 @@ const PORT = Number(process.env.PORT ?? 4100);
 
 app.use(cors());
 app.use(express.json());
+
+// R9 监控 / 告警：响应结束统计 5xx rate；未配 ALERT_WEBHOOK_URL 则静默。
+// 4 参数错误中间件签名 Express 才认作 error handler，捕获 unhandled 异常并告警。
+app.use(monitorMiddleware as express.RequestHandler);
+app.use(((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) =>
+  monitorMiddleware(err, req, res, next)) as express.ErrorRequestHandler);
 
 // 安全响应头（N 轮生产化第一阶·N3）：全局应用，/health 与 /api/* 均携带
 app.use((_req, res, next) => {
@@ -62,4 +70,6 @@ attachWsHub(httpServer);
 
 httpServer.listen(PORT, () => {
   console.log(`[betting-api] listening on :${PORT} (ws: /ws/odds)`);
+  // 后台告警扫描：默认 15 分钟一轮扫 feed_log 错误数 + DB size（env 可调）
+  startMonitorTick(db, process.env.BETTING_DB_PATH);
 });

@@ -3,7 +3,7 @@
 一个像 [Amelco](https://www.amelco.co.uk/) 的完整投注系统 MVP：**赛前 + 滚球** 固定赔率、下注、结算闭环，足球/篮球/网球/棒球等 18 运动，三端（Web 后台 / 移动 Web / API）。面向学习/演示的轻量实现。
 
 > **状态**：master（`6d13584` + docs-system-overview 合入）/ **30+ feature 完成** / **2400+ 行 docs** / **三层测试金字塔 100%**
-> - ✅ Unit Tests: **92/92 PASS**
+> - ✅ Unit Tests: **101/101 PASS**
 > - ✅ E2E: backend 11 verify + UI 3 playwright + WebSocket real-time odds
 > - ✅ Visual Regression: **8/8 PASS** (Playwright + pixelmatch)
 > - ✅ CI: GitHub Actions 18 步全部 PASS
@@ -120,7 +120,7 @@ pnpm test:visual
 ```
 
 **当前状态** (db7c53f master):
-- ✅ Unit Tests: **92/92** (5 files)
+- ✅ Unit Tests: **101/101** (6 files; test_monitor.mjs 新增 R9 告警测试)
 - ✅ Backend E2E: 11/11 verify scripts
 - ✅ UI E2E: 3/3 Playwright (k_ux/l_ux/m_ux)
 - ✅ WebSocket: 实时赔率 broadcast PASS
@@ -251,9 +251,10 @@ pm2 delete ecosystem.config.js  # 全部下线
 |---|---|
 | [docs/system-status.md](docs/system-status.md) | 现状快照：6 系统 / 16 route / 17 verify / 生产状态（2026-09-26 刷新） |
 | [docs/architecture.md](docs/architecture.md) | 模块/数据/请求/部署架构 |
-| [docs/roadmap.md](docs/roadmap.md) | 22 项缺口 P0-P3（R1/R2/R4/R5 已完成；当前唯一 P0 = R0 bhs-4 部署 feed 修复） |
+| [docs/roadmap.md](docs/roadmap.md) | 22 项缺口 P0-P3（R1/R2/R3/R4/R5/R9 已完成；当前唯一 P0 = R0 bhs-4 部署 feed 修复） |
 | [docs/customer-support-plan.md](docs/customer-support-plan.md) | 客服工單系统设计 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本化变更日志 |
+| `apps/api/src/monitor.ts` + `scripts/test_monitor.mjs` | R9 监控告警（env-gated Webhook，去抖动 5min） |
 
 ## 已知边界（MVP 范围外）
 

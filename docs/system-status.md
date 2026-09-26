@@ -146,7 +146,7 @@ betting-system/
 | **GitHub Pages** | 🟡 90% | pages.yml 就绪（storybook + visual baseline gallery），需 repo Settings 手动 enable 一次 |
 | **README** | ✅ 90% | 已重写（6 系统 / API / 测试 / 部署 / 边界） |
 | **CHANGELOG** | ✅ 90% | Keep-a-Changelog 格式，0.1.0 全量回溯 |
-| 监控/告警 | ❌ 0% | 无 Sentry/StatsD/Prometheus |
+| 监控/告警 | ✅ 90% | `apps/api/src/monitor.ts` 5xx rate + feed_log 错误数 + DB size，env-gated webhook（Slack/Feishu），去抖动 5min；缺 Sentry SDK + pm2 logrotate |
 | 备份策略 | 🟡 30% | DB 单点；.bak 文件散落（已 gitignore 修复） |
 | i18n（多语言文案）| 🟡 40% | locale 字段在 CMS，但前端 UI 文案未全 i18n |
 
