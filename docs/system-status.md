@@ -1,7 +1,7 @@
 # System Status — betting-system MVP
 
-> 记录时间：2026-09-17
-> 基准 commit：`beb39c6`（master HEAD）
+> 记录时间：2026-09-17（初版）/ 2026-09-26 刷新
+> 基准 commit：初版 `beb39c6` → 刷新 `6d13584`（master，含 feed-scores-fix）
 > 用途：新人 onboarding / 季度回顾 / 决定下一步开发优先级
 
 ## 1. 仓库总览
@@ -23,8 +23,8 @@ betting-system/
 ├── packages/
 │   ├── core/       # 共享 types + api client + hooks
 │   └── ui/         # 设计系统（dark neon theme + Card/Button/OddsButton 等）
-├── scripts/        # 16 个 e2e 验证脚本（verify_*.{py,ts,mjs}）
-├── docs/           # 设计/现状文档（本文件所在地）
+├── scripts/        # 25 个验证/测试脚本（17 verify + 5 unit test + visual/基线工具）
+├── docs/           # 设计/现状文档（本文件 + Storybook + visual-baseline）
 ├── data/           # SQLite 数据（git 忽略）
 ├── ecosystem.config.js   # pm2 4 进程配置
 ├── pnpm-workspace.yaml   # apps/* + packages/* + allowBuilds
@@ -35,13 +35,15 @@ betting-system/
 
 | 维度 | 数字 |
 |---|---|
-| API route 文件 | 16 |
-| API endpoint | 72 |
+| API route 文件 | 16（另 `src/wsHub.ts` WebSocket hub，非 REST） |
+| API endpoint | 72（REST）+ `/ws/odds` 实时赔率 |
 | 前端 app | 3（web / mobile / api 内嵌） |
 | 共享 package | 2（core / ui） |
-| 验证脚本 | 16（11 py + 3 mjs UI + 1 ts + 1 mjs 空） |
-| 业务模块（apps/api/src） | analytics / risk / jwt / payments / feeds/ |
-| feeds 子模块 | 11 个（autoMarket / demo_seed / ingest / mapper / mock / provider / scheduler / settle / types / wagering / worker） |
+| 验证脚本 | 25 = 17 verify + 5 unit test + 3 工具（capture_baseline / visual_regression / run_unit_tests） |
+| 业务模块（apps/api/src） | analytics / risk / jwt / payments / feeds / wsHub |
+| feeds 子模块 | 12 个（autoMarket / demo_seed / ingest / mapper / mock / mock_scores / provider / scheduler / settle / types / wagering / worker）+ 3 个 `__verify__*.ts` 内联测试 |
+| 单元测试 | 92/92 PASS（Node --test，5 文件，< 2s） |
+| 视觉回归 | 8/8 PASS（Playwright + pixelmatch） |
 | 数据库 | SQLite 3.3MB（生产） / 81 種 sport×league / 3340 场赛事 |
 | 远端 push 状态 | 全部在 origin/master（无 force-push 历史） |
 | 本地 backup tag | `backup-local-pre-reset-2026-09-17`（无害历史） |
@@ -136,12 +138,14 @@ betting-system/
 |---|---|---|
 | Health check /api/health | ✅ 100% | O1 round：web HTTP + db SELECT 1 + redis RESP + PG startup，3s 单飞缓存 |
 | 认证 / 授权 | ✅ 100% | JWT 7d + bcrypt + lazy SHA-256 upgrade + rate limit 5/429 + security headers |
-| 数据源 the-odds-api | ✅ 100% live | 18 运动 mapper + upcoming 端点（1 req 全运动）+ env-gated scheduler |
-| 自动派彩 | ✅ 100% | settings.feed_auto_settle 开关 + 幂等 settleMatch |
-| 共享 packages | ✅ 100% | core（types/api/hooks）+ ui（设计系统） |
-| **CI/CD** | ❌ 0% | 无 .github/workflows，所有验证靠手动 bhs-4 跑 |
-| **README** | ⚠️ 30% | 仍是 5-route MVP 那版，**严重落后** |
-| **CHANGELOG** | ❌ 0% | 无 |
+| 数据源 the-odds-api | ✅ 100% live | 18 运动 mapper + upcoming 端点 + env-gated scheduler + **额度治理 ≤450 req/月**（feed-scores-fix） |
+| 自动派彩 | ✅ 100% | settings.feed_auto_settle 开关 + 幂等 settleMatch + **scores 断链已修**（match_feed_key + resolveScoreKeys） |
+| WebSocket 实时赔率 | ✅ 100% | wsHub `/ws/odds` + 前端 useLiveOdds（自动重连 + 心跳 + flash 动画） |
+| 共享 packages | ✅ 100% | core（types/api/hooks）+ ui（设计系统 + tokens 化） |
+| **CI/CD** | ✅ 100% | GitHub Actions 18 步：API e2e 11 verify + health + UI e2e 3 + unit 92/92 + visual 8/8 + WebSocket |
+| **GitHub Pages** | 🟡 90% | pages.yml 就绪（storybook + visual baseline gallery），需 repo Settings 手动 enable 一次 |
+| **README** | ✅ 90% | 已重写（6 系统 / API / 测试 / 部署 / 边界） |
+| **CHANGELOG** | ✅ 90% | Keep-a-Changelog 格式，0.1.0 全量回溯 |
 | 监控/告警 | ❌ 0% | 无 Sentry/StatsD/Prometheus |
 | 备份策略 | 🟡 30% | DB 单点；.bak 文件散落（已 gitignore 修复） |
 | i18n（多语言文案）| 🟡 40% | locale 字段在 CMS，但前端 UI 文案未全 i18n |
@@ -154,7 +158,9 @@ betting-system/
 | apps/mobile | 4300 | Expo/RN-Web 三端共享（赛事/下注单/账户/CMS/CRM/报表/支持）| 🟡 75% |
 | apps/api | 4100 | Express API | ✅ 100% |
 
-**未做**：design system 文档、暗色/亮色主题切换、PWA 离线
+**Sprint 4-5 已补**：WebSocket 实时赔率（flash 动画）、客服聊天增强（markdown/表情/附件/已读）、设计 tokens 化（`docs/DESIGN_TOKENS.md`）、Storybook（`docs/storybook/`，30 文件）、单元测试 92/92、视觉回归 8/8。
+
+**未做**：暗色/亮色主题切换、PWA 离线
 
 ## 7. 验证脚本覆盖（16 个）
 
@@ -172,19 +178,22 @@ betting-system/
 | verify_support.py | support.ts | 65/65 ✅ |
 | verify_vip.py | crm VIP | 24/24 ✅ |
 | verify_auto_market.ts | feeds/autoMarket | 13/13 ✅ |
-| verify_k_ux.mjs | web UI | 未在隔离环境跑过 |
-| verify_l_ux.mjs | web UI | 未在隔离环境跑过 |
-| verify_m_ux.mjs | web UI | 未在隔离环境跑过 |
-| verify_health.mjs | health.ts | 文件空（0 字节） |
+| verify_websocket.mjs | wsHub /ws/odds | **PASS** ✅（CI WebSocket job） |
+| verify_k_ux.mjs | web UI | CI 跑（`|| true` 非阻塞） |
+| verify_l_ux.mjs | web UI | CI 跑（`|| true` 非阻塞） |
+| verify_m_ux.mjs | web UI | CI 跑（`|| true` 非阻塞） |
+| verify_health.mjs | health.ts | CI 跑 ✅（已补内容） |
 
-**全跑可达 16 个脚本；13 个已稳定绿（合计 313 PASS），3 个 UI 视觉脚本未在隔离环境验证，1 个空文件待补。**
+**全跑可达 17 个 verify 脚本；CI（GitHub Actions 18 步）在 master HEAD `01e4400` 完整跑过全绿。** 另有 5 个单元测试文件（92 tests）+ 视觉回归 8 页面不在此表。
 
 ## 8. 生产稳定性
 
-- pm2 4 个 betting-* 进程（api / web / mobile-web / feed-worker）持续 online 6D+
+- pm2 4 个 betting-* 进程（api / web / mobile-web / feed-worker）持续 online
 - 12 个其它业务进程同步跑（dify / market-data / search-agent / tradeview-analyze / sim-trade / llm-chat-agent 等）
-- 当前生产 DB 状态：3.3MB / 3340 场 / 81 sport×league
-- 6 天无重启（pm2 进程 up 6D）
+- **2026-09-21 诊断 + 09-22 修复**：feed scores 断链（`upcoming` key 对 /scores 404，持續 ≥1 個月，279 筆 feed_log 同錯，54 筆 open bets 永不結算）
+  → feed-scores-fix 已合 master（`0540faa`）：`match_feed_key` 持久化 + `resolveScoreKeys()` DB 反查 + scores 降頻（額度 ≤450 req/月）
+  → **待驗證**：bhs-4 拉新 build 後觀察 feed_log 無 404、quota 月消耗達標、open bets 開始結算
+- 6 天无重启记录为 09-17 快照；当前以 pm2 status 為準
 
 ## 9. 整体完成度评估
 
@@ -192,19 +201,19 @@ betting-system/
 |---|---|
 | 核心投注闭环 | ✅ **90%**，可投产 demo |
 | 6 大系统 | 平均 **75%**（PAM/SPORTBOOK/CMS/CRM/Analytics/Support 都成型，**Support 缺知识库**） |
-| 生产稳定性 | ✅ **85%**，6D+ 持续 online |
-| 自动化验证 | 🟡 **60%**，13 verify 脚本全绿，**CI 缺失** |
-| 文档 | ⚠️ **30%**，README 严重落后，CHANGELOG 缺 |
+| 生产稳定性 | ✅ **85%**（feed scores 斷鏈已修復，待 bhs-4 上線驗證） |
+| 自动化验证 | ✅ **95%**，CI 18 步全绿（unit 92 + e2e 11 verify + UI 3 + visual 8/8 + ws） |
+| 文档 | ✅ **85%**，README/CHANGELOG/架构/现状/roadmap 齐（`feature/docs-system-overview` 已合） |
 | 代码卫生 | ✅ **80%**，pm2 ecosystem / pnpm-workspace / 隔离 DB e2e 都齐 |
 
 ## 10. 已知技术债
 
-- 文档：README + CHANGELOG + 架构图
-- CI：.github/workflows（每次 PR 自动跑 13 verify 脚本）
-- 验证基线：verify_analytics.py 硬编码 REF（应在空 DB 时跳过或自助对账）
-- mjs UI 脚本隔离：verify_k_ux/l_ux/m_ux 需 second web 端口 + playwright，未在隔离环境验证
-- verify_health.mjs：空文件（0 字节），要么补内容要么删
-- 数据源：FEED_API_KEY 在 `~/.betting-feed.env`（不进 git，OK），但 scheduler 错误处理有限
+- 验证基线：verify_analytics.py 硬编码 REF（应在空 DB 时跳过或自助对账）— **当前 6/19 是测试 bug 非代码 bug**
+- UI e2e 在 CI 是 `|| true` 非阻塞：verify_k_ux/l_ux/m_ux 失败不会红 CI
+- 监控/告警：零（进程崩了/5xx 激增/feed_log 报错无人知道）→ roadmap R9
+- 数据源：FEED_API_KEY 在 `~/.betting-feed.env`（不进 git，OK）；**額度監控無告警**（免費 500/月，需人工查 the-odds-api dashboard）
+- UI 文案 i18n：CMS 多语言有了，前端硬编码
+- `.scratch/` 未納入版本控制：6 份 PRD + 前端 roadmap 是唯一決策記錄，應歸檔或明確棄置
 
 ## 11. 部署与运维命令速查
 
@@ -235,3 +244,4 @@ python3 scripts/verify_accounts.py http://127.0.0.1:14100/api /tmp/iso.db
 - 2026-09-17：创建本文档（beb39c6 master）
 - 2026-09-17：feature/verify-core-routes 合并（+3 verify 脚本：accounts/matches/markets 共 60/60 PASS）
 - 2026-09-17：git rebase + push 整合 50 commit business system 到 origin master
+- 2026-09-26：合入 `feature/docs-system-overview`（本分支此前懸置 9 天未合，README 引用一直死鏈）+ 刷新至 `6d13584`：CI ✅ / Sprint 5 / WebSocket / 視覺回歸 / feed-scores-fix / Pages 進度

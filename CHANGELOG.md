@@ -12,6 +12,13 @@
 ## [Unreleased]
 
 ### Added（新增）
+- **docs：合入 `feature/docs-system-overview`（悬置 9 天）+ 刷新至 `6d13584`**
+  - system-status / architecture / roadmap 三份文档（785 行）随分支合入 master
+    （此前 README/CHANGELOG 引用一直是死链）
+  - 刷新过期事实：CI ✅ 18 步全绿、Sprint 5（WebSocket / tokens / Storybook / unit 92 /
+    visual 8/8）、feed-scores-fix（match_feed_key + resolveScoreKeys + 额度 ≤450/月）、
+    feeds 12 模块、verify 脚本 17 个
+  - roadmap：R1/R2/R4/R5 标记已完成；新增 **R0（bhs-4 部署 feed 修复 + settle 恢复验证）为当前唯一 P0**
 - **feed-scores-fix：比分回灌斷鏈修復 + 額度治理**
   - 根因：`FEED_SPORT_KEYS=upcoming` 模式下 scheduler 每輪對 `/v4/sports/upcoming/scores/` 打請求 →
     the-odds-api 404 UNKNOWN_SPORT（`upcoming` 只對 /odds 合法），auto-settle 斷鏈 ≥1 個月
@@ -52,10 +59,11 @@
 - ws package resolve via createRequire (pnpm not hoisted to root)
 
 ### Planned（计划中）
+- **R0：bhs-4 部署 feed-scores-fix + 验证 settle 恢复**（54 笔 open bets 结算 + 额度 ≤450/月达标）
 - README / CHANGELOG 自动化（roadmap R10，conventional commits 解析）
 - 修复 verify_analytics.py 硬编码 REF（roadmap R3，测试基线自助对账）
-- 补 verify_health.mjs 内容（roadmap R4，空文件）
-- C8 真实赔率 source 接入（roadmap R7，the-odds-api 增量）
+- 监控 / 告警（roadmap R9；feed 断链一个月才被发现是直接教训）
+- 多 feed 源聚合 / 真滚球赔率（roadmap R16）
 
 ## [0.1.0] - 2026-08-15 → 2026-09-17
 

@@ -1,7 +1,7 @@
 # Roadmap — betting-system MVP 缺口与下一步
 
 > 与 `system-status.md` 配套。本文件只列**当前还差什么、优先级、估计工时**，不写实现。
-> 基准 commit：`beb39c6`
+> 基准 commit：初版 `beb39c6` → 2026-09-26 刷新至 `6d13584`（已完成项就地标记 ✅，保留历史）
 > 用途：决定下几个 feature。
 
 ## 评分维度
@@ -17,14 +17,15 @@
 
 ## P0 — 立即
 
-### R1. README 重写 + CHANGELOG
+### R1. README 重写 + CHANGELOG ✅ 已完成（2026-09-19，feature/readme-changelog）
 - **缺口**：README 仍是 5-route MVP 描述，跟现实 16 route / 72 endpoint / 6 系统脱节严重；50 commit 没有任何 CHANGELOG，新人 onboarding 难
 - **做法**：替换 README 主结构（介绍 / 快速开始 / 架构 / API / 6 大系统 / 验证 / 部署 / 已知边界），加 `CHANGELOG.md` 从 50 commit 倒推
 - **工时**：0.5 d
 - **验收**：README < 300 行，覆盖所有 6 大系统；CHANGELOG 含 50+ commit
 - **风险**：低
 
-### R2. CI（.github/workflows/ci.yml）
+### R2. CI（.github/workflows/ci.yml）✅ 已完成（2026-09-20，feature/ci-integration）
+> 实际超出原计划：除 11 个 py verify 外还含 UI e2e 3 个 + unit 92 + visual 8/8 + WebSocket，18 步全绿。pages.yml（Storybook + visual baseline 上 Pages）就绪，等 repo Settings → Pages 手动启用一次。
 - **缺口**：PR 推上去没人自动验证，全靠手动 bhs-4 跑——容易漏检；16 verify 脚本里 13 个可走 CI
 - **做法**：单 job `verify`：pnpm install → build → 起隔离 API → 跑 11 个 verify_*.py + 1 个 verify_auto_market.ts；UI mjs 跳过（playwright 跑需多端，本地 GH Actions 起不来）
 - **工时**：0.5 d
@@ -38,7 +39,7 @@
 - **验收**：隔离 DB 跑 19/19 PASS；生产 DB 跑（admin token + 真数据）也 19/19
 - **风险**：中（要理解 analytics 聚合的预期公式）
 
-### R4. verify_health.mjs 空文件
+### R4. verify_health.mjs 空文件 ✅ 已完成（现有内容，CI 健康检查步骤跑通）
 - **缺口**：0 字节的 e2e 脚本，要么补内容要么删
 - **做法**：参考 health.ts（O1 round 实现）写一个 14/14 的 mjs（前面 commit message 写 14/14 但文件没提交）
 - **工时**：0.25 d
@@ -49,7 +50,8 @@
 
 ## P1 — 商用前必做
 
-### R5. verify_{k,l,m}_ux.mjs 隔离 playwright
+### R5. verify_{k,l,m}_ux.mjs 隔离 playwright ✅ 大部分完成（2026-09-20 进 CI）
+> CI 里已跑 3 个 UI e2e，但步骤是 `|| true` 非阻塞——失败不会红 CI。剩余工作：去掉 `|| true` 让 UI e2e 变硬门槛（需先确认 CI 稳定性）。
 - **缺口**：3 个 UI 视觉验证脚本要 second web 端口 + 隔离 API + playwright 浏览器，**当前从未在隔离环境跑过**
 - **做法**：写 `scripts/run_ui_e2e.sh`（或 .mjs），自动起：second API :14100 / second vite preview :14200 / 跑 3 个 mjs / 清理
 - **工时**：1 d
@@ -202,28 +204,30 @@
    低成本 ────────── 高成本
 ```
 
-## 推荐下一步（按 ROI 排序）
+## 推荐下一步（按 ROI 排序，2026-09-26 更新）
 
 | 顺序 | ID | 标题 | 估计 | 价值 |
 |---|---|---|---|---|
-| 1 | R1 | README + CHANGELOG | 0.5 d | onboarding |
-| 2 | R4 | verify_health.mjs 补内容 | 0.25 d | 测试覆盖 |
-| 3 | R2 | CI workflow | 0.5 d | 长期省时 |
-| 4 | R3 | verify_analytics.py 修基线 | 0.5 d | 测试可信 |
-| 5 | R5 | UI e2e 隔离 playwright | 1 d | UI 安全网 |
-| 6 | R9 | 监控 / 告警 | 1 d | 稳定 |
-| 7 | R7 | 全局 rate limit | 1 d | 防滥用 |
-| 8 | R6 | Support 知识库 | 2 d | 客服闭环 |
-| 9 | R11 | CRM 分群 + 自动化 | 3 d | 增长 |
-| 10 | R13 | Analytics 实时大屏 | 2 d | 运营 |
+| ~~1~~ | ~~R1~~ | ~~README + CHANGELOG~~ ✅ 09-19 | — | onboarding |
+| ~~2~~ | ~~R4~~ | ~~verify_health.mjs~~ ✅ 已有内容 | — | 测试覆盖 |
+| ~~3~~ | ~~R2~~ | ~~CI workflow~~ ✅ 09-20 | — | 长期省时 |
+| ~~4~~ | ~~R5~~ | ~~UI e2e~~ ✅ 进 CI（非阻塞） | — | UI 安全网 |
+| 1 | R3 | verify_analytics.py 修基线 | 0.5 d | 测试可信 |
+| 2 | **R0（新）** | **bhs-4 部署 feed-scores-fix + 验证 settle 恢复** | 0.5 d | 54 笔 open bets 结算 + 额度达标 |
+| 3 | R9 | 监控 / 告警 | 1 d | 稳定（feed 断链 1 个月才被发现就是教训） |
+| 4 | R7 | 全局 rate limit | 1 d | 防滥用 |
+| 5 | R6 | Support 知识库 | 2 d | 客服闭环 |
+| 6 | R11 | CRM 分群 + 自动化 | 3 d | 增长 |
+| 7 | R13 | Analytics 实时大屏 | 2 d | 运营 |
 
-**前 4 项（1.75 d）可在一个 sprint 完成**——本质都是文档/CI/测试基线，零业务风险。
-**5-7（3 d）是上线前必做**，构成"生产就绪"门槛。
-**8-10（7 d）属于"上线后第一个月"**，要看业务压力再排。
+**R0（新）说明**：feed-scores-fix（`0540faa`）已合 master 但生产验证未闭环。验收：bhs-4 拉新 build 重启 feed-worker 后，① feed_log 不再出现 404 UNKNOWN_SPORT；② the-odds-api 月额度消耗 ≤450；③ open bets 开始自动结算。**这是当前唯一 P0。**
+
+**1-5（5 d）是上线前必做**，构成"生产就绪"门槛。
+**6-7（5 d）属于"上线后第一个月"**，要看业务压力再排。
 
 ## 范围外（不做）
 
-- 实时滚球 push（WebSocket 全双工）— 当前 autoMarket 是定时轮询，已满足 90% 场景
+- ~~实时滚球 push（WebSocket 全双工）~~ **已完成**：Sprint 4 C3 交付 `/ws/odds` 实时赔率 broadcast（`docs/WEBSOCKET_REALTIME.md`）。真·滚球数据源 push 仍范围外
 - 多商户/多租户 — 单租户 MVP
 - 区块链 / crypto 真支付 — 现在 mock 就够
 - 完整 BI 平台 — 已有基础 admin 报表，需要再扩

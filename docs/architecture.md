@@ -1,7 +1,7 @@
 # Architecture — betting-system MVP
 
 > 与 `system-status.md` 配套。本文件描述模块/数据/请求/部署架构。
-> 基准 commit：`beb39c6`
+> 基准 commit：初版 `beb39c6` → 2026-09-26 刷新至 `6d13584`
 
 ## 1. 顶层架构
 
@@ -31,10 +31,15 @@
 │  │                       │ /api reverse-proxy    │          │
 │  │                       ▼                        │          │
 │  │  ┌──────────────────────────────────────┐    │          │
-│  │  │       feed-worker (disabled)         │    │          │
+│  │  │       feed-worker (env-gated)        │    │          │
 │  │  │   polls the-odds-api → ingest DB     │    │          │
 │  │  │   + auto-settle via settings flag    │    │          │
+│  │  │   + 额度治理 ≤450 req/月             │    │          │
 │  │  └──────────────────────────────────────┘    │          │
+│  │                                               │          │
+│  │  WebSocket: api :4100 /ws/odds               │          │
+│  │  （admin 调赔 → broadcast odds_batch →       │          │
+│  │   web useLiveOdds 自动重连 + 心跳）          │          │
 │  └──────────────────────────────────────────────┘          │
 │                          │                                  │
 │                          ▼                                  │
@@ -63,8 +68,9 @@ betting-system/
 │   │   │   ├── risk.ts       # 业务级风控
 │   │   │   ├── db/           # SQLite 连接 + schema.sql + 迁移
 │   │   │   ├── routes/       # 16 route 文件 / 72 endpoint
+│   │   │   ├── wsHub.ts      # WebSocket hub（/ws/odds 实时赔率）
 │   │   │   ├── payments/     # payment provider 抽象
-│   │   │   └── feeds/        # 11 模块（the-odds-api 接入）
+│   │   │   └── feeds/        # 12 模块（the-odds-api 接入）+ 3 个 __verify__*.ts
 │   │   └── scripts/          # 旧的 e2e
 │   │
 │   ├── web/                  # admin 后台 (React + Vite)
@@ -97,8 +103,8 @@ betting-system/
 │           ├── theme.tsx
 │           └── markdown.tsx    # 富文本
 │
-├── scripts/                  # 16 个 e2e 验证脚本
-├── docs/                     # 设计/状态文档
+├── scripts/                  # 25 个验证/测试脚本（verify + unit + visual）
+├── docs/                     # 设计/状态文档 + storybook + visual-baseline
 ├── data/                     # SQLite（git 忽略）
 ├── ecosystem.config.js       # pm2 4 进程
 └── pnpm-workspace.yaml       # apps/* + packages/* + allowBuilds
@@ -163,7 +169,9 @@ feeds/ingest.ts
    │   upsert odds (price update or insert)
    ▼
 feeds/settle.ts (if settings.feed_auto_settle=1)
-   │ 1. ingest scores
+   │ 1. ingest scores — scoreKeys 由 resolveScoreKeys() 决定：
+   │    FEED_SCORE_KEYS env 覆盖 → DB 反查 top-N（match_feed_key 分组）→ fallback
+   │    （upcoming 只对 /odds 合法，绝不进 /scores —— 09-21 断链根因）
    │ 2. for each match with score: settle (idempotent)
 ```
 
@@ -178,7 +186,7 @@ settings (key, value)  -- jwt_secret, feed_auto_settle, feed_manual...
 
 matches (id, home_team, away_team, kickoff_time, status[scheduled|live|finished|settled],
          home_score, away_score, external_id, source[manual|feed],
-         sport, league, created_at)
+         sport, league, match_feed_key, created_at)  -- match_feed_key: feed-scores-fix 加，scores 反查用
 markets (id, match_id, type[1x2|ah|ou], line, status[open|suspended|settled],
          external_id, source, created_at)
 odds (id, market_id, selection, price, UNIQUE(market_id, selection))
@@ -245,7 +253,17 @@ apps/mobile (Expo / RN-Web, :4300)
 betting-api        :4100  apps/api/dist/index.js
 betting-web        :4200  pnpm preview --host 0.0.0.0
 betting-mobile-web :4300  apps/mobile via serve-web.mjs
-betting-feed-worker (disabled, env-gated)
+betting-feed-worker       env-gated（FEED_API_KEY 就绪则调度，intervalMin=240）
+```
+
+### 7.1b CI/CD（GitHub Actions）
+
+```
+ci.yml    push/PR → pnpm install + build + 隔离 API :14100
+          → 11 verify_*.py + verify_health.mjs + 3 UI e2e（|| true）
+          → unit 92 + visual 8/8 + WebSocket odds
+pages.yml push master 触 docs/** → Storybook + visual-baseline 部署 Pages
+          （需 repo Settings → Pages 手动启用一次）
 ```
 
 ### 7.2 启动顺序
@@ -301,17 +319,19 @@ python3 scripts/verify_accounts.py http://127.0.0.1:14100/api /tmp/iso.db
 - **SQLite 单点**：单文件 3.3MB，无 replica/备份策略（data/.bak 散落，已 gitignore 修复）
 - **JWT secret 单点**：存在 settings 表首启动随机生成；replica 后所有实例需读同一 secret
 - **feed 单源**：仅 the-odds-api；多源聚合未实现
+- **feed 額度**：免費 500 req/月，已治理到 ≤450（scores 降頻 + limit=3），但無自動告警，需人工查 dashboard
 - **支付单通道**：mock 完整，nowpayments 留接口未联调
 - **无 rate limit**（除 login 5/5min）：注册、下注、提现等无全局限流
 - **无审计日志**：admin 操作无 audit trail
+- **UI e2e 非阻塞**：CI 中 verify_{k,l,m}_ux 是 `|| true`，红了不挡合并
 
 ## 10. 演进路径（详见 roadmap.md）
 
-按 ROI 排序的下一步（详见 roadmap.md）：
-1. README + CHANGELOG（开发者 onboarding）
-2. CI（.github/workflows）
+按 ROI 排序的下一步（详见 roadmap.md；~~划线~~为已完成）：
+1. ~~README + CHANGELOG（开发者 onboarding）~~ ✅ 09-19
+2. ~~CI（.github/workflows）~~ ✅ 09-20（18 步全绿）
 3. 验证基线修复（verify_analytics.py 硬编码 REF）
-4. UI e2e 跑通（k/l/m_ux 隔离 playwright）
+4. ~~UI e2e 跑通（k/l/m_ux）~~ ✅ 进 CI（但非阻塞，见 §9）
 5. Customer Support 知识库
 6. Customer 分群与营销自动化
 7. 实时数据大屏 + cohort 分析
