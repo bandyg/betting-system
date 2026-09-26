@@ -59,7 +59,7 @@
 - ws package resolve via createRequire (pnpm not hoisted to root)
 
 ### Planned（计划中）
-- **R0：bhs-4 部署 feed-scores-fix + 验证 settle 恢复**（54 笔 open bets 结算 + 额度 ≤450/月达标）
+- **R0：bhs-4 部署 feed-scores-fix + 验证 settle 恢复**（脚本已就绪 `scripts/{deploy,verify}_feed_fix.sh`，待 bhs-4 执行；54 笔 open bets 结算 + 额度 ≤450/月达标）
 - README / CHANGELOG 自动化（roadmap R10，conventional commits 解析）
 - 修复 verify_analytics.py 硬编码 REF（roadmap R3，测试基线自助对账）
 - 监控 / 告警（roadmap R9；feed 断链一个月才被发现是直接教训）

@@ -17,6 +17,19 @@
 
 ## P0 — 立即
 
+### R0. bhs-4 部署 feed-scores-fix + 验证 settle 恢复 ⏳ 脚本就绪，待部署
+- **缺口**：54 笔 open bets 永不结算，feed_log 错误模式无人监控；feed-scores-fix（`0540faa`）已合 master 但生产验证未闭环
+- **做法**：
+  1. bhs-4: `bash scripts/deploy_feed_fix.sh --apply`（pull + build + restart，幂等；DB 自动备份；commit 校验）
+  2. bhs-4: `bash scripts/verify_feed_fix.sh --window-min 30`（三条验收：feed_log 错误清零 / open bets 减少 / 额度 ≤450）
+  3. 两条脚本已本地静态验证（SQL 兼容 schema，退出码正确）；脚本本身已 commit，**待 bhs-4 执行**
+- **脚本细节**：
+  - `scripts/deploy_feed_fix.sh` — 默认 dry-run；`--apply` 执行；自动备份 `data/betting.db`；commit message 必须含 `feed-scores-fix`；schema 列存在性检查；`--rollback` 回滚到 HEAD@{2}
+  - `scripts/verify_feed_fix.sh` — 三条 PASS/FAIL：① feed_log 错误模式 LIKE 匹配（404 / UNKNOWN_SPORT / /scores/ / upcoming）② open bets 窗口内减少或 won+lost 数 > 0 ③ 30 天外推 req 数 ≤450；默认 30 分钟观察窗口，可调
+- **工时**：0.25 d（脚本已写，剩部署+观察）
+- **验收**：verify_feed_fix.sh 三条全 PASS
+- **风险**：低（脚本幂等，`--rollback` 一键回滚）
+
 ### R1. README 重写 + CHANGELOG ✅ 已完成（2026-09-19，feature/readme-changelog）
 - **缺口**：README 仍是 5-route MVP 描述，跟现实 16 route / 72 endpoint / 6 系统脱节严重；50 commit 没有任何 CHANGELOG，新人 onboarding 难
 - **做法**：替换 README 主结构（介绍 / 快速开始 / 架构 / API / 6 大系统 / 验证 / 部署 / 已知边界），加 `CHANGELOG.md` 从 50 commit 倒推
@@ -24,7 +37,7 @@
 - **验收**：README < 300 行，覆盖所有 6 大系统；CHANGELOG 含 50+ commit
 - **风险**：低
 
-### R2. CI（.github/workflows/ci.yml）✅ 已完成（2026-09-20，feature/ci-integration）
+### ~~R2. CI（.github/workflows/ci.yml）~~ ✅ 已完成（2026-09-20，feature/ci-integration）
 > 实际超出原计划：除 11 个 py verify 外还含 UI e2e 3 个 + unit 92 + visual 8/8 + WebSocket，18 步全绿。pages.yml（Storybook + visual baseline 上 Pages）就绪，等 repo Settings → Pages 手动启用一次。
 - **缺口**：PR 推上去没人自动验证，全靠手动 bhs-4 跑——容易漏检；16 verify 脚本里 13 个可走 CI
 - **做法**：单 job `verify`：pnpm install → build → 起隔离 API → 跑 11 个 verify_*.py + 1 个 verify_auto_market.ts；UI mjs 跳过（playwright 跑需多端，本地 GH Actions 起不来）
@@ -212,15 +225,15 @@
 | ~~2~~ | ~~R4~~ | ~~verify_health.mjs~~ ✅ 已有内容 | — | 测试覆盖 |
 | ~~3~~ | ~~R2~~ | ~~CI workflow~~ ✅ 09-20 | — | 长期省时 |
 | ~~4~~ | ~~R5~~ | ~~UI e2e~~ ✅ 进 CI（非阻塞） | — | UI 安全网 |
-| 1 | R3 | verify_analytics.py 修基线 | 0.5 d | 测试可信 |
-| 2 | **R0（新）** | **bhs-4 部署 feed-scores-fix + 验证 settle 恢复** | 0.5 d | 54 笔 open bets 结算 + 额度达标 |
+| 1 | **R0** | **bhs-4 部署 feed-scores-fix + 验证 settle 恢复** | **0.25 d** ⏳ 脚本就绪 | **54 笔 open bets 结算 + 额度达标（当前唯一 P0）** |
+| 2 | R3 | verify_analytics.py 修基线 | 0.5 d | 测试可信 |
 | 3 | R9 | 监控 / 告警 | 1 d | 稳定（feed 断链 1 个月才被发现就是教训） |
 | 4 | R7 | 全局 rate limit | 1 d | 防滥用 |
 | 5 | R6 | Support 知识库 | 2 d | 客服闭环 |
 | 6 | R11 | CRM 分群 + 自动化 | 3 d | 增长 |
 | 7 | R13 | Analytics 实时大屏 | 2 d | 运营 |
 
-**R0（新）说明**：feed-scores-fix（`0540faa`）已合 master 但生产验证未闭环。验收：bhs-4 拉新 build 重启 feed-worker 后，① feed_log 不再出现 404 UNKNOWN_SPORT；② the-odds-api 月额度消耗 ≤450；③ open bets 开始自动结算。**这是当前唯一 P0。**
+**R0 说明**：feed-scores-fix（`0540faa`）已合 master 但生产验证未闭环。**脚本已 commit**（`scripts/deploy_feed_fix.sh` + `scripts/verify_feed_fix.sh`），bhs-4 一行命令即可部署 + 验证。验收：① feed_log 不再出现 404 UNKNOWN_SPORT；② the-odds-api 月额度消耗 ≤450；③ open bets 开始自动结算。**这是当前唯一 P0。**
 
 **1-5（5 d）是上线前必做**，构成"生产就绪"门槛。
 **6-7（5 d）属于"上线后第一个月"**，要看业务压力再排。
