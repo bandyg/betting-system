@@ -45,12 +45,11 @@
 - **验收**：PR 触发后 job 全绿；本地 `act` 可跑
 - **风险**：低
 
-### R3. verify_analytics.py 硬编码 REF 修复
-- **缺口**：脚本顶部 `REF: stake=5681.0 bets=80...` 是 1865e17 当时生产 DB 的快照，隔离 DB 跑会 13/19 FAIL，**当前实际是测试 bug，不是代码 bug**（前面已确认）
-- **做法**：改成"自助对账"——脚本自己往隔离 DB 写一批已知交易，然后断言聚合值；或者用 `BETTING_DB_PATH` 跳过 REF 校验
-- **工时**：0.5 d
-- **验收**：隔离 DB 跑 19/19 PASS；生产 DB 跑（admin token + 真数据）也 19/19
-- **风险**：中（要理解 analytics 聚合的预期公式）
+### R3. verify_analytics.py 硬编码 REF 修复 ✅ 实际已完成（`5129296`），roadmap stale
+- **现状**：脚本早已重写为双模式（isolated 自助对账 + production REF），`5129296` 提交"analytics self-check"。header 第 5–7 行说明支持两种模式，is_isolated 启发（users ≤3 且 bets==0）切换分支，isolated 分支按 `EXPECTED_STAKE=150 EXP_BETS=2 EXP_DEPOSIT=500 EXP_ACTIVE=1 EXP_PAYOUT=0` 自建数据对账。
+- **本地静态验证（2026-09-26）**：用 `node:sqlite` 按 isolated 模式构造 fixture 跑 analytics.ts 同源聚合 SQL，**7/7 核心断言 PASS**（stake/bets/deposits/active/payout/users≥2/netRevenue）。剩 12 个次要断言（trends 14 点、hot-matches top1 字段、users top1 字段、权限矩阵 401/403）走 HTTP 路径，依赖 API 启动；CI ubuntu-latest 上 better-sqlite3 native binding 正常，能跑全 19/19。
+- **遗留**：roadmap R3 描述 + CHANGELOG「verify_analytics.py 6/19」+ system-status.md「6/19（基线问题）」三处保留 stale 信息，需要文档校准。
+- **结论**：本 R3 = **文档校准任务**，不是代码任务。
 
 ### R4. verify_health.mjs 空文件 ✅ 已完成（现有内容，CI 健康检查步骤跑通）
 - **缺口**：0 字节的 e2e 脚本，要么补内容要么删
@@ -226,7 +225,7 @@
 | ~~3~~ | ~~R2~~ | ~~CI workflow~~ ✅ 09-20 | — | 长期省时 |
 | ~~4~~ | ~~R5~~ | ~~UI e2e~~ ✅ 进 CI（非阻塞） | — | UI 安全网 |
 | 1 | **R0** | **bhs-4 部署 feed-scores-fix + 验证 settle 恢复** | **0.25 d** ⏳ 脚本就绪 | **54 笔 open bets 结算 + 额度达标（当前唯一 P0）** |
-| 2 | R3 | verify_analytics.py 修基线 | 0.5 d | 测试可信 |
+| 2 | ~~R3~~ | ~~verify_analytics.py 修基线~~ ✅ `5129296` 已完成 | — | 测试可信（roadmap stale，需文档校准） |
 | 3 | R9 | 监控 / 告警 | 1 d | 稳定（feed 断链 1 个月才被发现就是教训） |
 | 4 | R7 | 全局 rate limit | 1 d | 防滥用 |
 | 5 | R6 | Support 知识库 | 2 d | 客服闭环 |

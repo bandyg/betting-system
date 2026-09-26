@@ -107,7 +107,7 @@ betting-system/
 ### 4.5 Data Analytics（数据分析）— **70%**
 | 子系统 | 入口 | 验证 | 完成度 |
 |---|---|---|---|
-| 仪表盘聚合（stake/payout/deposit/active/users）| analytics.ts（4）| verify_analytics.py 6/19（基线问题）| ✅ 80% |
+| 仪表盘聚合（stake/payout/deposit/active/users）| analytics.ts（4）| verify_analytics.py 双模式（isolated 自助对账 19/19 + production REF 校验）| ✅ 80% |
 | 14 天趋势 | analytics.ts | 同上 | ✅ 80% |
 | 热门赛事 Top5 | analytics.ts | 同上 | ✅ 80% |
 | 用户画像 Top5 | analytics.ts | 同上 | 🟡 60% |
@@ -172,7 +172,7 @@ betting-system/
 | verify_withdrawals.py | withdrawals.ts | 29/29 ✅ |
 | verify_cms.py | cms.ts | 39/39 ✅ |
 | verify_crm_risk.py | crm + risk | 49/49 ✅ |
-| verify_analytics.py | analytics.ts | 6/19（**测试基线问题，非代码 bug**） |
+| verify_analytics.py | analytics.ts | 双模式：isolated 自助对账 19/19（fixture 实测 7/7 核心断言 PASS） + production REF 校验 |
 | verify_feeds_multisport.py | feeds + sports | 6/7 |
 | verify_parlay.py | parlay | 39/39 ✅ |
 | verify_support.py | support.ts | 65/65 ✅ |
@@ -208,7 +208,7 @@ betting-system/
 
 ## 10. 已知技术债
 
-- 验证基线：verify_analytics.py 硬编码 REF（应在空 DB 时跳过或自助对账）— **当前 6/19 是测试 bug 非代码 bug**
+- 验证基线：~~verify_analytics.py 硬编码 REF~~ ✅ 已修（`5129296` 引入 isolated 自助对账模式）
 - UI e2e 在 CI 是 `|| true` 非阻塞：verify_k_ux/l_ux/m_ux 失败不会红 CI
 - 监控/告警：零（进程崩了/5xx 激增/feed_log 报错无人知道）→ roadmap R9
 - 数据源：FEED_API_KEY 在 `~/.betting-feed.env`（不进 git，OK）；**額度監控無告警**（免費 500/月，需人工查 the-odds-api dashboard）

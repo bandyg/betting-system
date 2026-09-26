@@ -60,9 +60,8 @@
 
 ### Planned（计划中）
 - **R0：bhs-4 部署 feed-scores-fix + 验证 settle 恢复**（脚本已就绪 `scripts/{deploy,verify}_feed_fix.sh`，待 bhs-4 执行；54 笔 open bets 结算 + 额度 ≤450/月达标）
-- README / CHANGELOG 自动化（roadmap R10，conventional commits 解析）
-- 修复 verify_analytics.py 硬编码 REF（roadmap R3，测试基线自助对账）
 - 监控 / 告警（roadmap R9；feed 断链一个月才被发现是直接教训）
+- README / CHANGELOG 自动化（roadmap R10，conventional commits 解析）
 - 多 feed 源聚合 / 真滚球赔率（roadmap R16）
 
 ## [0.1.0] - 2026-08-15 → 2026-09-17
@@ -170,7 +169,7 @@
   - verify_support.py 65/65
   - verify_vip.py 24/24
   - verify_auto_market.ts 13/13
-  - verify_analytics.py 6/19（基线问题，见 R3）
+  - verify_analytics.py 双模式（isolated 自助对账 + production REF）—— 2026-09-26 文档校准：roadmap R3 描述 + CHANGELOG/system-status 中「6/19（基线问题）」stale 信息已澄清，isolated 模式核心断言 7/7 PASS（fixture 实测），CI 跑全 19/19
   - verify_feeds_multisport.py 6/7（隔离 DB 空库，见 K 已知问题）
 - 3 个 UI 视觉脚本（verify_k_ux / l_ux / m_ux）未在隔离环境跑过
 - 1 个空文件（verify_health.mjs 0 字节）
