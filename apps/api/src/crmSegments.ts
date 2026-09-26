@@ -106,7 +106,7 @@ export function evaluateSegment(db: Database.Database, rules: SegmentRule): numb
       AND ${wheres.length ? wheres.join(' AND ') : '1=1'}
   `;
   try {
-    return db.prepare(sql).all(...params).map((r: { id: number }) => r.id);
+    return (db.prepare(sql).all(...params) as Array<{ id: number }>).map((r) => r.id);
   } catch (e) {
     console.error(`[crm] evaluateSegment failed: ${(e as Error).message}`);
     return [];

@@ -22,7 +22,7 @@ import { notificationsRouter } from './routes/notifications.js';
 import { startCampaignScheduler } from './crmSegments.js';
 import { healthRouter } from './routes/health.js';
 import { attachWsHub } from './wsHub.js';
-import { monitorMiddleware, startMonitorTick } from './monitor.js';
+import { monitorMiddleware, monitorErrorMiddleware, startMonitorTick } from './monitor.js';
 import { startRateLimitCleanup } from './rateLimit.js';
 import db from './db/index.js';
 
@@ -34,10 +34,9 @@ app.use(cors());
 app.use(express.json());
 
 // R9 监控 / 告警：响应结束统计 5xx rate；未配 ALERT_WEBHOOK_URL 则静默。
-// 4 参数错误中间件签名 Express 才认作 error handler，捕获 unhandled 异常并告警。
-app.use(monitorMiddleware as express.RequestHandler);
-app.use(((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) =>
-  monitorMiddleware(err, req, res, next)) as express.ErrorRequestHandler);
+// monitorErrorMiddleware 是 4 参签名，Express 认作 error handler，捕获 unhandled 异常并告警。
+app.use(monitorMiddleware);
+app.use(monitorErrorMiddleware);
 
 // 安全响应头（N 轮生产化第一阶·N3）：全局应用，/health 与 /api/* 均携带
 app.use((_req, res, next) => {

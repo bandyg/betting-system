@@ -140,36 +140,26 @@ function checkRate(): void {
   }
 }
 
-export function monitorMiddleware(err: Error, req: Request, res: Response, next: NextFunction): void;
-export function monitorMiddleware(req: Request, res: Response, next: NextFunction): void;
-export function monitorMiddleware(a: unknown, b?: unknown, c?: unknown, d?: unknown): void {
-  // Express 错误处理中间件：4 参数签名触发；普通中间件 3 参数
-  if (typeof a === 'object' && a !== null && 'method' in (a as Request) && typeof b === 'function') {
-    const req = a as Request;
-    const res = b as Response;
-    const next = c as NextFunction;
-    res.on('finish', () => {
-      window.total += 1;
-      if (res.statusCode >= 500) window.err5xx += 1;
-      checkRate();
-    });
-    next();
-    return;
-  }
-  if (a instanceof Error && typeof b === 'object' && typeof c === 'function' && typeof d === 'function') {
-    const err = a;
-    const req = b as Request;
-    const res = c as Response;
-    const next = d as NextFunction;
-    fireAlert({
-      category: 'unhandled_exception',
-      key: `unhandled_${err.name}_${(err.message || '').slice(0, 60)}`,
-      severity: 'critical',
-      message: `Unhandled ${err.name}: ${err.message}`,
-      meta: { path: req.path, method: req.method, stack: (err.stack ?? '').slice(0, 400) },
-    });
-    next(err);
-  }
+/** 3 参普通中间件：响应结束统计 5xx rate（挂 requireAuth 之前的全局层） */
+export function monitorMiddleware(req: Request, res: Response, next: NextFunction): void {
+  res.on('finish', () => {
+    window.total += 1;
+    if (res.statusCode >= 500) window.err5xx += 1;
+    checkRate();
+  });
+  next();
+}
+
+/** 4 参错误中间件：捕获 unhandled 异常 → 告警 → 交给 Express 默认处理 */
+export function monitorErrorMiddleware(err: Error, req: Request, res: Response, next: NextFunction): void {
+  fireAlert({
+    category: 'unhandled_exception',
+    key: `unhandled_${err.name}_${(err.message || '').slice(0, 60)}`,
+    severity: 'critical',
+    message: `Unhandled ${err.name}: ${err.message}`,
+    meta: { path: req.path, method: req.method, stack: (err.stack ?? '').slice(0, 400) },
+  });
+  next(err);
 }
 
 // ---------- 后台 tick：扫 feed_log + open_bets + DB size ----------

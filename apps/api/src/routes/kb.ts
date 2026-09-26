@@ -83,7 +83,7 @@ kbRouter.post('/kb/articles/:id/helpful', (req, res) => {
   const col = v === 'yes' ? 'helpful_yes' : 'helpful_no';
   const row = db.prepare(`UPDATE kb_articles SET ${col} = ${col} + 1 WHERE id = ? AND status='published'`).run(id);
   if (row.changes === 0) return res.status(404).json({ error: '文章不存在或未发布' });
-  const after = db.prepare('SELECT helpful_yes, helpful_no FROM kb_articles WHERE id = ?').get(id);
+  const after = db.prepare('SELECT helpful_yes, helpful_no FROM kb_articles WHERE id = ?').get(id) as { helpful_yes: number; helpful_no: number };
   res.json({ ok: true, ...after });
 });
 
@@ -117,7 +117,7 @@ adminKbRouter.put('/admin/kb/categories/:id', requireAuth, requireRole('admin'),
   db.prepare('UPDATE kb_categories SET title = ?, icon = ?, sort_order = ? WHERE id = ?').run(
     title ?? existing.title, icon ?? existing.icon, sort_order ?? existing.sort_order, id
   );
-  res.json({ id, ...existing, title: title ?? existing.title, icon: icon ?? existing.icon, sort_order: sort_order ?? existing.sort_order });
+  res.json({ ...existing, title: title ?? existing.title, icon: icon ?? existing.icon, sort_order: sort_order ?? existing.sort_order });
 });
 
 adminKbRouter.delete('/admin/kb/categories/:id', requireAuth, requireRole('admin'), (req, res) => {
