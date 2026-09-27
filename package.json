@@ -1,7 +1,7 @@
 {
   "name": "betting-system",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sports betting MVP — pre-match fixed odds + betting + settlement loop (football, 1X2/Asian Handicap/Over-Under)",
   "scripts": {
     "build": "pnpm -r build",

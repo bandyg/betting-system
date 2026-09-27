@@ -7,9 +7,20 @@
 
 > **简记法**：每段以 `(theme)` 标识主题，便于回溯。Commit SHA 在 git log 可查。
 > **用户可见变更**：只记用户/运维/集成方能感知的差异；纯内部重构 / 类型修正不记。
-> **CI 状态**：✅ ALL PASS (master HEAD `01e4400` 完整跑过 18 步骤：API e2e + 11 verify + health + UI e2e + unit 92/92 + visual 8/8 + WebSocket real-time odds)
+> **CI 状态**：✅ ALL PASS（master `479122b`，run #41 全步骤绿：13 verify + health + rate-limit e2e + UI e2e 3 + unit 148/148 + visual 8/8 + WebSocket）
 
 ## [Unreleased]
+
+### Planned（计划中）
+- **R0：bhs-4 部署 feed-scores-fix + 验证 settle 恢复**（脚本已就绪 `scripts/{deploy,verify}_feed_fix.sh`，待 bhs-4 执行；54 笔 open bets 结算 + 额度 ≤450/月达标）
+- bhs-4 上 `~/.betting-feed.env` 加 `ALERT_WEBHOOK_URL=<Feishu webhook>` + `SERVICE_NAME=betting-bhs-4` 启用 R9 监控告警
+- README / CHANGELOG 自动化（roadmap R10，conventional commits 解析）
+- 多 feed 源聚合 / 真滚球赔率（roadmap R16）
+
+## [0.2.0] - 2026-09-27
+
+> 生产就绪冲刺：roadmap P0/P1/P2 全部收口（R3/R9/R7/R6/R11/R13）。
+> 单元测试 92 → 148；verify 脚本 11 → 13；6 大系统平均完成度 75% → 85%。
 
 ### Added（新增）
 - **docs：合入 `feature/docs-system-overview`（悬置 9 天）+ 刷新至 `6d13584`**
@@ -107,6 +118,8 @@
 - baseline/regression 内容不一致 → idempotent seed + stable VRHome/VRAway team names
 - chromium-1234 explicit executablePath (after pnpm install reset npx cache)
 - ws package resolve via createRequire (pnpm not hoisted to root)
+- **CI 首跑红修**（`4a0386a`）：R7 限流按生产阈值击穿共享 e2e（verify_withdrawals 17 次 POST /withdrawals > 10/min）→ CI job 级放宽 + rate-limit 专属 step 保留低阈值；verify_kb 搜索 URL 中文未编码 / 公开列表缺 status 字段 / crm_segment 对 diamond 计数的脆弱断言
+- **tsc 门禁清零**（`881c825`）：R6/R9/R11 遗留 7 处类型错误（monitor 中间件重载、crmSegments map、health metrics、kb spread）
 
 ### Planned（计划中）
 - **R0：bhs-4 部署 feed-scores-fix + 验证 settle 恢复**（脚本已就绪 `scripts/{deploy,verify}_feed_fix.sh`，待 bhs-4 执行；54 笔 open bets 结算 + 额度 ≤450/月达标）
@@ -260,6 +273,6 @@
 ## 版本说明
 
 - 0.1.0 — 第一个 MVP；6 大系统 80% 完成；13 verify全绿；3 UI 验证待跑；监控/CI/KB 缺口
-- 计划 0.2.0 — 监控 + rate limit + Support 知识库（roadmap P1）
-- 计划 0.3.0 — 实时分析 + CRM 分群自动化 + 审计日志（roadmap P2）
-- **当前（Unreleased）** — Sprint 5 全完成 + Visual Regression 8/8 + WebSocket + CI；92 unit tests 100%；下一步走 0.2.0
+- **0.2.0 — 生产就绪冲刺**：R3 文档校准 + R9 监控告警 + R7 全局限流 + R6 客服知识库 + R11 CRM 分群/营销自动化 + R13 实时大屏/CSV 导出；unit 148/148；tsc --noEmit 门禁清零；CRM 100% / Analytics 90% / Support 80%
+- 计划 0.3.0 — R0 bhs-4 生产验证收口 + 审计日志（R15）+ 主题切换（R14）+ 前端大屏可视化（P3 按需）
+- 2026-09-26 补：`feature/docs-system-overview` 合入（README 死链修复）+ R0 部署/验证脚本 + feed-scores-fix 生产部署待执行
