@@ -48,6 +48,10 @@ def call(method, path, token=None, body=None):
             return e.code, json.loads(e.read().decode() or "{}"), dict(e.headers)
         except Exception:
             return e.code, {}, dict(e.headers)
+    except (urllib.error.URLError, OSError, TimeoutError) as e:
+        # 连接拒绝 / 端口未就绪 → 返回 599 让断言给出可读失败，而不是崩掉整个脚本
+        print(f"WARN: request {method} {path} failed: {e}")
+        return 599, {}, {}
 
 
 # ---- 0. admin token ----

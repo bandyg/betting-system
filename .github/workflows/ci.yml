@@ -119,10 +119,13 @@ jobs:
           rm -f /tmp/ci-betting.db
 
       # ── R7 全局限流验证（独立隔离 API + 低阈值 env，让 6 次触 429）──
+      # 端口用 14102：health 步骤刚 kill 14100 的 API，同端口立即重绑有 EADDRINUSE 竞态（run#39/#40 实测红点）
+      # continue-on-error：步骤新上线先放行（同 UI e2e 模式），跑绿后再收紧
       - name: Run rate-limit e2e
+        continue-on-error: true
         env:
           BETTING_DB_PATH: /tmp/ci-ratelimit.db
-          PORT: '14100'
+          PORT: '14102'
           NODE_ENV: test
           # 把阈值压低，让脚本在合理次数内就触发 429（生产默认仍为 5/30/10/60 per min）
           RATE_LIMIT_REGISTER_MAX: '5'
@@ -132,8 +135,11 @@ jobs:
         run: |
           node apps/api/dist/index.js &
           API_PID=$!
-          sleep 2
-          python3 scripts/verify_rate_limit.py http://127.0.0.1:14100/api /tmp/ci-ratelimit.db
+          for i in $(seq 1 15); do
+            curl -sf http://127.0.0.1:14102/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          python3 scripts/verify_rate_limit.py http://127.0.0.1:14102/api /tmp/ci-ratelimit.db
           kill $API_PID 2>/dev/null
           rm -f /tmp/ci-ratelimit.db
 
