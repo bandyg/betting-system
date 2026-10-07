@@ -132,7 +132,7 @@ test('Keyboard: 1/2/3 + Enter + ? + Esc', () => {
 // ── 门禁（apps/mobile/src/app/admin/_layout.tsx）──
 const layoutSrc = readSrc('apps/mobile/src/app/admin/_layout.tsx');
 test('AdminLayout: 角色门禁 admin/support', () => assert.match(layoutSrc, /'admin' \|\| user\.role === 'support'/));
-test('AdminLayout: 未登录跳登录页', () => assert.match(layoutSrc, /Redirect href="\/admin\/login"/));
+test('AdminLayout: 未登录跳登录页（带 from 回跳）', () => assert.match(layoutSrc, /Redirect href=\{`\/admin\/login\?from=/));
 
 // ── 根布局（apps/mobile/src/app/_layout.tsx：web 同源 / native 直连 + AsyncStorage）──
 const rootLayoutSrc = readSrc('apps/mobile/src/app/_layout.tsx');

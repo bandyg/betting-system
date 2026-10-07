@@ -2,6 +2,7 @@
 
 > 本文檔是**設計 + Plan + 驗收準則**，供實作階段直接照抄。只新增本文件，不改任何既有 `.ts/.sql/.js`。
 > 對照六大系統：PAM / SPORTBOOK / CMS / CRM / Data Analytics 已落地，本文件補齊 **Customer Support（工單）**。
+> 📌 **歷史文檔（2026-09 計劃，已實作）**：後端與 mobile 端均已落地；§4.1 / Step 4 引用的 `apps/web` 已在 unify-frontend-expo 中刪除，`<SupportPanel />` 現位於 `apps/mobile/src/admin/panels/SupportPanel.tsx`，admin 路由為 `:4300/admin`（驗證命令 `pnpm --filter web dev` 已失效，改用 `pnpm --filter @betting/mobile dev` 或 `apps/mobile/scripts/serve-web.mjs`）。API 契約部分仍然有效。
 
 ---
 

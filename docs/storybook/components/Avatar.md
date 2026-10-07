@@ -1,52 +1,36 @@
 # Avatar
 
-用户头像组件。无图时显示 hash 生成的彩色首字 circle。
+用户头像 — 有 `src` 时显示圆形图片，否则按 `name` hash 出稳定底色并显示首字母。
 
 ## Props
 
-| Prop    | Type                | Default | 描述 |
-|---------|---------------------|---------|------|
-| `name`  | `string \| null`    | `?`     | 用户名（用于 hash 颜色 + 首字） |
-| `src`   | `string \| null`    | —       | 图片 URL（无时显示 fallback） |
-| `size`  | `number`            | `28`    | 圆直径（px） |
-| `className` | `string`        | —       | 额外 class |
-
-## 实现原理
-
-- **hashHue(str)**: 把字符串 hash 成 0-359 的色相 (稳定)
-- **fallback**: 圆 + 浅色背景 + 深色首字
-- **有 src**: 直接渲染 `<img>`
+| Prop | Type | Default | 描述 |
+|------|------|---------|------|
+| `name` | `string` | —（必填） | 用户名，用于 hash 颜色与首字母 |
+| `src` | `string` | — | 头像图片 URL；提供后渲染图片而非首字 |
+| `size` | `number` | `32` | 圆形直径（px） |
+| `testID` | `string` | — | 测试标识 |
 
 ## 用法
 
 ```tsx
-import { Avatar } from './components/Avatar.js';
+import { Avatar } from '@betting/ui';
 
-// fallback (无图)
-<Avatar name="betty" size={32} />
+// 首字 fallback（无图）
+<Avatar name="betty" />
 
 // 有图片
-<Avatar name="betty" src="/avatars/betty.png" size={40} />
+<Avatar name="betty" src="https://example.com/avatar.png" size={40} />
 
 // 用户列表
 {users.map(u => <Avatar key={u.id} name={u.name} size={24} />)}
 ```
 
-## Demo
+## 实现原理
 
-```tsx
-<div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-  <Avatar name="alice" />
-  <Avatar name="Bob" />
-  <Avatar name="Charlie" />
-  <Avatar name="张三" />
-  <Avatar name="李四" />
-  <Avatar name="A" size={20} />
-  <Avatar name="B" size={48} />
-</div>
-```
-
-预期输出：每个头像不同颜色（hash 决定），首字分别为 a/B/C/张/李/A/B。
+- `hashHue(name)`：字符累乘 `(h * 31 + char) % 360` 得 0–359 色相，同名恒定；底色 `hsl(hue, 52%, 42%)`。
+- 无 `src`：取 `name` 首字符大写，白色加粗，字号 `round(size * 0.42)`，居中。
+- 有 `src`：渲染 `<Image>`；整体 `borderRadius = size / 2` 裁成圆形。
 
 ## 实际位置
-`apps/web/src/components/Avatar.tsx` (60 行)
+`packages/ui/src/primitives.tsx`

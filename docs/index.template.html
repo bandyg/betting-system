@@ -21,41 +21,57 @@
 </head>
 <body>
   <h1>🎰 betting-system <span class="badge">CI ALL PASS</span></h1>
-  <p>Amelco 風格 MVP 投注系統演示。Master HEAD + 30+ feature · 三層測試金字塔 100%。</p>
+  <p>Sports betting MVP 演示。统一 Expo 前端（:4300，玩家端 + /admin 运营后台）· 三层测试金字塔。</p>
 
-  <h2>📚 Storybook（30 個組件 / hooks / panels 文檔）</h2>
+  <h2>📚 Storybook（17 组件 · 5 hooks · 9 面板 文档）</h2>
   <div class="card">
-    <p>點下方打開 Storybook（純 HTML + Markdown，無 React 依賴）：</p>
-    <p><a href="./storybook/index.html"><strong>📖 打開 Storybook →</strong></a></p>
-    <h3>或瀏覽單個組件：</h3>
-    <h4>Components (15)</h4>
+    <p>纯 HTML + Markdown 画廊，无 React 依赖（由 <code>scripts/build_pages.sh</code> 从 md 渲染）：</p>
+    <p><a href="./storybook/index.html"><strong>📖 打开 Storybook →</strong></a></p>
+    <h4>Components</h4>
     <div class="grid">
+      <a href="./storybook/components/theme.html">Theme 主题</a>
       <a href="./storybook/components/Avatar.html">Avatar</a>
-      <a href="./storybook/components/ConfirmBet.html">ConfirmBet</a>
-      <a href="./storybook/components/EmptyState.html">EmptyState</a>
-      <a href="./storybook/components/ErrorBoundary.html">ErrorBoundary</a>
-      <a href="./storybook/components/KeyboardHelp.html">KeyboardHelp</a>
-      <a href="./storybook/components/Layout.html">Layout</a>
       <a href="./storybook/components/LeagueChip.html">LeagueChip</a>
-      <a href="./storybook/components/LoginBar.html">LoginBar</a>
-      <a href="./storybook/components/MatchDetail.html">MatchDetail</a>
+      <a href="./storybook/components/Badge.html">Badge</a>
       <a href="./storybook/components/MiniChart.html">MiniChart</a>
-      <a href="./storybook/components/OfflineBanner.html">OfflineBanner</a>
+      <a href="./storybook/components/EmptyState.html">EmptyState</a>
       <a href="./storybook/components/Skeleton.html">Skeleton</a>
-      <a href="./storybook/components/SupportChat.html">SupportChat</a>
-      <a href="./storybook/components/Tabs.html">Tabs</a>
-      <a href="./storybook/components/ThemeToggle.html">ThemeToggle</a>
+      <a href="./storybook/components/buttons.html">Button / OddsButton</a>
+      <a href="./storybook/components/OddsChip.html">OddsChip</a>
+      <a href="./storybook/components/Modal.html">Modal / ConfirmModal</a>
       <a href="./storybook/components/Toast.html">Toast</a>
+      <a href="./storybook/components/layout.html">Layout 布局</a>
+      <a href="./storybook/components/SupportChat.html">SupportChat</a>
+      <a href="./storybook/components/form.html">Input / Select</a>
+      <a href="./storybook/components/table.html">DataTable / TabsNav</a>
+      <a href="./storybook/components/markdown.html">MarkdownText</a>
+      <a href="./storybook/components/feedback.html">OfflineBanner / ErrorBoundary</a>
     </div>
     <h4>Hooks</h4>
     <div class="grid">
-      <a href="./storybook/hooks/useApi.html">useApi</a>
+      <a href="./storybook/hooks/use-auth.html">useAuth</a>
+      <a href="./storybook/hooks/use-bet-slip.html">useBetSlip</a>
+      <a href="./storybook/hooks/use-live-odds.html">useLiveOdds</a>
+      <a href="./storybook/hooks/use-async-data.html">useAsync 数据族</a>
+      <a href="./storybook/hooks/keyboard-shortcuts.html">admin 快捷键</a>
+    </div>
+    <h4>Panels</h4>
+    <div class="grid">
+      <a href="./storybook/panels/MatchesExplorer.html">MatchesExplorer</a>
+      <a href="./storybook/panels/match-detail.html">MatchDetail</a>
+      <a href="./storybook/panels/BetSlip.html">BetSlip</a>
+      <a href="./storybook/panels/AccountsPanel.html">AccountsPanel</a>
+      <a href="./storybook/panels/MatchesAdminPanel.html">MatchesAdminPanel</a>
+      <a href="./storybook/panels/SettlePanel.html">SettlePanel</a>
+      <a href="./storybook/panels/FeedPanel.html">FeedPanel</a>
+      <a href="./storybook/panels/BetsPanel.html">BetsPanel</a>
+      <a href="./storybook/panels/SupportPanel.html">SupportPanel</a>
     </div>
   </div>
 
-  <h2>🖼️ Visual Regression Baseline (8 頁)</h2>
+  <h2>🖼️ Visual Regression Baseline (8 页)</h2>
   <div class="card">
-    <p>Sprint 5 擴展：Playwright + pixelmatch 像素級 diff。Baseline PNG 從 master HEAD 截取。</p>
+    <p>Playwright + pixelmatch 像素级 diff。基线取自统一前端（:4300/admin）8 页。</p>
     <div class="visual-gallery">
       <figure><img src="./visual-baseline/login.png" alt="login"><figcaption>login</figcaption></figure>
       <figure><img src="./visual-baseline/matches.png" alt="matches"><figcaption>matches</figcaption></figure>
@@ -70,13 +86,13 @@
 
   <h2>🔌 API Endpoints（部分）</h2>
   <div class="card">
-    <p>完整列表見 <a href="https://github.com/bandyg/betting-system/blob/master/README.md">README.md</a>。</p>
+    <p>完整列表见 <a href="https://github.com/bandyg/betting-system/blob/master/README.md">README.md</a>。</p>
     <ul>
-      <li><code>GET /health</code> · API 狀態</li>
+      <li><code>GET /health</code> · API 状态</li>
       <li><code>POST /api/auth/login</code> · JWT 7d</li>
-      <li><code>GET /api/matches</code> · 賽事列表</li>
-      <li><code>PUT /api/markets/:id/odds</code> · 調賠 (broadcast ws)</li>
-      <li><code>⚡ WS /ws/odds</code> · 即時賠率 broadcast</li>
+      <li><code>GET /api/matches</code> · 赛事列表</li>
+      <li><code>PUT /api/markets/:id/odds</code> · 调赔 (broadcast ws)</li>
+      <li><code>⚡ WS /ws/odds</code> · 实时赔率 broadcast</li>
     </ul>
   </div>
 

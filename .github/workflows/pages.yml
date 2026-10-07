@@ -7,6 +7,7 @@ on:
       - 'docs/storybook/**'
       - 'docs/visual-baseline/**'
       - 'docs/index.template.html'
+      - 'scripts/build_pages.sh'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -39,16 +40,8 @@ jobs:
           enablement: true
 
       - name: Build Pages artifact
-        run: |
-          mkdir -p _pages
-          # Storybook index + 子文档
-          cp -r docs/storybook/* _pages/
-          # Visual regression baselines
-          mkdir -p _pages/visual-baseline
-          cp docs/visual-baseline/*.png _pages/visual-baseline/ 2>/dev/null || true
-          # Landing page (from template, committed to repo)
-          cp docs/index.template.html _pages/index.html
-          echo "Pages built: $(find _pages -type f | wc -l) files"
+        # 统一构建：落地页 + storybook（md → html，修复死链）+ 基线图
+        run: bash scripts/build_pages.sh _pages
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

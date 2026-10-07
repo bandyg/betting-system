@@ -73,17 +73,10 @@ betting-system/
 │   │   │   └── feeds/        # 12 模块（the-odds-api 接入）+ 3 个 __verify__*.ts
 │   │   └── scripts/          # 旧的 e2e
 │   │
-│   ├── web/                  # admin 后台 (React + Vite)
-│   │   ├── src/
-│   │   │   ├── App.tsx       # SPA 主组件
-│   │   │   ├── api.ts        # 后端 API client
-│   │   │   ├── types.ts
-│   │   │   └── styles.css
-│   │   └── vite.config.ts    # dev :4200 + preview :4200 + /api proxy
-│   │
-│   └── mobile/               # Expo / RN-Web 三端共享
+│   └── mobile/               # Expo / RN-Web 统一前端（玩家端 + /admin）
 │       ├── src/
 │       │   ├── app/          # expo-router pages
+│       │   ├── admin/        # admin 面板（8 panel + MatchDetail/chrome）
 │       │   ├── components/   # 共享 UI
 │       │   ├── hooks/
 │       │   └── constants/
@@ -106,7 +99,7 @@ betting-system/
 ├── scripts/                  # 25 个验证/测试脚本（verify + unit + visual）
 ├── docs/                     # 设计/状态文档 + storybook + visual-baseline
 ├── data/                     # SQLite（git 忽略）
-├── ecosystem.config.js       # pm2 4 进程
+├── ecosystem.config.js       # pm2 3 进程
 └── pnpm-workspace.yaml       # apps/* + packages/* + allowBuilds
 ```
 
@@ -259,8 +252,8 @@ betting-feed-worker       env-gated（FEED_API_KEY 就绪则调度，intervalMin
 ci.yml    push/PR → pnpm install + api build + expo export web + 隔离 API :14100
           → 13 verify_*.py + verify_health.mjs + 3 UI e2e（:4300/admin，|| true）
           → unit 155 + visual 8 页（baseline 缺失自动生成）+ WebSocket odds
-pages.yml push master 触 docs/** → Storybook（stale）+ visual-baseline 部署 Pages
-          （需 repo Settings → Pages 手动启用一次）
+pages.yml push master 触 docs/** → scripts/build_pages.sh（Storybook md→html）
+          + visual-baseline 部署 Pages（需 repo Settings → Pages 手动启用一次）
 ```
 
 ### 7.2 启动顺序

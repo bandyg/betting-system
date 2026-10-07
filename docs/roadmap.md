@@ -65,7 +65,7 @@
 ### R5. verify_{k,l,m}_ux.mjs 隔离 playwright ✅ 大部分完成（2026-09-20 进 CI）
 > CI 里已跑 3 个 UI e2e，但步骤是 `|| true` 非阻塞——失败不会红 CI。剩余工作：去掉 `|| true` 让 UI e2e 变硬门槛（需先确认 CI 稳定性）。
 - **缺口**：3 个 UI 视觉验证脚本要 second web 端口 + 隔离 API + playwright 浏览器，**当前从未在隔离环境跑过**
-- **做法**：写 `scripts/run_ui_e2e.sh`（或 .mjs），自动起：second API :14100 / second vite preview :14200 / 跑 3 个 mjs / 清理
+- **做法**：写 `scripts/run_ui_e2e.sh`（或 .mjs），自动起：second API :14100 + second web（apps/web 已删除，现为 Expo 静态产物，CI 用 :14102）/ 跑 3 个 mjs / 清理
 - **工时**：1 d
 - **验收**：3 个 mjs 在 bhs-4 隔离环境跑通 16+19+19 = 54/54 PASS
 - **风险**：高（playwright 在 CI 里装、headless 行为、动态加载等待都要测）

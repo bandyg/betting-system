@@ -12,7 +12,7 @@ Betting Admin 的所有 UI tokens 集中定义，便于跨平台/跨组件一致
 | **TS 单一来源** | `packages/ui/src/tokens.ts` | dark/light 双主题，RN 组件直接消费（现状） |
 | **主题切换** | `packages/ui/src/theme.tsx` | ThemeProvider + useTheme/useThemeMode |
 | **CSS 变量（历史）** | ~~`apps/web/src/styles/reset.css`~~ | 已随 apps/web 删除 |
-| **Storybook 文档** | `docs/storybook/components/` | stale，待重写 |
+| **Storybook 文档** | `docs/storybook/components/` | 已重写对齐 `packages/ui`（17 组件页 + 5 hooks + 9 面板） |
 | **本文件** | `docs/DESIGN_TOKENS.md` | 完整 token 字典（CSS 变量部分为历史） |
 
 ## Token 类别

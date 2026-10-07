@@ -1,44 +1,32 @@
 # LeagueChip
 
-联赛彩色 chip — 根据联赛名 hash 生成稳定的 HSL 色相。
+联赛彩色徽章 — 按联赛名 hash 出稳定色相的圆点 + 文字 chip。
 
 ## Props
 
-| Prop    | Type                | Default | 描述 |
-|---------|---------------------|---------|------|
-| `league`  | `string`          | —       | 联赛名称 |
-| `size`    | `'xs' \| 'sm' \| 'md'` | `'sm'` | 尺寸 (xs=小 chip, sm=中, md=大) |
-| `className` | `string`        | —       | 额外 class |
-
-## 实现原理
-
-1. **hashHue(league)**: 字符累乘 (h * 31 + char) % 360
-2. **背景**: `hsl(hue, 70%, 92%)` 浅色
-3. **首字 circle**: `hsl(hue, 70%, 55%)` 深色 + 白字
-4. **sport emoji 推算**: league 名含 sport 关键字 (soccer/basketball/...) → 自动用对应 emoji，否则 🏆
+| Prop | Type | Default | 描述 |
+|------|------|---------|------|
+| `league` | `string` | —（必填） | 联赛名称（空时显示 `—`） |
+| `sport` | `string` | — | 运动类型；命中映射表时前置 emoji（如 `soccer` → ⚽） |
+| `size` | `'xs' \| 'sm' \| 'md'` | `'sm'` | 尺寸档位（缩放系数 xs=0.8 / sm=1 / md=1.2） |
+| `testID` | `string` | — | 测试标识 |
 
 ## 用法
 
 ```tsx
-import { LeagueChip } from './components/LeagueChip.js';
+import { LeagueChip } from '@betting/ui';
 
-<LeagueChip league="Premier League" />
-<LeagueChip league="La Liga" size="xs" />
-<LeagueChip league="NBA" size="md" />
+<LeagueChip league="Premier League" sport="soccer" />
+<LeagueChip league="NBA" sport="basketball" size="md" />
+<LeagueChip league="中超" size="xs" />
 ```
 
-## Demo
+## 实现原理
 
-```tsx
-<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-  <LeagueChip league="Premier League" />
-  <LeagueChip league="La Liga" />
-  <LeagueChip league="Serie A" />
-  <LeagueChip league="Bundesliga" />
-  <LeagueChip league="NBA" />
-  <LeagueChip league="中超" />
-</div>
-```
+- `hashHue(league)` 得色相：底色 `hsla(hue, 60%, 45%, 0.16)`，边框 `hsla(hue, 60%, 55%, 0.4)`，pill 圆角。
+- 左侧色点：`max(6, round(8 * scale))` 直径，颜色 `hsl(hue, 60%, 55%)`。
+- `sport` 映射 emoji：soccer/basketball/tennis/baseball/hockey/mma/cricket/rugby/boxing/esports；未命中则只显示圆点 + 文字。
+- 文字 `11 * scale` 号、`fontWeight 600`、单行截断（`numberOfLines={1}`）；字号、间距、内边距均随 `scale` 缩放。
 
 ## 实际位置
-`apps/web/src/components/LeagueChip.tsx` (51 行)
+`packages/ui/src/primitives.tsx`

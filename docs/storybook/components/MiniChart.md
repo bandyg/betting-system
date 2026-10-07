@@ -1,53 +1,39 @@
 # MiniChart
 
-零依赖 SVG 折线图。适用于嵌入式迷你图（赔率历史、趋势预览等）。
+SVG 折线迷你图（网格 + 折线 + 渐变面积填充），适用于赔率历史、趋势预览等嵌入式场景。
 
 ## Props
 
-| Prop    | Type                | Default | 描述 |
-|---------|---------------------|---------|------|
-| `data`  | `number[]`          | —       | 数据点（按时间顺序） |
-| `label` | `string`            | `''`    | tooltip 前缀 |
-| `width` | `number`            | `200`   | SVG 宽度 (px) |
-| `height`| `number`            | `50`    | SVG 高度 (px) |
-| `color` | `string`            | `'var(--accent)'` | 线条颜色 |
-
-## 实现原理
-
-1. **padding**: 4 px 四周留白
-2. **min/max**: 数据点最值映射到 (padding, height-padding)
-3. **path**: `M x0 y0 L x1 y1 ...` 平滑连接
-4. **填充**: path 闭合到下方形成淡色面积
-5. **hover**: 圆形节点变大 + tooltip 显示 (label + value)
+| Prop | Type | Default | 描述 |
+|------|------|---------|------|
+| `data` | `number[]` | —（必填） | 数据点（按时间顺序） |
+| `width` | `number` | `Math.min(窗口宽 - 80, 360)` | 图宽（px），不传时按屏宽自适应 |
+| `height` | `number` | `64` | 图高（px） |
+| `label` | `string` | — | 右上角小字标注（如「主胜」） |
+| `testID` | `string` | `'mini-chart'` | 测试标识 |
 
 ## 用法
 
 ```tsx
-import { MiniChart } from './components/MiniChart.js';
+import { MiniChart } from '@betting/ui';
 
 // 赔率历史
 <MiniChart data={[2.10, 2.05, 2.20, 2.30, 2.25, 2.40]} label="主胜" />
 
-// 自定义颜色
-<MiniChart data={prices} color="var(--success)" width={300} height={80} />
+// 自定义尺寸
+<MiniChart data={history} width={300} height={80} />
 
-// 空数据
-<MiniChart data={[]} />  // 显示 "暂无数据"
+// 空数据：显示「暂无走势」占位
+<MiniChart data={[]} />
 ```
 
-## Demo
+## 实现原理
 
-```tsx
-<MiniChart
-  data={[2.1, 2.05, 2.2, 2.3, 2.25, 2.4, 2.35, 2.45]}
-  label="主胜赔率"
-  width={300}
-  height={80}
-/>
-```
-
-## 移动端
-@media (max-width: 600px) { .mini-chart { display: none; } } — 隐藏节省空间
+- 先过滤非有限数字；有效点 < 2 时渲染居中「暂无走势」占位，不画图。
+- `pad = 4`，按 min/max 归一化映射 y 坐标；25% / 50% / 75% 三条水平网格线。
+- 折线 `Path` + 下方 `LinearGradient` 面积填充（透明度 0.28 → 0.02）。
+- 配色随走势：末点 ≥ 首点用主题 `success`（绿），否则 `danger`（红）。
+- `label` 绝对定位在右上角；无 hover / tooltip（React Native SVG）。
 
 ## 实际位置
-`apps/web/src/components/MiniChart.tsx` (71 行)
+`packages/ui/src/chart.tsx`

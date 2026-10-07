@@ -57,14 +57,14 @@
 
 ## 4. docs/ 子目录
 
-### `docs/storybook/` — 组件级文档（Markdown 故事书）⚠️ stale
-**做什么**：以 Markdown 形式文档化的组件画廊 —— [README.md](storybook/README.md) 为导航，下设三组：
-- `components/`：16 个 UI 组件（Avatar、MiniChart、ConfirmBet、SupportChat 等），每份含 props、示例、渲染效果
-- `hooks/`：4 个自定义 hook（useApi / useKeyboard / useToast / useVirtualScroll）
-- `panels/`：8 个后台面板（AccountsPanel、BetSlip、MatchesExplorer 等）
+### `docs/storybook/` — 组件级文档（Markdown 故事书）
+**做什么**：以 Markdown 形式文档化的组件画廊 —— [README.md](storybook/README.md) 为导航，下设三组（全部对齐 `@betting/ui` / `@betting/core` 当前实现）：
+- `components/`：17 份（theme + 16 组件页，覆盖 Avatar/Badge/LeagueChip/Skeleton/DataTable/Modal/ConfirmModal/Toast/MiniChart/OddsChip/SupportChat/MarkdownText 等）
+- `hooks/`：5 个 `@betting/core` hook（useAuth / useBetSlip / useLiveOdds / useAsyncData + keyboard-shortcuts）
+- `panels/`：9 份 admin 面板文档（8 个 panel + MatchDetail，实现位于 `apps/mobile/src/admin/`）
 
-**⚠️ unify-frontend-expo 后整体 stale**：组件已迁入 `packages/ui`（26 组件，实现有差异），旧 `apps/web` 面板已删除；文档保留作历史参考，待后续统一重写。配合根目录 `index.template.html` 生成静态画廊，由 `.github/workflows/pages.yml` 发布到 GitHub Pages（需手动 enable）。
-**什么时候读**：查旧实现对照时；新组件请直接读 `packages/ui/src`。
+**发布**：`scripts/build_pages.sh` 将 `.md` 渲染为 `.html`（marked + 页壳 + 链接改写）并拼落地页，`.github/workflows/pages.yml` 调该脚本部署 GitHub Pages（需 repo Settings → Pages 手动 enable 一次）。
+**什么时候读**：查组件 props/用法与示例；新组件请同步更新此处并以 `packages/ui/src` 实际导出为准。
 
 ### `docs/visual-baseline/` — 视觉基线截图
 **做什么**：8 个关键页面（login / matches / bets / accounts / settle / feed / support / matches-admin）1400×900 的基准 PNG，供 VISUAL_REGRESSION 对比。
