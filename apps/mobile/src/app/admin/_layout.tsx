@@ -29,8 +29,8 @@ export default function AdminLayout() {
   const isLogin = pathname.endsWith('/login');
   const allowed = !!user && (user.role === 'admin' || user.role === 'support');
 
-  // 未登录/角色不符 → 登录页（登录页除外）
-  if (!isLogin && !allowed) return <Redirect href="/admin/login" />;
+  // 未登录/角色不符 → 登录页（带 from 回跳目标页；登录页除外）
+  if (!isLogin && !allowed) return <Redirect href={`/admin/login?from=${encodeURIComponent(pathname)}`} />;
 
   const role = user?.role;
   const tabs = role === 'support' ? ADMIN_TABS.filter((x) => x.key === 'support') : ADMIN_TABS;

@@ -61,6 +61,10 @@ try {
   await page.getByTestId('explorer').waitFor({ timeout: 15000 });
   await page.waitForTimeout(800);
 
+  // 生产库 >40 场触发 FlatList 虚拟滚动（虚拟卡无 odds chip）—— 先搜索缩小到测试赛事
+  await page.getByTestId('search-team').fill('KUXHome' + ts);
+  await page.waitForTimeout(800);
+
   // ===== K3: 双栏布局（≥1100px 大厅左 + 投注单右）=====
   const slipBox = await page.getByTestId('bet-slip').boundingBox();
   const listBox = await page.getByTestId('explorer').boundingBox();
@@ -100,6 +104,8 @@ try {
 
   // ===== K2: admin 代客下注（选用户 → 50 → 确认）→ 余额 API 校验 =====
   await page.goto(BASE + '/admin/matches', { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('search-team').fill('KUXHome' + ts);
+  await page.waitForTimeout(800);
   await page.locator('[data-testid^="odds-"]').filter({ hasText: /\d+\.\d+/ }).first().waitFor({ timeout: 15000 });
   await page.locator('[data-testid^="odds-"]').filter({ hasText: /\d+\.\d+/ }).first().click();
   await page.waitForTimeout(400);

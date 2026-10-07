@@ -418,10 +418,10 @@ export function MatchesExplorer({ onPick, pickedKeys }: { onPick: (p: BasketPick
             keyExtractor={(m) => String(m.id)}
             getItemLayout={(_d, index) => ({ length: ROW_H, offset: ROW_H * index, index })}
             renderItem={({ item }) => (
-              <View style={{ height: ROW_H, justifyContent: 'center', paddingHorizontal: spacing.md }}>
+              <View testID={`virtual-row-${item.id}`} style={{ height: ROW_H, justifyContent: 'center', paddingHorizontal: spacing.md }}>
                 <Card style={{ padding: spacing.md }}>
                   <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Pressable onPress={() => setDetailMatch(item)}>
+                    <Pressable testID={`match-title-${item.id}`} onPress={() => setDetailMatch(item)}>
                       <Text style={{ color: t.text, fontWeight: '800' }}>
                         {item.home_team} vs {item.away_team}
                       </Text>
