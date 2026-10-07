@@ -64,12 +64,12 @@ export function BetSlip({ items, onRemove, onClear }: { items: BasketPick[]; onR
   const combinedPrice = useMemo(() => (items.length === 0 ? 0 : items.reduce((acc, it) => acc * it.price, 1)), [items]);
   const totalStake = useMemo(() => {
     if (items.length === 0) return 0;
-    if (mode === 'single') return items.reduce((n, it) => n + (Number(perStakes[it.key]) || 0), 0);
+    if (mode === 'single') return items.reduce((n, it) => n + (Number(perStakes[it.key] ?? stake) || 0), 0);
     return Number(stake) || 0;
   }, [items, mode, stake, perStakes]);
   const totalPotential = useMemo(() => {
     if (items.length === 0) return 0;
-    if (mode === 'single') return items.reduce((n, it) => n + (Number(perStakes[it.key]) || 0) * it.price, 0);
+    if (mode === 'single') return items.reduce((n, it) => n + (Number(perStakes[it.key] ?? stake) || 0) * it.price, 0);
     return (Number(stake) || 0) * combinedPrice;
   }, [items, mode, stake, perStakes, combinedPrice]);
 
