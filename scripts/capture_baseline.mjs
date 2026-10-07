@@ -10,7 +10,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const req = createRequire(process.cwd() + '/x.js');
+const req = createRequire((process.env.PW_DIR || process.cwd() + '/') + 'x.js'); // PW_DIR 兼容 bhs-4 npx cache
 const { chromium } = req('playwright');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -103,7 +103,7 @@ async function main() {
   let count = 0;
   for (const p of pages) {
     const { ctx, page } = await makePage(browser, p.auth ? adminLogin : null);
-    await page.goto(`${BASE}${p.url}`, { waitUntil: 'networkidle' });
+    await page.goto(`${BASE}${p.url}`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1200);
     // 遮罩动态元素（更新时间戳）
     await page.addStyleTag({ content: `[data-testid="loaded-at"] { visibility: hidden !important; }` });
