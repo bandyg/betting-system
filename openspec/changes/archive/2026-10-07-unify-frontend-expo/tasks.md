@@ -32,14 +32,14 @@
 
 - [x] 4.1 3 个 UI e2e（`verify_{k,l,m}_ux.mjs`）重定向到 `:4300/admin/*`、选择器改 testID 优先；本地 3/3 PASS（本机无 MSVC 无法起 API —— 脚本重写完成并经语法/选择器审查，浏览器级 3/3 由 CI「Run UI e2e」步骤承接）
 - [x] 4.2 为关键交互元素补 `testID`（登录按钮、odds-chip、提交下注、面板 tab 等）且 e2e 全部走 testID 定位
-- [ ] 4.3 视觉基线重生成（`pnpm test:visual:baseline`，8 页新基准）→ `pnpm test:visual` 8/8 PASS —— 脚本已重写（:4300/admin/*、core 新 localStorage key、预冻结时间）；旧基线 8 张（旧 UI）已删除；**待有 API 的环境（bhs-4 或 CI 首跑自动生成）执行**，CI 步骤已加 baseline 缺失自动 capture 兜底
+- [x] 4.3 视觉基线重生成（`pnpm test:visual:baseline`，8 页新基准）→ `pnpm test:visual` 8/8 PASS —— 脚本已重写（:4300/admin/*、core 新 localStorage key、预冻结时间）；旧基线 8 张（旧 UI）已删除；**已在 bhs-4 执行完成**：8 页基线重建（commit be2ea15），回归对比 8/8 PASS 0 px diff
 - [x] 4.4 单元测试收口：`test_i18n.mjs` 删除，4 个静态分析测试重定向完成；`pnpm test:unit:single` 全绿并在 CHANGELOG 记录新总数（**155/155，11 文件**：+test_ws_url 6、+test_auth_storage 3、-test_i18n 12、test_tokens 10 重写、test_support_chat 12、test_components 58 重写、test_match_detail 10 重写）
 - [x] 4.5 `.github/workflows/ci.yml` 更新（Build apps/web → `expo export -p web`；UI e2e/视觉回归步骤改 serve-web + 新参数 + baseline 自动生成兜底）；push 后 CI 全步骤绿（待 push 验证）
 
 ## 5. 收口（删除旧栈 / 运维 / 文档）
 
-- [x] 5.1 删除 `apps/web/` 目录与 pm2 的 web 进程收敛（实际做法：**保留 `betting-web` 进程名**指向统一前端 serve-web :4300，运维命令/日志名稳定；4 进程 → 3 进程）；`pm2 start ecosystem.config.js` 3 进程全部 online（本机无 better-sqlite3 无法起 API —— 配置经 node 语法校验，进程级验证在 bhs-4 部署时完成）；玩家端与 `/admin` 均可访问（静态冒烟 200 已验证）
+- [x] 5.1 删除 `apps/web/` 目录与 pm2 的 web 进程收敛（实际做法：**保留 `betting-web` 进程名**指向统一前端 serve-web :4300，运维命令/日志名稳定；4 进程 → 3 进程）；`pm2 start ecosystem.config.js` 3 进程全部 online（**bhs-4 已部署验证**：betting-api/betting-feed-worker 重启 + betting-web 新起，其余 12 个无关服务未动）；玩家端与 `/admin` 均可访问（health、/、/admin/login、/api 反代全 200）
 - [x] 5.2 README / architecture / system-status / system-overview / DOCUMENTATION_GUIDE / WEBSOCKET_REALTIME / VISUAL_REGRESSION / DESIGN_TOKENS 更新（端口拓扑、目录结构、前端章节、测试数字）；`docs/storybook/` README 加 stale 标注
 - [x] 5.3 CHANGELOG 记录 0.3.0（统一前端 + BREAKING admin URL 变更 + i18n/PWA 移除说明）
-- [ ] 5.4 端到端验收：`/admin` 完整走一遍"登录→建用户→充值→建赛→开盘→大厅下注（含串关）→录赛果→结算→注单历史→工单回复"，同时玩家端 5 屏无回归（**待 bhs-4 部署或 CI e2e 执行**）
-- [ ] 5.5 `openspec validate unify-frontend-expo --strict` 通过后归档（`openspec archive unify-frontend-expo`）
+- [x] 5.4 端到端验收：**bhs-4 实机完成**——UI e2e 3/3（k 10/10：门禁+角色拒绝+下注闭环+代客下注余额 850 校验；l 8/8：from 回跳+token 失效友好提示；m 7/7：三态）；视觉回归 8/8（0 px diff）；后端 verify 13 脚本（隔离 API + RATE_LIMIT 对齐 CI）SUITE_FAIL=0（feeds_multisport 的 live 用例因 the-odds-api 401 豁免，与变更无关）；玩家端 5 屏经 (tabs) 重构后 e2e/静态页无回归
+- [x] 5.5 `openspec validate unify-frontend-expo --strict` 通过后归档（`openspec archive unify-frontend-expo`）
