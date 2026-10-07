@@ -77,6 +77,9 @@ try {
   await page.waitForTimeout(500);
   const slipItems = await page.locator('[data-testid^="slip-item-"]').count();
   ok(slipItems >= 1, 'K1a 点赔率加入投注单', `items=${slipItems}`);
+  // admin 身份下注必须选代理用户（等价旧版校验）
+  await page.getByTestId('proxy-user-select').click();
+  await page.getByTestId(`proxy-user-select-option-${ua.id}`).click();
 
   // ===== K1: 提交 → 确认弹窗（倒计时）→ 确认 → 成功 toast =====
   await page.getByTestId('default-stake').fill('100');
@@ -117,7 +120,7 @@ try {
   await page.getByTestId('confirm-bet-ok').click();
   await page.waitForTimeout(1500);
   const balAfter = await APIJ('GET', `/users/${ua.id}`, null, aTok);
-  ok(balAfter.data.user?.balance === 950, 'K2a 代客下注扣目标用户余额(1000-50=950)', `bal=${balAfter.data.user?.balance}`);
+  ok(balAfter.data.user?.balance === 850, 'K2a 代客下注累计扣目标用户余额(1000-100-50=850)', `bal=${balAfter.data.user?.balance}`);
 
   await browser.close();
 } catch (e) {
