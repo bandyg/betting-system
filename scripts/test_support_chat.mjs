@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
 // 加载 SupportChat.tsx 源码 + 提取 FAQ
-const supportSrc = readFileSync(join(root, 'apps/web/src/components/SupportChat.tsx'), 'utf8');
+const supportSrc = readFileSync(join(root, 'packages/ui/src/supportChat.tsx'), 'utf8');
 
 // 提取 FAQ 数组
 function extractFaq(src) {
@@ -78,9 +78,9 @@ test('SupportChat: "快捷键" 命中 keyboard FAQ', () => {
   assert.match(reply, /\?/);
 });
 
-test('SupportChat: "PWA" 命中 PWA FAQ', () => {
-  const reply = detectReply('pwa 离线', faq);
-  assert.match(reply, /PWA/i);
+test('SupportChat: "断网" 命中离线横幅 FAQ', () => {
+  const reply = detectReply('断网了', faq);
+  assert.match(reply, /横幅/);
 });
 
 test('SupportChat: 不相关问题走 fallback', () => {
@@ -105,6 +105,6 @@ test('SupportChat: 6 个快捷回复定义在 QUICK_REPLIES', () => {
   assert.ok(items && items.length >= 5, `快捷回复应有 >= 5, 实际 ${items?.length}`);
 });
 
-test('SupportChat: STORAGE_KEY 用于持久化', () => {
-  assert.match(supportSrc, /localStorage\.(setItem|getItem)\(STORAGE_KEY/);
+test('SupportChat: STORAGE_KEY 用于持久化（AsyncStorage）', () => {
+  assert.match(supportSrc, /AsyncStorage\.setItem\(STORAGE_KEY/);
 });

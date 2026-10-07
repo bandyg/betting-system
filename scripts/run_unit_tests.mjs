@@ -27,7 +27,7 @@ for (const f of tests) {
   process.stdout.write(`  ${f.padEnd(40)} `);
   // test_*.mjs 纯 Node --test；test_monitor.mjs / test_rate_limit.mjs 因 import TS 用 tsx 跑（避免 better-sqlite3 native 编译）
   // Windows: npx 实际是 npx.cmd；Git Bash 需 shell:true 才能找到 .cmd
-  const useTsx = f === 'test_monitor.mjs' || f === 'test_rate_limit.mjs' || f === 'test_csv.mjs';
+  const useTsx = f === 'test_monitor.mjs' || f === 'test_rate_limit.mjs' || f === 'test_csv.mjs' || f === 'test_auth_storage.mjs';
   const useShell = useTsx && process.platform === 'win32';
   const runner = useTsx ? 'npx' : 'node';
   const args = useTsx ? ['tsx', '--test', f] : ['--test', f];

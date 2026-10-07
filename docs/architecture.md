@@ -19,17 +19,17 @@
 │                    bhs-4 (Tailscale)                        │
 │                                                             │
 │  ┌──────────────────────────────────────────────┐          │
-│  │  pm2 ecosystem (4 betting apps + 12 others) │          │
-│  │  ┌────────────┐  ┌──────────┐  ┌─────────┐  │          │
-│  │  │ api :4100  │  │web :4200 │  │mobile   │  │          │
-│  │  │ (Express)  │  │(vite     │  │ :4300   │  │          │
-│  │  │            │  │ preview) │  │(expo    │  │          │
-│  │  │            │  │          │  │ web)    │  │          │
-│  │  └──────┬─────┘  └────┬─────┘  └────┬────┘  │          │
-│  │         │             │              │        │          │
-│  │         └─────────────┴──────────────┘        │          │
-│  │                       │ /api reverse-proxy    │          │
-│  │                       ▼                        │          │
+│  │  pm2 ecosystem (3 betting apps + 12 others) │          │
+│  │  ┌────────────┐  ┌─────────────────────┐    │          │
+│  │  │ api :4100  │  │ web :4300 (统一前端) │    │          │
+│  │  │ (Express)  │  │ serve-web.mjs:      │    │          │
+│  │  │            │  │  Expo 静态产物       │    │          │
+│  │  │            │  │  玩家端 / + /admin  │    │          │
+│  │  │            │  │  /api + /ws 反代    │    │          │
+│  │  └──────┬─────┘  └──────────┬──────────┘    │          │
+│  │         └───────────────────┘               │          │
+│  │                       │                      │          │
+│  │                       ▼                      │          │
 │  │  ┌──────────────────────────────────────┐    │          │
 │  │  │       feed-worker (env-gated)        │    │          │
 │  │  │   polls the-odds-api → ingest DB     │    │          │
@@ -37,9 +37,9 @@
 │  │  │   + 额度治理 ≤450 req/月             │    │          │
 │  │  └──────────────────────────────────────┘    │          │
 │  │                                               │          │
-│  │  WebSocket: api :4100 /ws/odds               │          │
-│  │  （admin 调赔 → broadcast odds_batch →       │          │
-│  │   web useLiveOdds 自动重连 + 心跳）          │          │
+│  │  WebSocket: api :4100 /ws/odds（:4300 /ws     │          │
+│  │  反代）admin 调赔 → odds_batch broadcast →    │          │
+│  │  useLiveOdds 自动重连 + 心跳 → OddsChip 闪动  │          │
 │  └──────────────────────────────────────────────┘          │
 │                          │                                  │
 │                          ▼                                  │
@@ -228,21 +228,19 @@ POST /auth/login {name, password}
    requireRole('admin') → 检查 role
 ```
 
-## 6. 前端架构
+## 6. 前端架构（unify-frontend-expo 后）
 
 ```
-apps/web (React + Vite, :4200)
-   ├─ SPA, vite preview (production)
-   ├─ 路由: hash 路由（无 react-router）
-   ├─ 状态: useState + useEffect（无 redux）
-   ├─ API: packages/core api.ts (fetch + JWT)
-   └─ UI: packages/ui Card/Button/OddsButton
+apps/mobile (Expo SDK 57 / RN-Web, :4300 单一交付)
+   ├─ expo-router: 玩家端 /（Tabs 5 屏）+ admin 路由组 /admin（门禁 + 8 面板）
+   ├─ 状态: core hooks（useAuth/useCurrentUser 模块级单例）+ zustand（主题/toast）
+   ├─ 持久化: AsyncStorage（web 端自动落 localStorage）
+   ├─ API: packages/core api.ts（web 相对 /api 反代；native setApiBase 直连）
+   ├─ WS: core useLiveOdds + wsUrlFromApiBase()
+   ├─ UI: packages/ui 唯一实现（26 组件，dark/light tokens）
+   └─ 静态交付: expo export -p web → serve-web.mjs（/api + /ws 反代）
 
-apps/mobile (Expo / RN-Web, :4300)
-   ├─ expo-router (file-based, web output single-page SPA)
-   ├─ 三端共享 (iOS / Android / Web)
-   ├─ Cache-Control: no-cache (避免 hydration 空白)
-   └─ metro monorepo + @betting/core + @betting/ui
+（旧 apps/web React+Vite :4200 已删除，见 openspec/changes/unify-frontend-expo）
 ```
 
 ## 7. 部署与运维
@@ -251,18 +249,17 @@ apps/mobile (Expo / RN-Web, :4300)
 
 ```
 betting-api        :4100  apps/api/dist/index.js
-betting-web        :4200  pnpm preview --host 0.0.0.0
-betting-mobile-web :4300  apps/mobile via serve-web.mjs
+betting-web        :4300  apps/mobile/scripts/serve-web.mjs（Expo 静态产物 + /api /ws 反代）
 betting-feed-worker       env-gated（FEED_API_KEY 就绪则调度，intervalMin=240）
 ```
 
 ### 7.1b CI/CD（GitHub Actions）
 
 ```
-ci.yml    push/PR → pnpm install + build + 隔离 API :14100
-          → 11 verify_*.py + verify_health.mjs + 3 UI e2e（|| true）
-          → unit 92 + visual 8/8 + WebSocket odds
-pages.yml push master 触 docs/** → Storybook + visual-baseline 部署 Pages
+ci.yml    push/PR → pnpm install + api build + expo export web + 隔离 API :14100
+          → 13 verify_*.py + verify_health.mjs + 3 UI e2e（:4300/admin，|| true）
+          → unit 155 + visual 8 页（baseline 缺失自动生成）+ WebSocket odds
+pages.yml push master 触 docs/** → Storybook（stale）+ visual-baseline 部署 Pages
           （需 repo Settings → Pages 手动启用一次）
 ```
 
@@ -270,11 +267,10 @@ pages.yml push master 触 docs/** → Storybook + visual-baseline 部署 Pages
 
 ```
 1. pnpm install
-2. cd apps/api && pnpm build   # tsc strict
-3. cd apps/web && pnpm build   # vite build
-4. cd apps/mobile && pnpm build # expo export
-5. pm2 start ecosystem.config.js
-6. pm2 save
+2. cd apps/api && pnpm build     # tsc strict
+3. cd apps/mobile && npx expo export -p web   # 静态产物 → dist/
+4. pm2 start ecosystem.config.js
+5. pm2 save
 ```
 
 ### 7.3 隔离 e2e 模式

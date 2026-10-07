@@ -51,6 +51,25 @@ export function getApiBase() {
   return API_BASE;
 }
 
+/**
+ * 由 API base 推导 WebSocket 地址（RN 无 window.location，必须显式推导）：
+ * - 绝对 base（http/https）：替换协议为 ws/wss，去掉结尾 /api 后接 path（WS 挂在服务根，如 /ws/odds）
+ * - 相对 base（web 同源反代）：由页面 location 推导 ws(s)://host + path
+ * - 相对 base 且无 window（native 忘了 setApiBase）：抛错提示
+ */
+export function wsUrlFromApiBase(path = '/ws/odds'): string {
+  const p = path.startsWith('/') ? path : `/${path}`;
+  if (/^https?:\/\//i.test(API_BASE)) {
+    const host = API_BASE.replace(/^http/i, 'ws').replace(/\/api$/i, '');
+    return `${host}${p}`;
+  }
+  if (typeof window !== 'undefined' && window.location?.host) {
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    return `${proto}://${window.location.host}${p}`;
+  }
+  throw new Error('wsUrlFromApiBase: native 端需先 setApiBase("http://<host>:<port>/api") 再推导 WS 地址');
+}
+
 /** 当前登录用户的 session token（登录后由 setAuthToken 注入） */
 let AUTH_TOKEN: string | null = null;
 

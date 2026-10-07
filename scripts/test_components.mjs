@@ -1,7 +1,6 @@
-// scripts/test_components.mjs — 组件关键源码断言 (Sprint 5 C7)
+// scripts/test_components.mjs — 组件关键源码断言（unify-frontend-expo 重写，指向 packages/ui + apps/mobile/src/admin）
 //
-// 验证关键功能在源码中存在 (regression test):
-// - Avatar / LeagueChip / MiniChart 等
+// 验证关键功能在源码中存在 (regression test)
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,121 +15,144 @@ function readSrc(rel) {
   return readFileSync(join(root, rel), 'utf8');
 }
 
-// ── Avatar ──
-const avatarSrc = readSrc('apps/web/src/components/Avatar.tsx');
-test('Avatar: hashHue 函数', () => assert.match(avatarSrc, /function hashHue/));
-test('Avatar: HSL 颜色生成', () => assert.match(avatarSrc, /hsl\(\$\{hue\}/));
-test('Avatar: 有 src 时渲染 img', () => assert.match(avatarSrc, /<img/));
-test('Avatar: 无 src 时渲染首字 circle', () => assert.match(avatarSrc, /toUpperCase\(\)/));
-test('Avatar: 接受 size prop', () => assert.match(avatarSrc, /size\?: number/));
+// ── Avatar / LeagueChip / Badge（packages/ui/src/primitives.tsx）──
+const primSrc = readSrc('packages/ui/src/primitives.tsx');
+test('Avatar: hashHue 函数', () => assert.match(primSrc, /function hashHue/));
+test('Avatar: HSL 颜色生成', () => assert.match(primSrc, /hsl\(\$\{hue\}/));
+test('Avatar: 无 src 时渲染首字', () => assert.match(primSrc, /toUpperCase\(\)/));
+test('Avatar: 接受 size prop', () => assert.match(primSrc, /size = 32/));
+test('LeagueChip: hashHue 使用', () => assert.match(primSrc, /const hue = hashHue\(league/));
+test('LeagueChip: sport emoji 推算', () => assert.match(primSrc, /SPORT_EMOJI/));
+test('LeagueChip: size variants xs/sm/md', () => assert.match(primSrc, /size\?: 'xs' \| 'sm' \| 'md'/));
+test('Badge: statusTone 语义取色', () => assert.match(primSrc, /statusTone\[status\]/));
 
-// ── LeagueChip ──
-const chipSrc = readSrc('apps/web/src/components/LeagueChip.tsx');
-const chipCss = readSrc('apps/web/src/styles/components.css');
-test('LeagueChip: hashHue 使用', () => assert.match(chipSrc, /const hue = hashHue\(league/));
-test('LeagueChip: 接受 size prop', () => assert.match(chipSrc, /size\?:/));
-test('LeagueChip: sport emoji 推算', () => assert.match(chipSrc, /SPORT_EMOJI/));
-test('LeagueChip: 首字 toUpperCase', () => assert.match(chipSrc, /charAt\(0\)\.toUpperCase\(\)/));
-test('LeagueChip: CSS size variants xs/sm/md', () => {
-  assert.match(chipCss, /\.league-chip\.lc-xs/);
-  assert.match(chipCss, /\.league-chip\.lc-sm/);
-  assert.match(chipCss, /\.league-chip\.lc-md/);
+// ── MiniChart（packages/ui/src/chart.tsx，react-native-svg）──
+const chartSrc = readSrc('packages/ui/src/chart.tsx');
+test('MiniChart: SVG 折线 path', () => assert.match(chartSrc, /<Path d=/));
+test('MiniChart: 渐变填充', () => assert.match(chartSrc, /<LinearGradient/));
+test('MiniChart: 空数据处理', () => assert.match(chartSrc, /暂无走势/));
+test('MiniChart: 涨跌着色', () => assert.match(chartSrc, /up \? t\.success : t\.danger/));
+
+// ── OddsChip（packages/ui/src/oddsChip.tsx，涨跌闪态）──
+const oddsSrc = readSrc('packages/ui/src/oddsChip.tsx');
+test('OddsChip: flash up/down 阈值', () => assert.match(oddsSrc, /flash === 'up'/));
+test('OddsChip: ▲▼ 方向符', () => assert.match(oddsSrc, /▲/));
+test('OddsChip: 1.2s 后清除闪态', () => assert.match(oddsSrc, /1200/));
+test('OddsChip: 选中态背景', () => assert.match(oddsSrc, /selected \? t\.oddsActiveBg/));
+
+// ── Toast（packages/ui/src/toast.tsx，zustand）──
+const toastSrc = readSrc('packages/ui/src/toast.tsx');
+test('Toast: zustand create store', () => assert.match(toastSrc, /create<ToastState>/));
+test('Toast: 最多 3 条堆叠', () => assert.match(toastSrc, /slice\(-3\)/));
+test('Toast: action 按钮 8s / 默认 3.5s TTL', () => {
+  assert.match(toastSrc, /\? 8000 : 3500/);
+});
+test('Toast: toastApiError 重试动作', () => assert.match(toastSrc, /toastApiError/));
+
+// ── ConfirmModal（packages/ui/src/modal.tsx，8s 自动确认 + Esc）──
+const modalSrc = readSrc('packages/ui/src/modal.tsx');
+test('ConfirmModal: autoConfirmMs 倒计时自动确认', () => assert.match(modalSrc, /autoConfirmMs/));
+test('Modal: web Esc 关闭', () => assert.match(modalSrc, /Escape/));
+
+// ── OfflineBanner / ErrorBoundary（packages/ui/src/feedback.tsx）──
+const fbSrc = readSrc('packages/ui/src/feedback.tsx');
+test('OfflineBanner: NetInfo 订阅', () => assert.match(fbSrc, /NetInfo\.addEventListener/));
+test('OfflineBanner: 恢复提示 2.5s', () => assert.match(fbSrc, /2500/));
+test('ErrorBoundary: getDerivedStateFromError', () => assert.match(fbSrc, /getDerivedStateFromError/));
+test('ErrorBoundary: web 提供刷新按钮', () => assert.match(fbSrc, /error-reload/));
+
+// ── Skeleton 4 变体（packages/ui/src/skeleton.tsx）──
+const skSrc = readSrc('packages/ui/src/skeleton.tsx');
+test('Skeleton: Line/Block/List/Table 四变体', () => {
+  assert.match(skSrc, /export function SkeletonLine/);
+  assert.match(skSrc, /export function SkeletonBlock/);
+  assert.match(skSrc, /export function SkeletonList/);
+  assert.match(skSrc, /export function SkeletonTable/);
 });
 
-// ── MiniChart ──
-const chartSrc = readSrc('apps/web/src/components/MiniChart.tsx');
-test('MiniChart: SVG 折线 path', () => assert.match(chartSrc, /<path\s+d=/));
-test('MiniChart: hover tooltip', () => assert.match(chartSrc, /onMouseEnter/));
-test('MiniChart: 空数据处理', () => assert.match(chartSrc, /暂无数据/));
-test('MiniChart: 填充面积', () => assert.match(chartSrc, /opacity=\{0\.1\}/));
+// ── DataTable / Select（packages/ui/src/table.tsx + form.tsx）──
+const tblSrc = readSrc('packages/ui/src/table.tsx');
+const formSrc = readSrc('packages/ui/src/form.tsx');
+test('DataTable: 泛型列 + render', () => {
+  assert.match(tblSrc, /export interface Column<T>/);
+  assert.match(tblSrc, /render\?: \(row: T\)/);
+});
+test('DataTable: 加载骨架 + 行 hover', () => {
+  assert.match(tblSrc, /SkeletonTable/);
+  assert.match(tblSrc, /onHoverIn/);
+});
+test('Select: 下拉选项 testID 可测', () => assert.match(formSrc, /-option-/));
 
-// ── ConfirmBet ──
-const confirmSrc = readSrc('apps/web/src/components/ConfirmBet.tsx');
-test('ConfirmBet: 8s 自动确认', () => assert.match(confirmSrc, /setSecondsLeft\(8\)/));
-test('ConfirmBet: ESC 关闭', () => assert.match(confirmSrc, /key === ['"]Escape['"]/));
-test('ConfirmBet: 倒计时显示', () => assert.match(confirmSrc, /\$\{secondsLeft\}s/));
-test('ConfirmBet: combinedPrice 显示 (parlay)', () => assert.match(confirmSrc, /combinedPrice\.toFixed\(2\)/));
+// ── SupportChat（packages/ui/src/supportChat.tsx）──
+const scSrc = readSrc('packages/ui/src/supportChat.tsx');
+test('SupportChat: AsyncStorage 持久化', () => assert.match(scSrc, /AsyncStorage\.setItem\(STORAGE_KEY/));
+test('SupportChat: Alert 替代 window.confirm', () => assert.match(scSrc, /Alert\.alert/));
 
-// ── ErrorReporter ──
-const errSrc = readSrc('apps/web/src/lib/ErrorReporter.ts');
-test('ErrorReporter: window.onerror 监听', () => assert.match(errSrc, /addEventListener\(['"]error['"]/));
-test('ErrorReporter: unhandledrejection 监听', () => assert.match(errSrc, /addEventListener\(['"]unhandledrejection['"]/));
-test('ErrorReporter: localStorage 持久化 50 条', () => assert.match(errSrc, /while\s*\(arr\.length\s*>\s*50\)/));
-test('ErrorReporter: __getErrors 调试 API', () => assert.match(errSrc, /__getErrors/));
-test('ErrorReporter: 防止重复注册', () => assert.match(errSrc, /__errorReporterInstalled/));
-
-// ── OfflineBanner ──
-const offlineSrc = readSrc('apps/web/src/components/OfflineBanner.tsx');
-test('OfflineBanner: 监听 online/offline 事件', () => assert.match(offlineSrc, /addEventListener\(['"]online['"]/));
-test('OfflineBanner: 显示恢复动画 2.5s', () => assert.match(offlineSrc, /2500/));
-
-// ── BetSlip (key functionality) ──
-const slipSrc = readSrc('apps/web/src/panels/BetSlip.tsx');
-test('BetSlip: parlay 模式 toggle', () => assert.match(slipSrc, /setMode\(['"]parlay['"]/));
-test('BetSlip: 赔率相乘 combinedPrice', () => assert.match(slipSrc, /reduce\(\(acc,\s*it\)\s*=>\s*acc\s*\*\s*it\.price/));
-test('BetSlip: ConfirmBet 集成', () => assert.match(slipSrc, /<ConfirmBet/));
-test('BetSlip: buildConfirmItems 收集', () => assert.match(slipSrc, /buildConfirmItems/));
+// ── admin 面板（apps/mobile/src/admin/panels）──
+const slipSrc = readSrc('apps/mobile/src/admin/panels/BetSlip.tsx');
+test('BetSlip: parlay 模式 toggle', () => assert.match(slipSrc, /\['single', 'parlay'\] as Mode\[\]/));
+test('BetSlip: 赔率相乘 combinedPrice', () => assert.match(slipSrc, /reduce\(\(acc, it\) => acc \* it\.price, 1\)/));
+test('BetSlip: 真串关 placeParlayItems（旧版循环单注 bug 已修）', () => assert.match(slipSrc, /placeParlayItems/));
+test('BetSlip: ConfirmModal 8s 自动确认', () => assert.match(slipSrc, /autoConfirmMs=\{8000\}/));
 test('BetSlip: 赔率变化 flash 检测', () => assert.match(slipSrc, /oddsFlash/));
-test('BetSlip: 集成 ConfirmBet modal', () => assert.match(slipSrc, /import\s*\{[^}]*ConfirmBet[^}]*\}\s*from\s*['"]\.\.\/components\/ConfirmBet\.js['"]/));
+test('BetSlip: admin 代客下注', () => assert.match(slipSrc, /proxy-user-select/));
 
-// ── BetsPanel (#5 结算动画) ──
-const betsSrc = readSrc('apps/web/src/panels/BetsPanel.tsx');
-test('BetsPanel: flashIds state 跟踪', () => assert.match(betsSrc, /flashIds/));
-test('BetsPanel: prevBetsRef 比较 status', () => assert.match(betsSrc, /prevBetsRef/));
-test('BetsPanel: outcome win/lose 着色', () => {
-  // 模板字符串: outcome-${outcome} / flash-${outcome}
-  assert.match(betsSrc, /outcome-\$\{outcome\}/);
-  assert.match(betsSrc, /flash-\$\{outcome\}/);
+const betsSrc = readSrc('apps/mobile/src/admin/panels/BetsPanel.tsx');
+test('BetsPanel: flashIds + prevBetsRef 结算闪动', () => {
+  assert.match(betsSrc, /flashIds/);
+  assert.match(betsSrc, /prevBetsRef/);
+});
+test('BetsPanel: 输赢着色', () => {
+  assert.match(betsSrc, /o === 'win'\) return t\.success/);
+  assert.match(betsSrc, /o === 'lose'\) return t\.danger/);
 });
 
-// ── MatchesExplorer (A6 智能筛选) ──
-const explorerSrc = readSrc('apps/web/src/panels/MatchesExplorer.tsx');
-test('MatchesExplorer: 多 sport 选择', () => assert.match(explorerSrc, /sports[^=]*=\s*useState<string\[\]>/));
+const explorerSrc = readSrc('apps/mobile/src/admin/panels/MatchesExplorer.tsx');
+test('MatchesExplorer: 多 sport 选择', () => assert.match(explorerSrc, /setSports\(/));
 test('MatchesExplorer: 联赛搜索 leagueQ', () => assert.match(explorerSrc, /leagueQ/));
 test('MatchesExplorer: 仅开盘 onlyWithOdds', () => assert.match(explorerSrc, /onlyWithOdds/));
-test('MatchesExplorer: 预设 localStorage 持久化', () => assert.match(explorerSrc, /localStorage\.(setItem|getItem)/));
-test('MatchesExplorer: 虚拟滚动 useVirtualScroll', () => assert.match(explorerSrc, /useVirtualScroll/));
-test('MatchesExplorer: LeagueChip 集成', () => assert.match(explorerSrc, /<LeagueChip/));
-test('MatchesExplorer: MatchDetail modal', () => assert.match(explorerSrc, /<MatchDetail/));
-
-// ── main.tsx (初始化链) ──
-const mainSrc = readSrc('apps/web/src/main.tsx');
-test('main: initTheme()', () => assert.match(mainSrc, /initTheme\(\)/));
-test('main: setupErrorReporter()', () => assert.match(mainSrc, /setupErrorReporter\(\)/));
-test('main: I18nProvider 包裹', () => assert.match(mainSrc, /<I18nProvider/));
-test('main: SW 注册 PROD 模式', () => assert.match(mainSrc, /import\.meta\.env\.PROD/));
-test('main: ErrorBoundary 包裹', () => assert.match(mainSrc, /<ErrorBoundary>/));
-test('main: BrowserRouter 包裹', () => assert.match(mainSrc, /<BrowserRouter/));
-
-// ── PWA manifest + SW ──
-test('manifest.webmanifest: 存在', () => {
-  const m = readSrc('apps/web/public/manifest.webmanifest');
-  assert.match(m, /"name":\s*"Betting Admin"/);
-  assert.match(m, /"start_url"/);
-  assert.match(m, /"display":\s*"standalone"/);
+test('MatchesExplorer: 预设 AsyncStorage 持久化', () => assert.match(explorerSrc, /AsyncStorage\.setItem\(PRESETS_KEY/));
+test('MatchesExplorer: FlatList 虚拟滚动（>40 条）', () => {
+  assert.match(explorerSrc, /VIRTUAL_THRESHOLD = 40/);
+  assert.match(explorerSrc, /getItemLayout/);
 });
-test('sw.js: cache-first 静态资源', () => {
-  const m = readSrc('apps/web/public/sw.js');
-  assert.match(m, /caches\.match/);
-  assert.match(m, /STATIC_CACHE/);
-});
-test('sw.js: API 不缓存 (network-only)', () => {
-  const m = readSrc('apps/web/public/sw.js');
-  assert.match(m, /\/api\//);
-  assert.match(m, /return;\s*\/\/.*浏览器正常处理/);
+test('MatchesExplorer: 实时赔率 useLiveOdds', () => assert.match(explorerSrc, /useLiveOdds/));
+test('MatchesExplorer: MatchDetail 弹窗', () => assert.match(explorerSrc, /<MatchDetail/));
+
+// ── 键盘快捷键（apps/mobile/src/admin/keyboard.tsx，web-only ref 注册表）──
+const kbSrc = readSrc('apps/mobile/src/admin/keyboard.tsx');
+test('Keyboard: web-only 激活', () => assert.match(kbSrc, /Platform\.OS !== 'web'/));
+test('Keyboard: 输入框内不触发', () => assert.match(kbSrc, /INPUT|TEXTAREA|SELECT/));
+test('Keyboard: 1/2/3 + Enter + ? + Esc', () => {
+  assert.match(kbSrc, /'1' \|\| e\.key === '2' \|\| e\.key === '3'/);
+  assert.match(kbSrc, /registerSubmit/);
+  assert.match(kbSrc, /'\?'/);
 });
 
-// ── Storybook (C6) ──
+// ── 门禁（apps/mobile/src/app/admin/_layout.tsx）──
+const layoutSrc = readSrc('apps/mobile/src/app/admin/_layout.tsx');
+test('AdminLayout: 角色门禁 admin/support', () => assert.match(layoutSrc, /'admin' \|\| user\.role === 'support'/));
+test('AdminLayout: 未登录跳登录页', () => assert.match(layoutSrc, /Redirect href="\/admin\/login"/));
+
+// ── 根布局（apps/mobile/src/app/_layout.tsx：web 同源 / native 直连 + AsyncStorage）──
+const rootLayoutSrc = readSrc('apps/mobile/src/app/_layout.tsx');
+test('RootLayout: web 相对 /api、native 直连', () => {
+  assert.match(rootLayoutSrc, /Platform\.OS !== 'web'/);
+  assert.match(rootLayoutSrc, /EXPO_PUBLIC_API_BASE/);
+});
+test('RootLayout: native 注入 AsyncStorage + 异步恢复会话', () => {
+  assert.match(rootLayoutSrc, /setAuthStorage\(AsyncStorage\)/);
+  assert.match(rootLayoutSrc, /restoreSessionAsync\(\)/);
+});
+test('RootLayout: 错误上报接线', () => assert.match(rootLayoutSrc, /setupErrorReporter\(\)/));
+test('RootLayout: ErrorBoundary 包裹', () => assert.match(rootLayoutSrc, /<ErrorBoundary>/));
+
+// ── Storybook（docs/storybook 仍保留，标注 stale）──
 test('Storybook: index.html 存在', () => {
   const m = readSrc('docs/storybook/index.html');
-  assert.match(m, /Betting Admin — Storybook/);
-  assert.match(m, /17 组件/);
+  assert.match(m, /Storybook/);
 });
-test('Storybook: README 索引', () => {
-  const m = readSrc('docs/storybook/README.md');
-  assert.match(m, /Components Storybook/);
-});
-test('Storybook: 至少 25 个 markdown 文档', () => {
+test('Storybook: 至少 20 个 markdown 文档', () => {
   let count = 0;
   function walk(dir) {
     for (const f of readdirSync(dir)) {

@@ -1,6 +1,7 @@
-# Visual Regression — 视觉回归测试 (Sprint 5 + 扩展)
+# Visual Regression — 视觉回归测试
 
 > Playwright + pixelmatch 截图对比，**纯 CLI / 零前端 build 依赖**
+> ⚠️ **unify-frontend-expo 更新**：目标从旧 `apps/web`(:4200/vite preview) 改为统一前端 `:4300/admin`（serve-web + Expo export）；8 页 URL 全部变为 `/admin/*`；登录注入改用 core 的 `betting.token`/`betting.currentUser` localStorage key；浏览器解析用 `PW_EXECUTABLE` env（缺省走 playwright 默认）。旧 8 张基线已删除，由 CI 首跑或 bhs-4 手动重建。
 
 ## 文件位置
 
@@ -20,21 +21,18 @@ docs/
 ### 1. 设置环境
 
 ```bash
-# bhs-4 上 (无 MSVC, 不能本机跑)
-bhs-4 $ cd ~/services/betting-system
-# 启动 API + preview (与 e2e 相同)
-bhs-4 $ PORT=14100 BETTING_DB_PATH=/tmp/u.db node apps/api/dist/index.js &
-bhs-4 $ cd apps/web && VITE_API_TARGET=http://localhost:14100 \
-  node ../../node_modules/vite/bin/vite.js preview --port 14203 &
+# 启动 API + serve-web（需先 expo export -p web）
+PORT=14100 BETTING_DB_PATH=/tmp/u.db node apps/api/dist/index.js &
+API_TARGET=http://127.0.0.1:14100 node apps/mobile/scripts/serve-web.mjs 14300 &
 ```
 
 ### 2. 截 baseline (首次 / 大改 UI 后)
 
 ```bash
-bhs-4 $ BASE=http://127.0.0.1:14203 API=http://127.0.0.1:14100/api \
+BASE=http://127.0.0.1:14300 API=http://127.0.0.1:14100/api \
   node scripts/capture_baseline.mjs
 # 截图保存到 docs/visual-baseline/{login,matches,bets,accounts,...}.png
-# 8 个关键页面 × 1400×900 viewport
+# 8 个关键 /admin 页面 × 1400×900 viewport
 ```
 
 **commit 这些 PNG 到 repo**, 作为后续对比基准。

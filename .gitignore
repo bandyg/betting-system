@@ -16,3 +16,6 @@ apps/web/vite.config.ts.bak.agent
 # Visual regression (current + diff 不 commit)
 docs/visual-current/
 docs/visual-diff/
+
+# scratch（会话级草稿，不入库）
+.scratch/

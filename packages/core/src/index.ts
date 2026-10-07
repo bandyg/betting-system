@@ -1,4 +1,4 @@
-export { api, setApiBase, getApiBase, setAuthToken, getAuthToken } from './api';
+export { api, setApiBase, getApiBase, wsUrlFromApiBase, setAuthToken, getAuthToken } from './api';
 export type {
   Bet,
   Market,
@@ -77,6 +77,9 @@ export {
   useWithdrawals,
   useAuth,
   restoreSession,
+  restoreSessionAsync,
+  setAuthStorage,
+  resetAuthForTest,
   useRiskLimits,
   useAnalyticsDashboard,
   useAnalyticsTrends,
@@ -84,6 +87,7 @@ export {
   useAnalyticsUsers,
   useSupportTickets,
   useSports,
-  useLeagues
+  useLeagues,
+  useLiveOdds
 } from './hooks';
-export type { BetSlipItem, BetSlipState, CurrentUserState, AuthState, PlaceBetResult } from './hooks';
+export type { BetSlipItem, BetSlipState, CurrentUserState, AuthState, PlaceBetResult, AuthStorageAdapter, OddsUpdateItem } from './hooks';

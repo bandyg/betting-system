@@ -1,13 +1,12 @@
-// scripts/visual_regression.mjs — Playwright + pixelmatch compare (Sprint 5)
+// scripts/visual_regression.mjs — Playwright + pixelmatch 对比（unify-frontend-expo 重写，:4300/admin/*）
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const PW_DIR = process.env.PW_DIR || '/home/bandyg/.npm/_npx/9833c18b2d85bc59/node_modules/';
-const require = createRequire(PW_DIR + 'x.js');
-const { chromium } = require('playwright');
+const req = createRequire(process.cwd() + '/x.js');
+const { chromium } = req('playwright');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
@@ -15,60 +14,56 @@ const BASELINE_DIR = join(root, 'docs/visual-baseline');
 const DIFF_DIR = join(root, 'docs/visual-diff');
 const CURRENT_DIR = join(root, 'docs/visual-current');
 
-const BASE = process.env.BASE || 'http://127.0.0.1:14203';
+const BASE = process.env.BASE || 'http://127.0.0.1:14300';
 const API = process.env.API || 'http://127.0.0.1:14100/api';
 const VIEWPORT = { width: 1400, height: 900 };
 const PIXELMATCH_THRESHOLD = '0.1';
 
 const pages = [
-  { url: '/login', name: 'login', auth: false },
-  { url: '/matches', name: 'matches', auth: 'user' },
-  { url: '/bets', name: 'bets', auth: 'user' },
-  { url: '/accounts', name: 'accounts', auth: 'admin' },
-  { url: '/matches-admin', name: 'matches-admin', auth: 'admin' },
-  { url: '/settle', name: 'settle', auth: 'admin' },
-  { url: '/feed', name: 'feed', auth: 'admin' },
-  { url: '/support', name: 'support', auth: 'admin' },
+  { url: '/admin/login', name: 'login', auth: false },
+  { url: '/admin/matches', name: 'matches', auth: true },
+  { url: '/admin/history', name: 'bets', auth: true },
+  { url: '/admin/accounts', name: 'accounts', auth: true },
+  { url: '/admin/create', name: 'matches-admin', auth: true },
+  { url: '/admin/settle', name: 'settle', auth: true },
+  { url: '/admin/feed', name: 'feed', auth: true },
+  { url: '/admin/support', name: 'support', auth: true },
 ];
 
-async function getToken(name, password) {
-  const r = await fetch(API + '/auth/login', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+async function login(name, password) {
+  const r = await fetch(`${API}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, password }),
   });
-  return (await r.json()).token;
+  return (await r.json());
 }
 
 async function seed() {
-  const adminTok = await getToken('admin', 'admin123');
-  // Sprint 5: idempotent - skip create if VR match exists (avoid baseline/regression diff)
-  const lr = await fetch(API + '/matches', { headers: { Authorization: 'Bearer ' + adminTok } });
+  const ad = await login('admin', 'admin123');
+  const aTok = ad.token;
+  const lr = await fetch(`${API}/matches`, { headers: { Authorization: `Bearer ${aTok}` } });
   const ld = await lr.json();
-  const existing = (ld.matches || []).find((x) => x.league === 'VRLeague');
-  if (!existing) {
-    const cr = await fetch(API + '/matches', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminTok },
+  let m = (ld.matches || []).find((x) => x.league === 'VRLeague');
+  if (!m) {
+    const ts = Date.now();
+    const cr = await fetch(`${API}/matches`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${aTok}` },
       body: JSON.stringify({
-        homeTeam: 'VRHome', awayTeam: 'VRAway',
+        homeTeam: 'VRHome' + ts, awayTeam: 'VRAway' + ts,
         kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'VRLeague',
       }),
     });
-    await cr.json();
+    m = (await cr.json()).match;
   }
-  const ur = await fetch(API + '/users', { headers: { Authorization: 'Bearer ' + adminTok } });
-  const ud = await ur.json();
-  let u = ud.users.find((x) => x.name === 'vruser');
-  if (!u) {
-    const r = await fetch(API + '/users', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminTok },
-      body: JSON.stringify({ name: 'vruser', password: '123456' }),
+  if (m && (!m.markets || m.markets.length === 0)) {
+    await fetch(`${API}/matches/${m.id}/markets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${aTok}` },
+      body: JSON.stringify({ type: '1x2', odds: { home: 2.1, draw: 3.4, away: 3.2 } }),
     });
-    u = (await r.json()).user;
   }
-  await fetch(API + '/users/' + u.id + '/deposit', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminTok },
-    body: JSON.stringify({ amount: 1000 }),
-  });
 }
 
 function runPixelmatch(baseline, current, diff) {
@@ -76,8 +71,8 @@ function runPixelmatch(baseline, current, diff) {
     const p = spawn('npx', ['-y', 'pixelmatch', baseline, current, diff, PIXELMATCH_THRESHOLD], { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
-    p.stdout.on('data', (d) => out += d.toString());
-    p.stderr.on('data', (d) => err += d.toString());
+    p.stdout.on('data', (d) => (out += d.toString()));
+    p.stderr.on('data', (d) => (err += d.toString()));
     p.on('close', (code) => resolve({ code, out: out.trim(), err: err.trim() }));
   });
 }
@@ -92,37 +87,17 @@ async function main() {
   if (!existsSync(DIFF_DIR)) mkdirSync(DIFF_DIR, { recursive: true });
   if (!existsSync(CURRENT_DIR)) mkdirSync(CURRENT_DIR, { recursive: true });
 
-  console.log('seeding...');
+  console.log('seeding VRLeague ...');
   await seed();
-  const userTok = await getToken('vruser', '123456');
-  const adminTok = await getToken('admin', 'admin123');
+  const adminLogin = await login('admin', 'admin123');
 
-  const browser = await chromium.launch({ executablePath: '/home/bandyg/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome', args: ['--no-sandbox'] });
+  const browser = await chromium.launch({ executablePath: process.env.PW_EXECUTABLE, args: ['--no-sandbox'] });
   let totalPages = 0, totalPassed = 0, totalFailed = 0;
   const fails = [];
 
   for (const p of pages) {
     const ctx = await browser.newContext({ viewport: VIEWPORT });
-    const tok = p.auth === 'admin' ? adminTok : p.auth === 'user' ? userTok : null;
-    if (tok) {
-      await ctx.addInitScript((t) => {
-        const role = t.startsWith('admin') ? 'admin' : 'user';
-        const name = role === 'admin' ? 'admin' : 'vruser';
-        localStorage.setItem('app.auth', JSON.stringify({ user: { name }, token: t, role }));
-      }, tok);
-    }
-    const page = await ctx.newPage();
-    await page.goto(BASE + p.url, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(800);
-    // Sprint 5 扩展: 同步遮罩 + 冻结时间戳（与 capture_baseline.mjs 一致）
-    await page.addStyleTag({ content: `
-      [data-test="loaded-at"] { visibility: hidden !important; }
-      .odds-chip.flash-up, .odds-chip.flash-down,
-      .odds-price.flash-up, .odds-price.flash-down {
-        animation: none !important;
-      }
-    ` });
-    await page.evaluate(() => {
+    await ctx.addInitScript(() => {
       const fixed = 1737158400000;
       const _Date = Date;
       window.Date = class extends _Date {
@@ -130,26 +105,37 @@ async function main() {
         static now() { return fixed; }
       };
     });
+    if (p.auth && adminLogin.token) {
+      const u = adminLogin.user ?? { id: 1, name: 'admin', role: 'admin', account_id: 1, balance: 0 };
+      await ctx.addInitScript(([tok, user]) => {
+        localStorage.setItem('betting.token', tok);
+        localStorage.setItem('betting.currentUser', user);
+      }, [adminLogin.token, JSON.stringify(u)]);
+    }
+    const page = await ctx.newPage();
+    await page.goto(`${BASE}${p.url}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+    await page.addStyleTag({ content: `[data-testid="loaded-at"] { visibility: hidden !important; }` });
     await page.waitForTimeout(100);
+
     const currentPath = join(CURRENT_DIR, p.name + '.png');
     await page.screenshot({ path: currentPath, fullPage: false });
     const baselinePath = join(BASELINE_DIR, p.name + '.png');
     const diffPath = join(DIFF_DIR, p.name + '.png');
     totalPages++;
     if (!existsSync(baselinePath)) {
-      console.log('WARN ' + p.name + ': no baseline');
+      console.log('WARN ' + p.name + ': no baseline（UI 变更后需重跑 capture_baseline.mjs）');
       totalFailed++;
       fails.push({ page: p.name, reason: 'no baseline' });
     } else {
       const result = await runPixelmatch(baselinePath, currentPath, diffPath);
-      // Extract pixel diff count from output like 'different pixels: 123'
       const m = result.out.match(/different pixels:\s*(\d+)/);
       const mismatched = m ? parseInt(m[1], 10) : -1;
       if (result.code === 0 && mismatched === 0) {
         console.log('PASS ' + p.name + ': 0 px diff');
         totalPassed++;
       } else {
-        const errMsg = mismatched > 0 ? (mismatched + ' px diff') : ('failed: ' + (result.err || 'unknown'));
+        const errMsg = mismatched > 0 ? mismatched + ' px diff' : 'failed: ' + (result.err || 'unknown');
         console.log('FAIL ' + p.name + ': ' + errMsg);
         totalFailed++;
         fails.push({ page: p.name, mismatched, err: result.err });
@@ -160,11 +146,8 @@ async function main() {
   await browser.close();
   console.log('\n' + '='.repeat(60));
   console.log('Visual Regression ' + totalPages + ' pages: PASS=' + totalPassed + ' FAIL=' + totalFailed);
-  if (fails.length > 0) {
-    console.log('Failed:');
-    for (const f of fails) {
-      console.log('  - ' + f.page + ': ' + (f.mismatched ? (f.mismatched + ' px') : (f.reason || f.err)));
-    }
+  for (const f of fails) {
+    console.log('  - ' + f.page + ': ' + (f.mismatched ? f.mismatched + ' px' : (f.reason || f.err)));
   }
   console.log('='.repeat(60));
   process.exit(totalFailed > 0 ? 1 : 0);

@@ -3,30 +3,31 @@
 > 记录时间：2026-09-17（初版）/ 2026-09-26 刷新
 > 基准 commit：初版 `beb39c6` → 刷新 `6d13584`（master，含 feed-scores-fix）
 > 用途：新人 onboarding / 季度回顾 / 决定下一步开发优先级
+> ⚠️ 2026-10-07 起 **unify-frontend-expo** 已实施：apps/web（React+Vite :4200）删除，统一到 Expo 前端（:4300，玩家端 / + 运营后台 /admin）。详见 `openspec/changes/unify-frontend-expo`。
 
 ## 1. 仓库总览
 
 - **路径**：`D:\projects\betting-system`（本机） / `~/services/betting-system`（bhs-4）
 - **远端**：`git@github.com:bandyg/betting-system.git`（public）
 - **license**：未指定（README 无 license 段）
-- **技术栈**：Node 24 + TypeScript 5.7 + Express 4 + better-sqlite3 11 + pnpm 11 monorepo
-- **部署**：pm2 4 个 betting-* 进程（api :4100 / web :4200 / mobile-web :4300 / feed-worker）
+- **技术栈**：Node 24 + TypeScript 5.7 + Express 4 + better-sqlite3 11 + pnpm 11 monorepo + Expo SDK 57（统一前端）
+- **部署**：pm2 3 个 betting-* 进程（api :4100 / web :4300 统一前端 / feed-worker）
 
 ## 2. 仓库结构
 
 ```
 betting-system/
 ├── apps/
-│   ├── api/        # Express REST API（:4100）— 16 route 文件 / 72 endpoint
-│   ├── web/        # admin 后台（React 18 + Vite 6，:4200）
-│   └── mobile/     # Expo / RN-Web 三端共享（:4300）
+│   ├── api/        # Express REST API（:4100）— 20 route 文件 / 72 endpoint
+│   └── mobile/     # 统一前端 Expo / RN-Web（:4300）：玩家端 / + /admin 运营后台
 ├── packages/
-│   ├── core/       # 共享 types + api client + hooks
-│   └── ui/         # 设计系统（dark neon theme + Card/Button/OddsButton 等）
-├── scripts/        # 25 个验证/测试脚本（17 verify + 5 unit test + visual/基线工具）
-├── docs/           # 设计/现状文档（本文件 + Storybook + visual-baseline）
+│   ├── core/       # 共享 types + api client + hooks + useLiveOdds + 存储适配器
+│   └── ui/         # 设计系统（唯一 UI 实现，dark/light tokens + 26 组件）
+├── scripts/        # 验证/测试脚本（13 verify + 11 unit test + e2e/视觉回归）
+├── docs/           # 设计/现状文档（本文件 + Storybook(stale) + DOCUMENTATION_GUIDE）
+├── openspec/       # spec-driven 变更管理（unify-frontend-expo 提案）
 ├── data/           # SQLite 数据（git 忽略）
-├── ecosystem.config.js   # pm2 4 进程配置
+├── ecosystem.config.js   # pm2 3 进程配置
 ├── pnpm-workspace.yaml   # apps/* + packages/* + allowBuilds
 └── README.md
 ```
@@ -152,17 +153,16 @@ betting-system/
 | 备份策略 | 🟡 30% | DB 单点；.bak 文件散落（已 gitignore 修复） |
 | i18n（多语言文案）| 🟡 40% | locale 字段在 CMS，但前端 UI 文案未全 i18n |
 
-## 6. 前端
+## 6. 前端（unify 后）
 
 | App | 端口 | 内容 | 完成度 |
 |---|---|---|---|
-| apps/web | 4200 | Admin 后台（K 轮 lobby / L 错误 UX / M 加载态已迭代）| 🟡 70% |
-| apps/mobile | 4300 | Expo/RN-Web 三端共享（赛事/下注单/账户/CMS/CRM/报表/支持）| 🟡 75% |
+| apps/mobile | 4300 | **统一前端**：玩家端 `/`（5 屏）+ 运营后台 `/admin`（门禁 + 8 面板 + 快捷键 + 双主题）| 🟢 85% |
 | apps/api | 4100 | Express API | ✅ 100% |
 
-**Sprint 4-5 已补**：WebSocket 实时赔率（flash 动画）、客服聊天增强（markdown/表情/附件/已读）、设计 tokens 化（`docs/DESIGN_TOKENS.md`）、Storybook（`docs/storybook/`，30 文件）、单元测试 92/92、视觉回归 8/8。
+**unify-frontend-expo 已补**：明暗主题切换、JWT 刷新持久化（AsyncStorage 适配器）、真串关修复、`/ws` 反代、testID 全覆盖。
 
-**未做**：暗色/亮色主题切换、PWA 离线
+**未做**：native 端 Intl polyfill（Hermes 日期格式化为手动实现，无阻塞）、Storybook 重写（stale）
 
 ## 7. 验证脚本覆盖（16 个）
 

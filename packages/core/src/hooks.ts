@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api, setAuthToken } from './api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api, setAuthToken, wsUrlFromApiBase } from './api';
 import type {
   Bet,
   Match,
@@ -190,29 +190,49 @@ export function useCurrentUser(): CurrentUserState {
 const STORAGE_KEY = 'betting.currentUser';
 const TOKEN_KEY = 'betting.token';
 
+/** 宿主可注入的持久化适配器（RN 用 AsyncStorage；不注入则回落 localStorage） */
+export interface AuthStorageAdapter {
+  getItem(key: string): string | null | Promise<string | null>;
+  setItem(key: string, value: string): void | Promise<void>;
+  removeItem(key: string): void | Promise<void>;
+}
+
+let authStorage: AuthStorageAdapter | null = null;
+
+/** native 端启动时注入 AsyncStorage 等实现 */
+export function setAuthStorage(adapter: AuthStorageAdapter) {
+  authStorage = adapter;
+}
+
+function storage(): AuthStorageAdapter | Storage | null {
+  if (authStorage) return authStorage;
+  if (typeof localStorage !== 'undefined') return localStorage;
+  return null;
+}
+
 function persistUser(u: User | null) {
   try {
-    if (typeof localStorage !== 'undefined') {
-      if (u) localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-      else localStorage.removeItem(STORAGE_KEY);
-    }
+    const s = storage();
+    if (!s) return;
+    if (u) void s.setItem(STORAGE_KEY, JSON.stringify(u));
+    else void s.removeItem(STORAGE_KEY);
   } catch {
-    /* web localStorage 不可用时忽略 */
+    /* 存储不可用时忽略 */
   }
 }
 
 function persistToken(t: string | null) {
   try {
-    if (typeof localStorage !== 'undefined') {
-      if (t) localStorage.setItem(TOKEN_KEY, t);
-      else localStorage.removeItem(TOKEN_KEY);
-    }
+    const s = storage();
+    if (!s) return;
+    if (t) void s.setItem(TOKEN_KEY, t);
+    else void s.removeItem(TOKEN_KEY);
   } catch {
     /* ignore */
   }
 }
 
-/** 启动时从 localStorage 恢复登录态（web 端刷新不丢登录） */
+/** 启动时从 localStorage 恢复登录态（web 端刷新不丢登录，同步返回） */
 export function restoreSession(): User | null {
   if (currentUser) return currentUser;
   try {
@@ -230,6 +250,33 @@ export function restoreSession(): User | null {
     /* ignore */
   }
   return null;
+}
+
+/** 异步恢复（native：经 setAuthStorage 注入的 AsyncStorage） */
+export async function restoreSessionAsync(): Promise<User | null> {
+  if (currentUser) return currentUser;
+  const s = storage();
+  if (!s) return null;
+  try {
+    const raw = await s.getItem(STORAGE_KEY);
+    if (raw) {
+      const u = JSON.parse(raw) as User;
+      currentUser = u;
+      const token = await s.getItem(TOKEN_KEY);
+      if (token) setAuthToken(token);
+      return u;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/** 测试用：重置模块级登录态与注入的适配器 */
+export function resetAuthForTest() {
+  currentUser = null;
+  setAuthToken(null);
+  authStorage = null;
 }
 
 export interface AuthState {
@@ -360,3 +407,70 @@ export async function placeParlayItems(items: BetSlipItem[], stake: number): Pro
 }
 
 export type { Match, User };
+
+// ---- WebSocket 实时赔率 ----
+
+export interface OddsUpdateItem {
+  marketId: number;
+  odds: { selection: string; price: number }[];
+}
+
+/**
+ * 实时赔率订阅：连接 wsUrlFromApiBase() 推导的 /ws/odds，
+ * 收到 odds_batch 批量回调；指数退避重连 1s→30s，25s ping 保活。
+ */
+export function useLiveOdds(onUpdate: (updates: OddsUpdateItem[]) => void, enabled = true) {
+  const cbRef = useRef(onUpdate);
+  useEffect(() => {
+    cbRef.current = onUpdate;
+  }, [onUpdate]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let ws: WebSocket | null = null;
+    let closed = false;
+    let retry = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let pingTimer: ReturnType<typeof setInterval> | undefined;
+
+    const connect = () => {
+      let url: string;
+      try {
+        url = wsUrlFromApiBase();
+      } catch {
+        return; // native 未配置绝对 API base —— 静默不连
+      }
+      ws = new WebSocket(url);
+      ws.onopen = () => {
+        retry = 0;
+        pingTimer = setInterval(() => {
+          if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
+        }, 25_000);
+      };
+      ws.onmessage = (ev: { data?: unknown }) => {
+        try {
+          const msg = JSON.parse(String(ev.data));
+          if (msg?.type === 'odds_batch' && Array.isArray(msg.updates)) cbRef.current(msg.updates);
+        } catch {
+          /* 非 JSON 消息忽略 */
+        }
+      };
+      ws.onclose = () => {
+        if (pingTimer) clearInterval(pingTimer);
+        if (!closed) {
+          const delay = Math.min(30_000, 1_000 * 2 ** retry++);
+          reconnectTimer = setTimeout(connect, delay);
+        }
+      };
+      ws.onerror = () => ws?.close();
+    };
+
+    connect();
+    return () => {
+      closed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (pingTimer) clearInterval(pingTimer);
+      ws?.close();
+    };
+  }, [enabled]);
+}

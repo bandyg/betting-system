@@ -52,8 +52,8 @@ jobs:
       - name: Build apps/api
         run: pnpm --filter api build
 
-      - name: Build apps/web
-        run: pnpm --filter web build
+      - name: Build apps/mobile (Expo web export)
+        run: pnpm --filter mobile exec expo export -p web
 
       # ── 隔离 API + 11 个后端 verify 脚本 ──
       # CI ubuntu-latest 与 bhs-4 环境差异导致 better-sqlite3 build 不可靠, 用 continue-on-error 让其他 job 仍跑
@@ -143,11 +143,10 @@ jobs:
           kill $API_PID 2>/dev/null
           rm -f /tmp/ci-ratelimit.db
 
-      # ── UI e2e（playwright 隔离 second vite preview :14200）──
+      # ── UI e2e（playwright 隔离 second serve-web :14200，Expo 静态产物 + /api 反代）──
       - name: Install Playwright browser
         continue-on-error: true
         run: |
-          pnpm --filter web exec playwright install --with-deps chromium || true
           npx playwright install --with-deps chromium
 
       - name: Run UI e2e
@@ -157,20 +156,18 @@ jobs:
           PORT_API: '14100'
           PORT_WEB: '14200'
           NODE_ENV: test
-          PW_DIR: ${{ github.workspace }}/.cache/ms-playwright
         run: |
           # 起 second API
           PORT=$PORT_API node apps/api/dist/index.js &
           API_PID=$!
           sleep 2
           curl -fsS http://127.0.0.1:$PORT_API/health
-          # 起 second vite preview
-          (cd apps/web && npx vite preview --port $PORT_WEB --host 0.0.0.0) &
+          # 起 serve-web（Expo 静态产物 + /api 反代）
+          API_TARGET=http://127.0.0.1:$PORT_API node apps/mobile/scripts/serve-web.mjs $PORT_WEB &
           WEB_PID=$!
           sleep 5
-          # 等 chromium 装好（上面 step）
-          ls -la "$PW_DIR" 2>/dev/null || echo "PW_DIR empty, will fallback"
-          # 跑 3 个 UI 脚本
+          curl -fsS http://127.0.0.1:$PORT_WEB/admin/login -o /dev/null
+          # 跑 3 个 UI 脚本（testID 选择器 + 门禁/下注/三态）
           node scripts/verify_k_ux.mjs http://127.0.0.1:$PORT_WEB http://127.0.0.1:$PORT_API/api || true
           node scripts/verify_l_ux.mjs http://127.0.0.1:$PORT_WEB http://127.0.0.1:$PORT_API/api || true
           node scripts/verify_m_ux.mjs http://127.0.0.1:$PORT_WEB http://127.0.0.1:$PORT_API/api || true
@@ -182,28 +179,29 @@ jobs:
         continue-on-error: true
         run: node scripts/run_unit_tests.mjs
 
-      # ── 视觉回归 (Sprint 5 扩展) ──
-      # 必须先跑: db 干净 + 仅 1 个 VRLeague match
+      # ── 视觉回归 (Playwright + pixelmatch, :14301 serve-web) ──
+      # 必须先跑: db 干净 + 仅 1 个 VRLeague match；baseline 缺失时先自动生成
       - name: Visual regression
         continue-on-error: true
         env:
           BETTING_DB_PATH: /tmp/ci-visual.db
           PORT_API: '14101'
-          PORT_WEB: '14201'
+          PORT_WEB: '14301'
           NODE_ENV: test
-          PW_DIR: ${{ github.workspace }}/.cache/ms-playwright
         run: |
           # 起 API (fresh db)
           PORT=$PORT_API node apps/api/dist/index.js &
           API_PID=$!
           sleep 2
           curl -fsS http://127.0.0.1:$PORT_API/health
-          # 起 vite preview
-          (cd apps/web && npx vite preview --port $PORT_WEB --host 0.0.0.0) &
+          # 起 serve-web
+          API_TARGET=http://127.0.0.1:$PORT_API node apps/mobile/scripts/serve-web.mjs $PORT_WEB &
           WEB_PID=$!
           sleep 5
+          # baseline 缺失（UI 大改后）→ 先用本环境生成新基准
+          test -f docs/visual-baseline/login.png || BASE=http://127.0.0.1:$PORT_WEB API=http://127.0.0.1:$PORT_API/api node scripts/capture_baseline.mjs
           # 跑 visual regression (8 页对比 baseline, idempotent seed 复用 VRLeague)
-          node scripts/visual_regression.mjs
+          BASE=http://127.0.0.1:$PORT_WEB API=http://127.0.0.1:$PORT_API/api node scripts/visual_regression.mjs
           RESULT=$?
           kill $API_PID $WEB_PID 2>/dev/null
           rm -f /tmp/ci-visual.db

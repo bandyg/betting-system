@@ -5,6 +5,8 @@ sidebar_position: 1
 
 # 🧩 Components Storybook
 
+> ⚠️ **stale（2026-10-07）**：unify-frontend-expo 后组件已迁入 `packages/ui`（26 组件，实现有差异），旧 apps/web 面板已删除。本文档保留作历史参考，待重写；现状以 `packages/ui/src` 为准。
+
 **Betting Admin** — UI 组件库 + Storybook 文档
 
 自动文档化的 React 组件，按类别分组。每页展示组件的 props、使用示例、代码片段和实际渲染效果。

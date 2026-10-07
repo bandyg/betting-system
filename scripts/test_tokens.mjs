@@ -1,9 +1,9 @@
-// scripts/test_tokens.mjs — Design Tokens 完整性测试 (Sprint 5 C7)
+// scripts/test_tokens.mjs — 统一 Design Tokens 完整性测试（unify-frontend-expo 后单一来源 = packages/ui）
 //
 // 验证:
-// 1. CSS (reset.css) 与 TS (tokens.ts) 镜像一致
-// 2. 所有 token 都有 dark + light 两套值
-// 3. 必需 token 都存在 (regression 测试)
+// 1. packages/ui/src/tokens.ts 是唯一权威来源（dark+light 双主题、梯度完整）
+// 2. 主题 Provider 提供模式切换
+// 3. 状态徽章语义映射完整
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,148 +14,104 @@ import { dirname, join } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
-// ── 加载 tokens.ts (用 dynamic import 走 tsx/esbuild loader? 简化: 用 regex 提取) ──
-function extractTsValues(filePath) {
-  const src = readFileSync(filePath, 'utf8');
-  const out = {};
-  // 简易提取: 匹配 "key: 'value'" 或 "key: number"
-  const re = /(\w+):\s*(?:'([^']*)'|(\d+(?:\.\d+)?))/g;
-  let m;
-  while ((m = re.exec(src))) {
-    const [, k, s, n] = m;
-    if (k && (s != null || n != null)) out[k] = s ?? Number(n);
-  }
-  return out;
-}
+const tokensSrc = readFileSync(join(root, 'packages/ui/src/tokens.ts'), 'utf8');
+const themeSrc = readFileSync(join(root, 'packages/ui/src/theme.tsx'), 'utf8');
 
-// ── 加载 CSS reset.css ──
-function extractCssVars(filePath, block = ':root') {
-  const src = readFileSync(filePath, 'utf8');
-  // Find block
-  const re = new RegExp(`${block}\\s*\\{([^}]+)\\}`, 'm');
+function extractBlock(src, name) {
+  const re = new RegExp(`export const ${name}[\\s\\S]*?\\} as const;`);
   const m = src.match(re);
-  if (!m) return {};
-  const out = {};
-  const varRe = /--(\w[\w-]*):\s*([^;]+);/g;
-  let vm;
-  while ((vm = varRe.exec(m[1]))) {
-    out[vm[1]] = vm[2].trim();
-  }
+  return m ? m[0] : '';
+}
+
+function extractKeys(block) {
+  const out = [];
+  const re = /^\s{2}(\w+):/gm;
+  let m;
+  while ((m = re.exec(block))) out.push(m[1]);
   return out;
 }
 
-test('tokens.ts file exists and exports', () => {
-  const tokensPath = join(root, 'apps/web/src/tokens.ts');
-  const src = readFileSync(tokensPath, 'utf8');
-  assert.match(src, /export const tokens/, '应 export tokens');
-  assert.match(src, /export type Tokens/, '应 export Tokens 类型');
+const darkBlock = extractBlock(tokensSrc, 'colors');
+const lightBlock = extractBlock(tokensSrc, 'lightColors');
+const darkKeys = extractKeys(darkBlock);
+const lightKeys = extractKeys(lightBlock);
+
+test('tokens: colors / lightColors 均导出', () => {
+  assert.match(tokensSrc, /export const colors/, '应有 colors');
+  assert.match(tokensSrc, /export const lightColors/, '应有 lightColors（双主题）');
+  assert.match(tokensSrc, /export const themes/, '应聚合导出 themes');
 });
 
-test('reset.css :root block has dark theme', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const vars = extractCssVars(cssPath, ':root');
-  assert.ok(vars['bg'], '应有 --bg');
-  assert.ok(vars['accent'], '应有 --accent');
-  assert.ok(vars['success'], '应有 --success');
-  assert.ok(vars['danger'], '应有 --danger');
+test('tokens: dark 与 light 键集合一致', () => {
+  assert.deepEqual([...darkKeys].sort(), [...lightKeys].sort(), `dark/light 键不一致:\ndark=${darkKeys}\nlight=${lightKeys}`);
 });
 
-test('reset.css [data-theme="light"] block exists', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const vars = extractCssVars(cssPath, '\\[data-theme="light"\\]');
-  assert.ok(vars['bg'], 'light 应有 --bg');
-  assert.ok(vars['fg'], 'light 应有 --fg');
-  assert.notEqual(vars['bg'], '#0f1420', 'light bg 不应等于 dark bg');
-});
-
-test('C5 tokens: spacing 8 levels', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const vars = extractCssVars(cssPath, ':root');
-  // 实际值: 4/8/12/16/24/32/48/64 (skip 20, jump from 16 to 24)
-  const expected = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 24, 6: 32, 7: 48, 8: 64 };
-  for (const [k, v] of Object.entries(expected)) {
-    assert.ok(vars[`space-${k}`], `应有 --space-${k}`);
-    assert.equal(parseInt(vars[`space-${k}`], 10), v, `--space-${k} 应为 ${v}px`);
+test('tokens: 必需语义色齐备', () => {
+  const required = ['bg', 'bgElevated', 'bgGlass', 'border', 'borderStrong', 'text', 'textSecondary', 'textMuted', 'primary', 'secondary', 'accent', 'success', 'danger', 'warning', 'info', 'oddsBg', 'oddsBorder', 'oddsActiveBg', 'oddsActiveBorder'];
+  for (const k of required) {
+    assert.ok(darkKeys.includes(k), `dark 缺 ${k}`);
+    assert.ok(lightKeys.includes(k), `light 缺 ${k}`);
   }
 });
 
-test('C5 tokens: radius 6 levels', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const vars = extractCssVars(cssPath, ':root');
-  assert.equal(vars['radius-sm'], '4px');
-  assert.equal(vars['radius-md'], '6px');
-  assert.equal(vars['radius-lg'], '10px');
-  assert.equal(vars['radius-xl'], '14px');
-  assert.equal(vars['radius-2xl'], '18px');
-  assert.equal(vars['radius-full'], '9999px');
+test('tokens: light bg 与 dark bg 不同（真实双主题）', () => {
+  const darkBg = darkBlock.match(/\sbg:\s*'([^']+)'/)?.[1];
+  const lightBg = lightBlock.match(/\sbg:\s*'([^']+)'/)?.[1];
+  assert.ok(darkBg && lightBg);
+  assert.notEqual(darkBg, lightBg);
 });
 
-test('C5 tokens: text sizes 8 levels', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const vars = extractCssVars(cssPath, ':root');
-  const expected = { xs: '10px', sm: '12px', md: '13px', base: '14px', lg: '16px', xl: '18px', '2xl': '20px', '3xl': '28px' };
-  for (const [k, v] of Object.entries(expected)) {
-    assert.equal(vars[`text-${k}`], v, `--text-${k} 应为 ${v}`);
+test('tokens: space 8 档（4px 网格，web 梯度并入）', () => {
+  const spaceBlock = extractBlock(tokensSrc, 'space');
+  for (const [k, v] of Object.entries({ 1: 4, 2: 8, 3: 12, 4: 16, 5: 24, 6: 32, 7: 48, 8: 64 })) {
+    const re = new RegExp(`\\s${k}:\\s*${v}\\b`);
+    assert.ok(re.test(spaceBlock), `space.${k} 应为 ${v}`);
   }
 });
 
-test('C5 tokens: shadows 4 levels', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const vars = extractCssVars(cssPath, ':root');
-  assert.match(vars['shadow-sm'], /0 1px 2px/);
-  assert.match(vars['shadow-md'], /0 2px 8px/);
-  assert.match(vars['shadow-lg'], /0 4px 16px/);
-  assert.match(vars['shadow-xl'], /0 12px 32px/);
-});
-
-test('C5 tokens: z-index scale 8 levels', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const vars = extractCssVars(cssPath, ':root');
-  const zs = ['base', 'dropdown', 'sticky', 'fab', 'offline', 'confirm', 'toast', 'modal', 'help'];
-  for (const z of zs) {
-    assert.ok(vars[`z-${z}`], `应有 --z-${z}`);
+test('tokens: radius 6 档 + fontSize 梯度 + fw 字重', () => {
+  for (const k of ['sm', 'md', 'lg', 'xl', "'2xl'", 'pill']) {
+    assert.ok(new RegExp(`\\s${k}:`).test(extractBlock(tokensSrc, 'radius')), `radius 缺 ${k}`);
+  }
+  for (const k of ['xs', 'sm', 'md', 'lg', 'xl', 'xxl', 'hero']) {
+    assert.ok(new RegExp(`\\s${k}:`).test(extractBlock(tokensSrc, 'fontSize')), `fontSize 缺 ${k}`);
+  }
+  for (const k of ['normal', 'medium', 'semibold', 'bold']) {
+    assert.ok(new RegExp(`\\s${k}:`).test(extractBlock(tokensSrc, 'fw')), `fw 缺 ${k}`);
   }
 });
 
-test('C5 tokens: component sizes', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const vars = extractCssVars(cssPath, ':root');
-  assert.equal(vars['header-h'], '60px');
-  assert.equal(vars['bet-slip-w'], '380px');
-  assert.equal(vars['fab-size'], '52px');
-  assert.equal(vars['support-w'], '360px');
-  assert.equal(vars['support-h'], '540px');
+test('tokens: duration 为毫秒数字 + ease 为贝塞尔数组（RN 可直接消费）', () => {
+  const dur = extractBlock(tokensSrc, 'duration');
+  assert.match(dur, /fast:\s*100/);
+  assert.match(dur, /normal:\s*200/);
+  assert.match(dur, /slow:\s*400/);
+  assert.match(extractBlock(tokensSrc, 'ease'), /\[\s*0\.16,\s*1,\s*0\.3,\s*1\s*\]/);
 });
 
-test('C5 tokens: dark theme has all required colors', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const vars = extractCssVars(cssPath, ':root');
-  const required = ['bg', 'bg-card', 'bg-card-2', 'border', 'fg', 'fg-muted', 'accent', 'success', 'danger', 'warning', 'info'];
-  for (const c of required) {
-    assert.ok(vars[c], `dark 应有 --${c}`);
+test('tokens: z 层级 + 组件尺寸（web 并入值）', () => {
+  const zBlock = extractBlock(tokensSrc, 'z');
+  for (const k of ['base', 'dropdown', 'sticky', 'fab', 'toast', 'modal', 'help']) {
+    assert.ok(new RegExp(`\\s${k}:`).test(zBlock), `z 缺 ${k}`);
+  }
+  const sizeBlock = extractBlock(tokensSrc, 'size');
+  assert.match(sizeBlock, /headerH:\s*60/);
+  assert.match(sizeBlock, /betSlipW:\s*380/);
+  assert.match(sizeBlock, /fabSize:\s*52/);
+  assert.match(sizeBlock, /supportW:\s*360/);
+  assert.match(sizeBlock, /supportH:\s*540/);
+});
+
+test('tokens: statusTone 覆盖 9 个业务状态', () => {
+  const toneBlock = extractBlock(tokensSrc, 'statusTone');
+  for (const s of ['scheduled', 'open', 'in_progress', 'finished', 'settled', 'closed', 'suspended', 'waiting_user', 'resolved']) {
+    assert.ok(toneBlock.includes(`${s}:`), `statusTone 缺 ${s}`);
   }
 });
 
-test('C5 tokens: light theme has all required colors', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const vars = extractCssVars(cssPath, '\\[data-theme="light"\\]');
-  const required = ['bg', 'bg-card', 'border', 'fg', 'accent'];
-  for (const c of required) {
-    assert.ok(vars[c], `light 应有 --${c}`);
-  }
-});
-
-test('C5 tokens: dark + light 调色板互不相同', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const dark = extractCssVars(cssPath, ':root');
-  const light = extractCssVars(cssPath, '\\[data-theme="light"\\]');
-  assert.notEqual(dark['bg'], light['bg'], 'dark/light bg 应不同');
-  assert.notEqual(dark['fg'], light['fg'], 'dark/light fg 应不同');
-  assert.notEqual(dark['accent'], light['accent'], 'dark/light accent 应不同');
-});
-
-test('C5 tokens: prefers-reduced-motion 支持 (a11y)', () => {
-  const cssPath = join(root, 'apps/web/src/styles/reset.css');
-  const src = readFileSync(cssPath, 'utf8');
-  assert.match(src, /prefers-reduced-motion/, '应有 a11y media query');
+test('theme: ThemeProvider 支持受控 mode + useThemeMode 切换', () => {
+  assert.match(themeSrc, /mode\?:\s*ThemeMode/);
+  assert.match(themeSrc, /onModeChange/);
+  assert.match(themeSrc, /export const useThemeMode/);
+  assert.match(themeSrc, /lightColors/, '切换时使用 lightColors');
 });

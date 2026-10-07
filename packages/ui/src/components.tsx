@@ -27,14 +27,17 @@ export function Card({
   children,
   style,
   glass = false,
+  testID,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   glass?: boolean;
+  testID?: string;
 }) {
   const t = useTheme();
   return (
     <View
+      testID={testID}
       style={[
         styles.card,
         {
@@ -58,6 +61,7 @@ export function Button({
   disabled,
   loading,
   style,
+  testID,
 }: {
   title: string;
   onPress?: () => void;
@@ -65,6 +69,7 @@ export function Button({
   disabled?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }) {
   const t = useTheme();
   const scale = useSharedValue(1);
@@ -83,6 +88,7 @@ export function Button({
   return (
     <Animated.View style={[styles.buttonWrap, animStyle]}>
       <Pressable
+        testID={testID}
         onPress={onPress}
         disabled={disabled || loading}
         onPressIn={() => {
@@ -298,11 +304,38 @@ export function FlashMsg({
 }
 
 /* ---------------- EmptyState ---------------- */
-export function EmptyState({ text }: { text: string }) {
+export function EmptyState({
+  text,
+  icon = '📭',
+  title,
+  desc,
+  actionLabel,
+  onAction,
+  testID,
+}: {
+  text?: string;
+  icon?: string;
+  title?: string;
+  desc?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  testID?: string;
+}) {
   const t = useTheme();
   return (
-    <View style={styles.empty}>
-      <Text style={{ color: t.textSecondary, fontSize: fontSize.md }}>{text}</Text>
+    <View style={[styles.empty, { alignItems: 'center', gap: 8 }]} testID={testID ?? 'empty-state'}>
+      <Text style={{ fontSize: 40 }}>{icon}</Text>
+      <Text style={{ color: t.text, fontSize: fontSize.lg, fontWeight: '700' }}>{title ?? text ?? '暂无数据'}</Text>
+      {desc ? <Text style={{ color: t.textMuted, fontSize: fontSize.sm, textAlign: 'center' }}>{desc}</Text> : null}
+      {actionLabel && onAction ? (
+        <Pressable
+          testID={testID ? `${testID}-action` : 'empty-state-action'}
+          onPress={onAction}
+          style={{ marginTop: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md, borderColor: t.borderStrong, borderWidth: 1 }}
+        >
+          <Text style={{ color: t.secondary, fontWeight: '700' }}>{actionLabel}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

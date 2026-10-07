@@ -14,17 +14,8 @@ module.exports = {
       restart_delay: 2000,
     },
     {
+      // 统一前端 — Expo Web 静态产物（玩家端 / + 管理后台 /admin），serve-web.mjs 自带 /api + /ws 反代
       name: 'betting-web',
-      cwd: __dirname + '/apps/web',
-      script: 'scripts/preview.mjs',
-      interpreter: 'node',
-      env: { NODE_ENV: 'production' },
-      max_restarts: 10,
-      restart_delay: 2000,
-    },
-    {
-      // 多端前端 — Expo Web 静态产物（三端共享 code base 的 Web 端），serve-web.mjs 自带 /api 反代
-      name: 'betting-mobile-web',
       cwd: __dirname + '/apps/mobile',
       script: 'scripts/serve-web.mjs',
       args: '4300',

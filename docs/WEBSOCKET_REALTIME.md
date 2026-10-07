@@ -30,34 +30,25 @@
 
 - **`index.ts`**: 用 `createServer(app)` 包 express, `attachWsHub(httpServer)` 共享端口
 
-## 前端 (`apps/web/src/`)
+## 前端（unify-frontend-expo 后）
 
-- **`hooks/useLiveOdds.ts`** (89 行):
-  - `useEffect` 启动连接
-  - 断线指数退避重连: 1s → 2s → 4s → 8s → ... max 30s
-  - 25s 客户端 ping 防止 server-side idle close
-  - cleanup 时关闭连接
+- **hook**：`packages/core/src/hooks.ts` 的 `useLiveOdds`（玩家端与 `/admin` 大厅共享）
+  - 断线指数退避重连: 1s → 2s → 4s → ... max 30s；25s 客户端 ping
+  - WS 地址由 `wsUrlFromApiBase()` 推导：web 同源 `ws://host/ws/odds`；native 由 `setApiBase` 绝对地址推导
+- **大厅消费**：`apps/mobile/src/admin/panels/MatchesExplorer.tsx` 接收 odds_batch → 更新 matches + liveFlashes → `OddsChip`（packages/ui）1.2s 闪烁（reanimated 实现，替代旧 CSS 动画）
+- **反代**：`apps/mobile/scripts/serve-web.mjs` 监听 `upgrade`，`/ws/*` 管道转发到 API_TARGET（vite proxy 的继任者）
 
-- **`panels/MatchesExplorer.tsx`**:
-  - `useLiveOdds((updates) => {...})` 接收 odds_batch
-  - 找到 marketId 对应的 odds，更新 `matches` state + 设置 `liveFlashes[chipKey]`
-  - 1.2s 后清除 flash
-  - `odds-chip` className 加 `flash-up`/`flash-down` 触发 CSS 动画
-
-- **`vite.config.ts`**:
-  - `/api` 与 `/ws` 都用 `apiProxy` 配置 (`ws: true` 启用 WebSocket 升级转发)
-
-## 测试 (本机 + bhs-4)
+## 测试
 
 ```bash
 # 1. 启动后端 (会 attach wsHub)
 PORT=4100 pnpm dev:api
 
-# 2. 启动前端 (vite proxy 转发 /ws)
-cd apps/web && VITE_API_TARGET=http://localhost:4100 pnpm dev
+# 2. 启动统一前端 (serve-web 反代 /api + /ws；需先 expo export -p web)
+node apps/mobile/scripts/serve-web.mjs 4300
 
-# 3. 浏览器打开 /matches → 控制台
-> ws = new WebSocket('ws://localhost:4200/ws/odds')
+# 3. 浏览器打开 /admin/matches → 控制台
+> ws = new WebSocket('ws://localhost:4300/ws/odds')
 < {type:'hello', msg:'connected', clients:1, ts:...}
 
 # 4. admin 调赔
@@ -68,7 +59,10 @@ cd apps/web && VITE_API_TARGET=http://localhost:4100 pnpm dev
 # 5. ws 客户端收到:
 < {type:'odds_batch', updates:[{marketId:1, odds:[{selection:'home',price:2.5}]}], ts:...}
 
-# 6. matches 页面 odds-chip 闪动 1.2s
+# 6. 大厅 odds-chip 闪动 1.2s
+
+# 7. 反代专项（mock 上游，无需 better-sqlite3）
+node scripts/verify_ws_proxy.mjs   # → [PASS] ws 代理双向通 + odds_batch 收到
 ```
 
 ## 监控 + 调试

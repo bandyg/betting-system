@@ -3,7 +3,7 @@ export interface User {
   name: string;
   account_id: number;
   balance: number;
-  role?: 'user' | 'admin';
+  role?: 'user' | 'admin' | 'support';
 }
 
 export interface OddsItem {

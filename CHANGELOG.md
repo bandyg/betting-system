@@ -12,10 +12,42 @@
 ## [Unreleased]
 
 ### Planned（计划中）
+- **bhs-4 部署统一前端 + 端到端验收**（openspec `unify-frontend-expo` 5.4：pm2 3 进程重启 → /admin 全流程走查 → 视觉基线重建 → 归档变更）
 - **R0：bhs-4 部署 feed-scores-fix + 验证 settle 恢复**（脚本已就绪 `scripts/{deploy,verify}_feed_fix.sh`，待 bhs-4 执行；54 笔 open bets 结算 + 额度 ≤450/月达标）
 - bhs-4 上 `~/.betting-feed.env` 加 `ALERT_WEBHOOK_URL=<Feishu webhook>` + `SERVICE_NAME=betting-bhs-4` 启用 R9 监控告警
 - README / CHANGELOG 自动化（roadmap R10，conventional commits 解析）
 - 多 feed 源聚合 / 真滚球赔率（roadmap R16）
+- Storybook 文档重写（对齐 packages/ui 26 组件）
+
+## [0.3.0] - 2026-10-07
+
+> **统一前端到 Expo（openspec `unify-frontend-expo`）**：apps/web（React 18 + Vite）删除，admin 并入 Expo app。
+> 单元测试 148 → 155（+test_ws_url/test_auth_storage，-test_i18n）；**BREAKING：Admin URL `:4200` → `:4300/admin`**。
+
+### Added（新增）
+- **admin 路由组**：`apps/mobile/src/app/admin/*`（expo-router）——角色门禁（admin/support，support 仅工单）、`/admin/login` 独立登录页（from 回跳 + 角色拒绝提示）、8 个面板等价迁移（账户/建赛/结算/Feed/注单/工单/大厅/投注单）、web-only 键盘快捷键（1/2/3 选赔率、Enter 提交、? 帮助、ref 注册表替代 DOM 查询）
+- **packages/ui 扩展为唯一 UI 实现**：+16 组件（DataTable/Select/Input/Modal/ConfirmModal(8s 自动确认)/TabsNav/Badge/Avatar/LeagueChip/Skeleton 4 变体/OddsChip(涨跌闪)/MiniChart(react-native-svg)/ToastHost/OfflineBanner/ErrorBoundary/SupportChat），tokens 合并 web 梯度并补 **light 主题**（ThemeProvider/useThemeMode）
+- **packages/core**：`useLiveOdds` 迁入（指数退避 + 25s ping）、`wsUrlFromApiBase()` WS 地址推导、`setAuthStorage` AsyncStorage 适配器 + `restoreSessionAsync`（native 持久化）
+- **serve-web.mjs `/ws` 反代**：upgrade 事件管道转发（mock 上游专项验证通过）；用户类型 `role` 补 `'support'`
+
+### Fixed（修复）
+- **JWT 刷新即丢**：token 纳入持久化（web localStorage / native AsyncStorage），刷新不再掉登录
+- **串关 bug**：旧 web 版"组合模式"实为循环单注；BetSlip 改用 `placeParlayItems` 真串关（赔率相乘、按腿结算）
+- mobile 存量 5 个 tsc 错误清零（cardBg/medium/CSS module 声明）
+
+### Changed（变更）— BREAKING
+- **Admin URL**：`:4200/*` → `:4300/admin/*`（serve-web 同源承载玩家端与后台；pm2 4 → 3 进程，`betting-web` 进程名保留指向统一前端）
+- **UI e2e**：`verify_{k,l,m}_ux.mjs` 重写——目标 `:4300/admin`、testID 选择器（RN-Web 类名不稳定）、覆盖新增门禁行为、浏览器路径 `PW_EXECUTABLE` env 化
+- **视觉回归**：`capture_baseline`/`visual_regression` 重写（`/admin/*` + core localStorage key 注入 + 预冻结时间）；旧 8 张基线删除（unify 后全量变化属预期），CI 首跑自动重建
+- **单元测试**：test_tokens/test_support_chat/test_components/test_match_detail 重定向至 `packages/ui` 与 `apps/mobile` 新路径；`test_i18n.mjs` 随 i18n 下线删除；runner tsx 列表 +test_auth_storage
+- **CI**：Build apps/web → `expo export -p web`；UI e2e/视觉回归改 serve-web 承载；playwright 收敛为根 devDependency
+- **文档**：README/architecture/system-status/system-overview/WEBSOCKET_REALTIME/VISUAL_REGRESSION/DESIGN_TOKENS/DOCUMENTATION_GUIDE 同步；`docs/storybook/` 标注 stale（待重写）
+
+### Removed（移除）
+- **apps/web**（React 18 + Vite admin，约 4800 行）：git 历史保留
+- **未接线的 i18n**：字典（96 键×2）与语言切换 UI 从未在组件中生效，随迁移移除（全量 i18n 仍在 roadmap 范围外）
+- **PWA**：Service Worker（sw.js）与 manifest 随 apps/web 下线
+- 死代码：`apps/web/src/{api,types}.ts`、`useApi.ts`、空 `/bets` 路由
 
 ## [0.2.0] - 2026-09-27
 

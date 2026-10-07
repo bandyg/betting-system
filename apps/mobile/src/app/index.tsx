@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: radius.lg,
-    backgroundColor: colors.cardBg,
+    backgroundColor: colors.bgElevated,
     borderWidth: 1,
     borderColor: colors.border,
   },

@@ -1,6 +1,7 @@
 # Design Tokens — 设计系统
 
 > Sprint 5 C5 — 设计系统 token 化
+> ⚠️ **unify-frontend-expo 更新**：token 单一来源现为 `packages/ui/src/tokens.ts`（`colors` dark + `lightColors` 双主题、`space`/`radius`/`fontSize`/`fw`/`duration`(ms)/`ease`(贝塞尔数组)/`z`/`size`/`statusTone`），主题经 `ThemeProvider`/`useThemeMode` 切换。下文的 CSS 变量体系（`apps/web/src/styles/reset.css`）已随 apps/web 删除，本文件其余内容作为 token 字典历史参考。
 
 Betting Admin 的所有 UI tokens 集中定义，便于跨平台/跨组件一致 + 暗亮主题切换 + 可扩展。
 
@@ -8,10 +9,11 @@ Betting Admin 的所有 UI tokens 集中定义，便于跨平台/跨组件一致
 
 | 类型 | 文件 | 说明 |
 |------|------|------|
-| **CSS 变量** | `apps/web/src/styles/reset.css` | 浏览器实际生效的 token |
-| **TS 镜像** | `apps/web/src/tokens.ts` | 类型安全 + Storybook 用 |
-| **Storybook 文档** | `docs/storybook/components/` | 组件级 + token 展示 |
-| **本文件** | `docs/DESIGN_TOKENS.md` | 完整 token 字典 |
+| **TS 单一来源** | `packages/ui/src/tokens.ts` | dark/light 双主题，RN 组件直接消费（现状） |
+| **主题切换** | `packages/ui/src/theme.tsx` | ThemeProvider + useTheme/useThemeMode |
+| **CSS 变量（历史）** | ~~`apps/web/src/styles/reset.css`~~ | 已随 apps/web 删除 |
+| **Storybook 文档** | `docs/storybook/components/` | stale，待重写 |
+| **本文件** | `docs/DESIGN_TOKENS.md` | 完整 token 字典（CSS 变量部分为历史） |
 
 ## Token 类别
 
