@@ -48,9 +48,17 @@ try {
   const skeletonVisible = await page.locator('[data-testid="skeleton"], [data-testid="skeleton-table"]').count();
   ok(skeletonVisible === 0, 'M1b 数据态无残留骨架');
 
-  // ===== M2: 有数据（match 行出现）=====
-  const rowCount = await page.locator('[data-testid^="match-row-"], [data-testid^="match-title-"]').count();
-  ok(rowCount >= 1, 'M2 赛事行渲染', `rows=${rowCount}`);
+  // ===== M2: 有数据（搜索过滤后走平铺路径断言 match 行；生产库 >40 场默认虚拟滚动，平铺 testID 不挂载）=====
+  await page.getByTestId('search-team').fill('MUXHome' + ts);
+  await page.waitForTimeout(800);
+  const rowCount = await page.locator('[data-testid^="match-row-"]').count();
+  ok(rowCount >= 1, 'M2 搜索过滤后赛事行渲染', `rows=${rowCount}`);
+  // M2b: 清空搜索 → 数据态恢复（>40 场时出现虚拟滚动徽章，否则平铺列表仍在）
+  await page.getByTestId('search-team').fill('');
+  await page.waitForTimeout(600);
+  const vbCount = await page.getByTestId('virtual-badge').count();
+  const listOk = vbCount >= 1 || (await page.locator('[data-testid^="match-row-"]').count()) >= 1;
+  ok(listOk, 'M2b 清空筛选后列表恢复（虚拟或平铺）', `virtual-badge=${vbCount}`);
 
   // ===== M3: 空态（搜索不存在的队名）=====
   await page.getByTestId('search-team').fill('不存在的队名_' + ts);
@@ -60,9 +68,6 @@ try {
   const emptyText = await page.getByTestId('empty-state').first().innerText().catch(() => '');
   ok(emptyText.includes('没有符合条件的赛事'), 'M3b 空态文案友好', emptyText.slice(0, 80).replace(/\n/g, ' '));
 
-  // ===== M4: 注单页空态（新建无注单用户视角不可得——admin 看全部；改为清空筛选后验证表格组件空态路径）=====
-  await page.getByTestId('search-team').fill('');
-  await page.waitForTimeout(400);
 
   await browser.close();
 } catch (e) {
@@ -71,7 +76,7 @@ try {
 } finally {
   if (browser) await browser.close().catch(() => {});
 }
-process.exit(fail > 0 ? 1 : 0);
 
 console.log('---');
 console.log(`M_UX_E2E_RESULT=${fail === 0 ? 'ALL_OK' : 'SOME_FAIL'} (${pass} pass / ${fail} fail)`);
+process.exitCode = fail > 0 ? 1 : 0;

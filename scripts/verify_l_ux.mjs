@@ -91,7 +91,7 @@ try {
 } finally {
   if (browser) await browser.close().catch(() => {});
 }
-process.exit(fail > 0 ? 1 : 0);
 
 console.log('---');
 console.log(`L_UX_E2E_RESULT=${fail === 0 ? 'ALL_OK' : 'SOME_FAIL'} (${pass} pass / ${fail} fail)`);
+process.exitCode = fail > 0 ? 1 : 0;
