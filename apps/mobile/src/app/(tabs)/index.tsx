@@ -4,15 +4,36 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useMatches, useSports, useBetSlip, TYPE_LABELS, SEL_LABELS, MATCH_STATUS_LABELS, MARKET_STATUS_LABELS } from '@betting/core';
-import type { Match, OddsItem, SportInfo } from '@betting/core';
-import { Card, Screen, colors, radius, fontSize, font, spacing, shadows, SectionTitle, EmptyState } from '@betting/ui';
+import {
+  useBetSlip,
+  TYPE_LABELS,
+  SEL_LABELS,
+  MATCH_STATUS_LABELS,
+  MARKET_STATUS_LABELS,
+} from '@betting/core';
+import type { Match, OddsItem } from '@betting/core';
+import {
+  Card,
+  Screen,
+  colors,
+  radius,
+  fontSize,
+  font,
+  spacing,
+  EmptyState,
+  SkeletonList,
+} from '@betting/ui';
+import { MatchFilters, leagueSlug } from '../../components/match-filters';
+import {
+  DEFAULT_PLAYER_MATCH_FILTERS,
+  usePlayerMatches,
+} from '../../hooks/use-player-matches';
+import type { PlayerMatchFilters } from '../../hooks/use-player-matches';
 
 const SPORT_ICONS: Record<string, string> = {
   soccer: '\u26BD',
@@ -25,6 +46,9 @@ const SPORT_ICONS: Record<string, string> = {
   boxing: '\uD83E\uDD4A',
   other: '\uD83C\uDFC6',
 };
+
+/** LIVE 只认开赛后 3 小时内；几个月前的 scheduled 陈数据不再显示 LIVE */
+const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 function sportIcon(sport: string | null): string {
   return SPORT_ICONS[sport ?? ''] ?? SPORT_ICONS.other;
@@ -73,8 +97,16 @@ function OddsRow({
             style={({ pressed }) => [
               styles.oddsBtn,
               {
-                backgroundColor: suspended ? colors.oddsBg : active ? colors.oddsActiveBg : colors.oddsBg,
-                borderColor: suspended ? colors.border : active ? colors.oddsActiveBorder : colors.oddsBorder,
+                backgroundColor: suspended
+                  ? colors.oddsBg
+                  : active
+                    ? colors.oddsActiveBg
+                    : colors.oddsBg,
+                borderColor: suspended
+                  ? colors.border
+                  : active
+                    ? colors.oddsActiveBorder
+                    : colors.oddsBorder,
                 opacity: suspended ? 0.45 : 1,
                 transform: [{ scale: pressed ? 0.94 : 1 }],
               },
@@ -105,7 +137,10 @@ function MarketBlock({
             {TYPE_LABELS[m.type] ?? m.type}
             {m.line != null ? ` @${m.line}` : ''}
             {m.status !== 'open' && (
-              <Text style={{ color: colors.warning }}> {'\u00B7'} {MARKET_STATUS_LABELS[m.status] ?? m.status}</Text>
+              <Text style={{ color: colors.warning }}>
+                {' '}
+                {'\u00B7'} {MARKET_STATUS_LABELS[m.status] ?? m.status}
+              </Text>
             )}
           </Text>
           <OddsRow odds={m.odds} matchId={m.id} suspended={m.status !== 'open'} onPick={onPick} />
@@ -115,18 +150,31 @@ function MarketBlock({
   );
 }
 
-function MatchCard({ match, onPick }: { match: Match; onPick: (marketId: number, selection: string, price: number, label: string) => void }) {
-  const statusLabel = MATCH_STATUS_LABELS[match.status] ?? match.status;
-  const isLive = match.status === 'scheduled' && !Number.isNaN(Date.parse(match.kickoff_time)) && Date.parse(match.kickoff_time) <= Date.now();
+function MatchCard({
+  match,
+  onPick,
+}: {
+  match: Match;
+  onPick: (marketId: number, selection: string, price: number, label: string) => void;
+}) {
+  const kickoffMs = Date.parse(match.kickoff_time);
+  const now = Date.now();
+  const isLive =
+    !Number.isNaN(kickoffMs) &&
+    match.status !== 'finished' &&
+    match.status !== 'settled' &&
+    kickoffMs <= now &&
+    now < kickoffMs + LIVE_WINDOW_MS;
   const isFinished = match.status === 'finished';
   const isSettled = match.status === 'settled' || match.status === 'finished';
   const isFeed = match.source === 'the-odds-api';
+  const statusLabel = isLive ? '进行中' : MATCH_STATUS_LABELS[match.status] ?? match.status;
   return (
-    <Card style={styles.matchCard}>
+    <Card testID={`match-row-${match.id}`} style={styles.matchCard}>
       <View style={styles.matchHeader}>
         <View style={styles.sportBadge}>
           <Text style={styles.sportIcon}>{sportIcon(match.sport)}</Text>
-          {match.league && <Text style={styles.leagueLabel}>{match.league}</Text>}
+          {match.league ? <Text style={styles.leagueLabel}>{match.league}</Text> : null}
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.teamNames}>
@@ -134,205 +182,351 @@ function MatchCard({ match, onPick }: { match: Match; onPick: (marketId: number,
           </Text>
           <Text style={styles.kickoff}>
             {'\uD83D\uDD50'} {formatKickoff(match.kickoff_time)} {'\u00B7'} {statusLabel}
-            {isLive && <Text style={styles.liveBadge}> {'\u25CF'} LIVE</Text>}
-            {isFinished && <Text style={styles.finishedBadge}> 已完场</Text>}
-            {isFeed && <Text style={styles.feedBadge}> FEED</Text>}
+            {isLive ? <Text style={styles.liveBadge}> {'\u25CF'} LIVE</Text> : null}
+            {isFinished ? <Text style={styles.finishedBadge}> 已完场</Text> : null}
+            {isFeed ? <Text style={styles.feedBadge}> FEED</Text> : null}
           </Text>
         </View>
-        {isSettled && match.home_score != null && (
+        {isSettled && match.home_score != null ? (
           <Text style={styles.score}>
             {match.home_score} : {match.away_score}
           </Text>
-        )}
+        ) : null}
       </View>
-      {!isSettled && <MarketBlock match={match} onPick={onPick} />}
+      {!isSettled ? <MarketBlock match={match} onPick={onPick} /> : null}
     </Card>
   );
 }
 
-function SportTabs({
-  sports,
-  selected,
-  onSelect,
-}: {
-  sports: SportInfo[];
-  selected: string | null;
-  onSelect: (sport: string | null) => void;
-}) {
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
-      <Pressable
-        onPress={() => onSelect(null)}
-        style={[styles.tab, selected === null && styles.tabActive]}
-      >
-        <Text style={[styles.tabText, selected === null && styles.tabTextActive]}>{'\u5168\u90E8'}</Text>
-      </Pressable>
-      {sports.map((s) => (
-        <Pressable
-          key={s.sport}
-          onPress={() => onSelect(s.sport)}
-          style={[styles.tab, selected === s.sport && styles.tabActive]}
-        >
-          <Text style={[styles.tabText, selected === s.sport && styles.tabTextActive]}>
-            {sportIcon(s.sport)} {s.sport.charAt(0).toUpperCase() + s.sport.slice(1)}
-          </Text>
-          <Text style={[styles.tabCount, selected === s.sport && styles.tabCountActive]}>
-            {s.leagues.reduce((sum, l) => sum + l.count, 0)}
-          </Text>
-        </Pressable>
-      ))}
-    </ScrollView>
-  );
+interface LeagueGroup {
+  key: string;
+  sport: string | null;
+  league: string;
+  matches: Match[];
 }
 
-function LeagueHeader({ league, count }: { league: string; count: number }) {
+type MatchRowItem =
+  | { kind: 'league'; key: string; sport: string | null; league: string; count: number }
+  | { kind: 'match'; match: Match };
+
+function groupByLeague(matches: Match[]): LeagueGroup[] {
+  const map = new Map<string, LeagueGroup>();
+  for (const match of matches) {
+    const sport = match.sport;
+    const league = match.league?.trim() || '未分类联赛';
+    // 折叠 key 只由运动 + 联赛决定，翻页追加后保持稳定
+    const key = `${sport ?? 'other'}||${league}`;
+    const group = map.get(key);
+    if (group) {
+      group.matches.push(match);
+    } else {
+      map.set(key, { key, sport, league, matches: [match] });
+    }
+  }
+  return Array.from(map.values());
+}
+
+function LeagueHeaderRow({
+  league,
+  count,
+  collapsed,
+  onToggle,
+}: {
+  league: string;
+  count: number;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <View style={styles.leagueHeader}>
-      <Text style={styles.leagueHeaderText}>{league}</Text>
-      <Text style={styles.leagueHeaderCount}>{count} {'\u573A'}</Text>
-    </View>
+    <Pressable
+      testID={`league-header-${leagueSlug(league)}`}
+      onPress={onToggle}
+      style={({ pressed }) => [styles.leagueHeader, { opacity: pressed ? 0.7 : 1 }]}
+    >
+      <Text style={styles.leagueHeaderChevron}>{collapsed ? '\u25B8' : '\u25BE'}</Text>
+      <Text style={styles.leagueHeaderText} numberOfLines={1}>
+        {league}
+      </Text>
+      <Text style={styles.leagueHeaderCount}>{count} 场</Text>
+    </Pressable>
   );
 }
 
 export default function MatchesScreen() {
-  const [selectedSport, setSelectedSport] = useState<string | null>(null);
-  const { data: sportsData } = useSports();
-  const { data, loading, error, refresh } = useMatches(selectedSport ? { sport: selectedSport } : undefined);
-  const slip = useBetSlip();
+  const [filters, setFilters] = useState<PlayerMatchFilters>(DEFAULT_PLAYER_MATCH_FILTERS);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
+  const {
+    rowsSource,
+    total,
+    loading,
+    loadingMore,
+    refreshing,
+    error,
+    hasMore,
+    refresh,
+    loadMore,
+  } = usePlayerMatches(filters);
+
+  const { add } = useBetSlip();
   const onPick = useCallback(
     (marketId: number, selection: string, price: number, label: string) => {
-      slip.add({ marketId, selection, price, label });
+      add({ marketId, selection, price, label });
     },
-    [slip]
+    [add],
   );
 
-  // Group matches by league for display
-  const groupedMatches = useMemo(() => {
-    const matches = data?.matches ?? [];
-    const groups = new Map<string, Match[]>();
-    for (const m of matches) {
-      const key = m.league ?? 'Other';
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(m);
-    }
-    return Array.from(groups.entries());
-  }, [data?.matches]);
+  const patchFilters = useCallback((patch: Partial<PlayerMatchFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+  }, []);
 
-  const sports = sportsData?.sports ?? [];
+  const resetFilters = useCallback(() => {
+    setFilters(DEFAULT_PLAYER_MATCH_FILTERS);
+  }, []);
+
+  const groups = useMemo(() => groupByLeague(rowsSource), [rowsSource]);
+
+  // 扁平化成 ONE FlatList 的行：联赛头 + 该联赛的赛事行
+  const rows = useMemo<MatchRowItem[]>(() => {
+    const out: MatchRowItem[] = [];
+    for (const group of groups) {
+      out.push({
+        kind: 'league',
+        key: group.key,
+        sport: group.sport,
+        league: group.league,
+        count: group.matches.length,
+      });
+      if (collapsed[group.key]) continue;
+      for (const match of group.matches) out.push({ kind: 'match', match });
+    }
+    return out;
+  }, [groups, collapsed]);
+
+  const allCollapsed = groups.length > 0 && groups.every((g) => collapsed[g.key]);
+
+  const toggleLeague = useCallback((key: string) => {
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    setCollapsed((prev) => {
+      if (groups.length === 0) return prev;
+      const everyCollapsed = groups.every((g) => prev[g.key]);
+      const next = { ...prev };
+      for (const g of groups) next[g.key] = !everyCollapsed;
+      return next;
+    });
+  }, [groups]);
+
+  const keyExtractor = useCallback(
+    (item: MatchRowItem) =>
+      item.kind === 'league' ? `league:${item.key}` : `match:${item.match.id}`,
+    [],
+  );
+
+  const renderRow = useCallback(
+    ({ item }: { item: MatchRowItem }) => {
+      if (item.kind === 'league') {
+        return (
+          <LeagueHeaderRow
+            league={item.league}
+            count={item.count}
+            collapsed={!!collapsed[item.key]}
+            onToggle={() => toggleLeague(item.key)}
+          />
+        );
+      }
+      return <MatchCard match={item.match} onPick={onPick} />;
+    },
+    [collapsed, toggleLeague, onPick],
+  );
+
+  const footer = useMemo(() => {
+    if (loadingMore) {
+      return (
+        <View testID="list-footer" style={styles.footer}>
+          <ActivityIndicator color={colors.secondary} />
+        </View>
+      );
+    }
+    if (!hasMore && rowsSource.length > 0) {
+      return (
+        <Text testID="list-footer" style={styles.footerText}>
+          已全部加载 {'\u00B7'} {total} 场
+        </Text>
+      );
+    }
+    return <View testID="list-footer" />;
+  }, [loadingMore, hasMore, rowsSource.length, total]);
+
+  const hasNarrowFilters =
+    filters.q.trim() !== '' ||
+    filters.sport !== null ||
+    filters.league !== null ||
+    filters.onlyOpen;
+
+  const emptyState = hasNarrowFilters ? (
+    <EmptyState
+      testID="matches-empty"
+      icon="🔍"
+      title="没有符合条件的赛事"
+      desc="换个关键词，或清除部分筛选条件"
+      actionLabel="清除筛选"
+      onAction={resetFilters}
+    />
+  ) : filters.when !== 'all' ? (
+    <EmptyState
+      testID="matches-empty"
+      icon="📅"
+      title="该时段暂无赛事"
+      desc="试试把日期范围放宽到近3天或全部"
+      actionLabel="查看全部日期"
+      onAction={() => patchFilters({ when: 'all' })}
+    />
+  ) : (
+    <EmptyState testID="matches-empty" icon="📭" title="暂无赛事" desc="下拉刷新试试" />
+  );
 
   return (
     <Screen>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <Text style={styles.title}>{'\u26A1'} BET PLAY</Text>
-          <Text style={styles.subtitle}>{'\u8D5B\u524D\u56FA\u5B9A\u8D54\u7387 \u00B7 \u7ACB\u5373\u4E0B\u6CE8'}</Text>
+          <Text style={styles.subtitle}>
+            {'\u8D5B\u524D\u56FA\u5B9A\u8D54\u7387 \u00B7 \u7ACB\u5373\u4E0B\u6CE8'}
+          </Text>
         </View>
 
-        {sports.length > 0 && (
-          <SportTabs sports={sports} selected={selectedSport} onSelect={setSelectedSport} />
-        )}
+        <MatchFilters
+          filters={filters}
+          onChange={patchFilters}
+          onReset={resetFilters}
+          total={total}
+          allCollapsed={allCollapsed}
+          onToggleCollapseAll={toggleAll}
+        />
 
-        {loading && <ActivityIndicator size="large" color={colors.secondary} style={{ marginTop: 60 }} />}
-
-        {error && (
-          <View style={{ padding: 24 }}>
-            <Text style={{ color: colors.danger }}>{'\u52A0\u8F7D\u5931\u8D25\uFF1A'}{error}</Text>
-            <ButtonText onPress={refresh} label={'\u91CD\u8BD5'} />
+        {loading ? (
+          <View style={styles.skeletonWrap}>
+            <SkeletonList rows={6} />
           </View>
-        )}
-
-        {!loading && !error && (
-          <FlatList
-            removeClippedSubviews={false}
-            data={groupedMatches}
-            keyExtractor={([league]) => league}
-            contentContainerStyle={styles.listContent}
-            refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.secondary} />}
-            ListEmptyComponent={<EmptyState text={'\u6682\u65E0\u8D5B\u4E8B\uFF0C\u4E0B\u62C9\u5237\u65B0'} />}
-            renderItem={({ item: [league, matches] }) => (
-              <View>
-                <LeagueHeader league={league} count={matches.length} />
-                {matches.map((m) => (
-                  <MatchCard key={m.id} match={m} onPick={onPick} />
-                ))}
+        ) : (
+          <>
+            {error ? (
+              <View style={styles.errorBlock}>
+                <Text style={styles.errorText}>
+                  {'\u52A0\u8F7D\u5931\u8D25\uFF1A'}
+                  {error}
+                </Text>
+                <Pressable onPress={refresh} style={styles.retryBtn} testID="matches-retry">
+                  <Text style={styles.retryText}>{'\u91CD\u8BD5'}</Text>
+                </Pressable>
               </View>
-            )}
-          />
+            ) : null}
+
+            <FlatList
+              style={styles.list}
+              data={rows}
+              keyExtractor={keyExtractor}
+              renderItem={renderRow}
+              initialNumToRender={12}
+              maxToRenderPerBatch={8}
+              windowSize={7}
+              removeClippedSubviews={false}
+              onEndReached={loadMore}
+              onEndReachedThreshold={0.4}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={refresh}
+                  tintColor={colors.secondary}
+                />
+              }
+              ListEmptyComponent={error ? null : emptyState}
+              ListFooterComponent={footer}
+            />
+          </>
         )}
       </SafeAreaView>
     </Screen>
   );
 }
 
-function ButtonText({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={{ marginTop: 12 }}>
-      <Text style={{ color: colors.secondary, fontWeight: font.bold }}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  title: { fontSize: fontSize.hero, fontWeight: font.bold, color: colors.text, letterSpacing: 1 },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  title: {
+    fontSize: fontSize.hero,
+    fontWeight: font.bold,
+    color: colors.text,
+    letterSpacing: 1,
+  },
   subtitle: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 2 },
-  tabBar: { maxHeight: 48, paddingHorizontal: spacing.lg },
-  tabBarContent: { gap: spacing.sm, paddingBottom: spacing.sm },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: radius.lg,
-    backgroundColor: colors.bgElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  tabActive: {
-    backgroundColor: colors.secondary,
-    borderColor: colors.secondary,
-  },
-  tabText: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: font.medium },
-  tabTextActive: { color: '#fff' },
-  tabCount: { color: colors.textMuted, fontSize: fontSize.xs },
-  tabCountActive: { color: 'rgba(255,255,255,0.7)' },
+  list: { flex: 1 },
+  skeletonWrap: { padding: spacing.lg },
   listContent: { padding: spacing.lg, paddingBottom: 120 },
   leagueHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
     marginTop: spacing.md,
+    marginBottom: spacing.sm,
     paddingHorizontal: 4,
+    paddingVertical: 4,
   },
-  leagueHeaderText: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: font.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  leagueHeaderChevron: {
+    color: colors.secondary,
+    fontSize: fontSize.sm,
+    width: 16,
+    fontWeight: font.bold,
+  },
+  leagueHeaderText: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontWeight: font.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   leagueHeaderCount: { color: colors.textMuted, fontSize: fontSize.xs },
   matchCard: { marginBottom: spacing.lg },
-  liveBadge: {
-    color: '#2ecc71',
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  finishedBadge: {
-    color: colors.warning,
-    fontWeight: '600',
-    fontSize: 12,
-  },
+  liveBadge: { color: '#2ecc71', fontWeight: '700', fontSize: 12 },
+  finishedBadge: { color: colors.warning, fontWeight: '600', fontSize: 12 },
   matchHeader: { flexDirection: 'row', alignItems: 'flex-start' },
   sportBadge: { alignItems: 'center', marginRight: spacing.md, minWidth: 40 },
   sportIcon: { fontSize: 22 },
-  leagueLabel: { color: colors.textMuted, fontSize: 9, fontWeight: font.medium, marginTop: 2, textAlign: 'center' },
+  leagueLabel: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: font.medium,
+    marginTop: 2,
+    textAlign: 'center',
+  },
   teamNames: { fontSize: fontSize.lg, fontWeight: font.bold, color: colors.text },
   vs: { color: colors.textMuted, fontSize: fontSize.md },
   kickoff: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 4 },
   feedBadge: { color: colors.secondary, fontSize: fontSize.xs, fontWeight: font.bold },
-  score: { fontSize: fontSize.xl, fontWeight: font.bold, color: colors.success, marginLeft: spacing.md },
+  score: {
+    fontSize: fontSize.xl,
+    fontWeight: font.bold,
+    color: colors.success,
+    marginLeft: spacing.md,
+  },
   marketBlock: { marginTop: spacing.md },
   marketItem: { marginBottom: spacing.md },
-  marketTitle: { color: colors.textSecondary, fontSize: fontSize.xs, fontWeight: font.regular, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  marketTitle: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    fontWeight: font.regular,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   oddsRow: { flexDirection: 'row', gap: spacing.sm },
   oddsBtn: {
     flex: 1,
@@ -344,4 +538,23 @@ const styles = StyleSheet.create({
   oddsLabel: { color: '#8B93B5', fontSize: fontSize.xs, fontWeight: font.regular },
   oddsPrice: { fontSize: fontSize.lg, fontWeight: font.bold, color: colors.text, marginTop: 2 },
   oddsProb: { fontSize: 10, color: colors.textMuted, marginTop: 1 },
+  footer: { paddingVertical: spacing.lg, alignItems: 'center' },
+  footerText: {
+    textAlign: 'center',
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    paddingVertical: spacing.lg,
+  },
+  errorBlock: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    backgroundColor: 'rgba(239,68,68,0.08)',
+  },
+  errorText: { color: colors.danger, fontSize: fontSize.sm },
+  retryBtn: { marginTop: spacing.sm, alignSelf: 'flex-start' },
+  retryText: { color: colors.secondary, fontWeight: font.bold, fontSize: fontSize.sm },
 });
