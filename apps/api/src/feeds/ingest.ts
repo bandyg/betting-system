@@ -35,7 +35,7 @@ export function upsertMatch(db: Database, rows: MatchRowSets, opts: { overwriteM
     if (existing) {
       matchId = existing.id;
       db.prepare(
-        `UPDATE matches SET home_team=?, away_team=?, kickoff_time=?, status=?,
+        `UPDATE matches SET home_team=?, away_team=?, kickoff_time=?, status = CASE WHEN matches.status IN ('finished','settled') THEN matches.status ELSE ? END,
            home_score=COALESCE(?,home_score), away_score=COALESCE(?,away_score),
            sport=?, league=?, source=?,
            match_feed_key=COALESCE(?, match_feed_key)
