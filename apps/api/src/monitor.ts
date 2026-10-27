@@ -179,7 +179,7 @@ export function collectMetrics(db: Database.Database, dbPath?: string): MetricsS
   let open_bets = 0;
   try {
     feed_log_errors_24h = (db.prepare(
-      "SELECT COUNT(*) AS n FROM feed_log WHERE requested_at >= ? AND (status='error' OR errors LIKE '%404%' OR errors LIKE '%UNKNOWN_SPORT%')"
+      "SELECT COUNT(*) AS n FROM feed_log WHERE requested_at >= ? AND (status='error' OR errors LIKE '%404%' OR errors LIKE '%UNKNOWN_SPORT%' OR errors LIKE '%OUT_OF_USAGE_CREDITS%')"
     ).get(cutoff) as { n: number }).n;
     open_bets = (db.prepare("SELECT COUNT(*) AS n FROM bets WHERE status='open'").get() as { n: number }).n;
   } catch {

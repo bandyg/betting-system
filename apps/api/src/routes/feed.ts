@@ -4,6 +4,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { requireAuth, requireRole } from './middleware.js';
 import { pollOnce, readFeedConfig } from '../feeds/scheduler.js';
+import { getLastQuota } from '../feeds/provider.js';
 import { isAutoSettleEnabled } from '../feeds/ingest.js';
 import { isAutoMarketEnabled } from '../feeds/autoMarket.js';
 
@@ -48,6 +49,25 @@ feedRouter.get('/admin/feed/status', requireAuth, requireRole('admin'), (_req, r
     .all() as FeedLogRow[];
   const count = db.prepare("SELECT COUNT(*) AS n FROM matches WHERE source <> 'manual'").get() as { n: number };
 
+  const setting = (key: string): string | null => {
+    const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
+    return r?.value ?? null;
+  };
+  const asNum = (v: string | null): number | null => {
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const live = getLastQuota();
+  const quota = {
+    remaining: live?.remaining ?? asNum(setting('feed_quota_remaining')),
+    used: live?.used ?? asNum(setting('feed_quota_used')),
+    last: live?.last ?? asNum(setting('feed_quota_last')),
+    updatedAt: live?.updatedAt ?? setting('feed_quota_updated_at'),
+  };
+  const quotaBlockedUntil = setting('feed_quota_blocked_until');
+  const lastErrorCode = setting('feed_last_error_code');
+
   res.json({
     manual,
     autoSettle,
@@ -58,6 +78,9 @@ feedRouter.get('/admin/feed/status', requireAuth, requireRole('admin'), (_req, r
     lastError: lastLog?.status === 'error' ? lastLog.errors : null,
     feedMatchCount: count.n,
     feedLog,
+    quota,
+    quotaBlockedUntil,
+    lastErrorCode,
   });
 });
 
