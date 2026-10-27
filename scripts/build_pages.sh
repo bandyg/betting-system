@@ -37,8 +37,13 @@ cat > "$PAGE_TEMPLATE" <<'EOF'
   <title>{{TITLE}} — Betting Storybook</title>
   <style>
     :root { --bg:#0f0f1e; --bg-card:#1a1a2e; --bg-card-2:#232342; --fg:#e6e6f0; --fg-muted:#8888aa; --border:#333355; --accent:#6c63ff; }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: rgba(136,136,170,0.35) transparent; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; margin:0; background:var(--bg); color:var(--fg); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(136,136,170,0.35); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(136,136,170,0.55); }
+    ::-webkit-scrollbar-corner { background: transparent; }
     .wrap { max-width: 860px; margin: 0 auto; padding: 32px 24px 64px; }
     .crumb { font-size: 13px; margin-bottom: 24px; }
     .crumb a { color: var(--accent); text-decoration: none; }
