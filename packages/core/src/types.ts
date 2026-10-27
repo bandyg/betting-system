@@ -65,6 +65,10 @@ export interface BetLeg {
 export interface MatchesResponse {
   count: number;
   matches: Match[];
+  total?: number;
+  limit?: number | null;
+  offset?: number;
+  hasMore?: boolean;
 }
 
 export interface UsersResponse {
