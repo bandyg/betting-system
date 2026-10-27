@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, setAuthToken, wsUrlFromApiBase } from './api';
+import type { MatchListParams } from './api';
 import type {
   Bet,
   Match,
@@ -52,8 +53,19 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 
 // ---- 业务 hooks ----
 
-export function useMatches(params?: { sport?: string; league?: string; status?: string }) {
-  return useAsync<MatchesResponse>(() => api.listMatches(params), [params?.sport, params?.league, params?.status]);
+export function useMatches(params?: MatchListParams) {
+  return useAsync<MatchesResponse>(() => api.listMatches(params), [
+    params?.sport,
+    params?.league,
+    params?.status,
+    params?.q,
+    params?.from,
+    params?.to,
+    params?.withOdds,
+    params?.limit,
+    params?.offset,
+    params?.sort,
+  ]);
 }
 
 export function useSports() {

@@ -1,4 +1,5 @@
 export { api, setApiBase, getApiBase, wsUrlFromApiBase, setAuthToken, getAuthToken } from './api';
+export type { MatchListParams } from './api';
 export type {
   Bet,
   Market,

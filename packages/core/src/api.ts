@@ -98,6 +98,19 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return body as T;
 }
 
+export interface MatchListParams {
+  sport?: string;
+  league?: string;
+  status?: string;
+  q?: string;
+  from?: string;
+  to?: string;
+  withOdds?: boolean;
+  limit?: number;
+  offset?: number;
+  sort?: 'kickoff_asc' | 'kickoff_desc';
+}
+
 export const api = {
   // auth
   login: (name: string, password: string) =>
@@ -116,11 +129,18 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ amount }) }
     ),
   // matches & markets
-  listMatches: (params?: { sport?: string; league?: string; status?: string }) => {
+  listMatches: (params?: MatchListParams) => {
     const qs: string[] = [];
     if (params?.sport) qs.push(`sport=${encodeURIComponent(params.sport)}`);
     if (params?.league) qs.push(`league=${encodeURIComponent(params.league)}`);
     if (params?.status) qs.push(`status=${encodeURIComponent(params.status)}`);
+    if (params?.q) qs.push(`q=${encodeURIComponent(params.q)}`);
+    if (params?.from) qs.push(`from=${encodeURIComponent(params.from)}`);
+    if (params?.to) qs.push(`to=${encodeURIComponent(params.to)}`);
+    if (params?.withOdds) qs.push('withOdds=1');
+    if (params?.limit !== undefined) qs.push(`limit=${encodeURIComponent(String(params.limit))}`);
+    if (params?.offset !== undefined) qs.push(`offset=${encodeURIComponent(String(params.offset))}`);
+    if (params?.sort) qs.push(`sort=${encodeURIComponent(params.sort)}`);
     return request<MatchesResponse>(`/matches${qs.length ? `?${qs.join('&')}` : ''}`);
   },
   // sports
