@@ -32,8 +32,12 @@ const WEB_SCROLLBAR_CSS = `
   ::-webkit-scrollbar-thumb { background: rgba(154,163,192,0.35); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: rgba(154,163,192,0.55); }
   ::-webkit-scrollbar-corner { background: transparent; }
-  html, body { scrollbar-width: none; overflow-x: hidden; }
+  html, body { scrollbar-width: none; overflow-x: hidden; background: #04060D; }
   html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; }
+  /* expo-router（SDK57）内置 react-navigation 的导航容器底色硬编码浅色主题 #F2F2F2，
+     会在手机壳底部导航两侧露出一条浅色带。userInterfaceStyle=dark 对打包内置的
+     导航主题不生效，设计系统也从未使用该颜色，运行时按内联样式精准压成场景背底。 */
+  [style*="rgb(242,242,242)"], [style*="rgb(242, 242, 242)"] { background-color: #04060D !important; }
 `;
 
 // 根导航：Stack —— 玩家端 (tabs) group 与运营后台 admin group 互不嵌套
