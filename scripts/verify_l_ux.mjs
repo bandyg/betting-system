@@ -24,12 +24,58 @@ const APIJ = async (method, path, body, token) => {
   return { status: res.status, data: await res.json().catch(() => ({})) };
 };
 
+
+// —— 自清理：直接按依赖序删除本次创建的验证数据（赛事→市场→赔率→注单→流水），不再污染大厅 ——
+let createdMatchIds = [];
+let createdUserIds = [];
+function cleanupVerifyArtifacts() {
+  if (!createdMatchIds.length && !createdUserIds.length) return;
+  try {
+    const { createRequire: _cr } = require('node:module');
+    const Database = _cr(import.meta.url)('better-sqlite3');
+    const dbPath = process.env.BETTING_DB_PATH || new URL('../data/betting.db', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+    const db = new Database(dbPath);
+    const run = db.transaction(() => {
+      for (const mid of createdMatchIds) {
+        const betIds = db.prepare('SELECT id FROM bets WHERE market_id IN (SELECT id FROM markets WHERE match_id = ?) OR id IN (SELECT bet_id FROM bet_legs WHERE market_id IN (SELECT id FROM markets WHERE match_id = ?))').all(mid, mid).map(r => r.id);
+        for (const bid of betIds) {
+          db.prepare('DELETE FROM bet_legs WHERE bet_id = ?').run(bid);
+          db.prepare("DELETE FROM transactions WHERE ref_type = 'bet' AND ref_id = ?").run(bid);
+          db.prepare('DELETE FROM bets WHERE id = ?').run(bid);
+        }
+        db.prepare('DELETE FROM odds WHERE market_id IN (SELECT id FROM markets WHERE match_id = ?)').run(mid);
+        db.prepare('DELETE FROM markets WHERE match_id = ?').run(mid);
+        db.prepare('DELETE FROM matches WHERE id = ?').run(mid);
+      }
+      for (const uid of createdUserIds) {
+        const acc = db.prepare('SELECT id FROM accounts WHERE user_id = ?').get(uid);
+        if (acc) {
+          db.prepare('DELETE FROM transactions WHERE account_id = ?').run(acc.id);
+          db.prepare('DELETE FROM payment_orders WHERE user_id = ?').run(uid);
+        }
+        db.prepare('DELETE FROM bet_legs WHERE bet_id IN (SELECT id FROM bets WHERE user_id = ?)').run(uid);
+        db.prepare('DELETE FROM bets WHERE user_id = ?').run(uid);
+        db.prepare('DELETE FROM promotion_claims WHERE user_id = ?').run(uid);
+        db.prepare('DELETE FROM user_preferences WHERE user_id = ?').run(uid);
+        db.prepare('DELETE FROM withdrawals WHERE user_id = ?').run(uid);
+        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(uid);
+        db.prepare('DELETE FROM accounts WHERE user_id = ?').run(uid);
+        db.prepare('DELETE FROM users WHERE id = ?').run(uid);
+      }
+    });
+    run();
+    console.log('CLEANUP | 已删除验证数据:', { matches: createdMatchIds, users: createdUserIds });
+  } catch (e) {
+    console.log('CLEANUP-FAIL | ' + String(e).slice(0, 200));
+  }
+}
 let browser = null;
 try {
   // 前置：赛事 + 市场（供大厅渲染）
   const admin = (await APIJ('POST', '/auth/login', { name: 'admin', password: 'admin123' })).data;
   const aTok = admin.token;
   const mt = (await APIJ('POST', '/matches', { homeTeam: 'LUXHome' + ts, awayTeam: 'LUXAway' + ts, kickoffTime: '2099-01-01T12:00:00.000Z', sport: 'soccer', league: 'LUXLeague' }, aTok)).data.match;
+  createdMatchIds.push(mt.id);
   await APIJ('POST', `/matches/${mt.id}/markets`, { type: '1x2', line: null, odds: { home: 2.1, draw: 3.4, away: 3.2 } }, aTok);
   ok(!!mt.id, '前置：测试赛事已建', `match=${mt.id}`);
 
@@ -90,6 +136,7 @@ try {
   fail++;
 } finally {
   if (browser) await browser.close().catch(() => {});
+  cleanupVerifyArtifacts();
 }
 
 console.log('---');

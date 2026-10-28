@@ -2,12 +2,17 @@
 import { Tabs } from 'expo-router';
 import { Platform, Text } from 'react-native';
 import { colors } from '@betting/ui';
+import { useBetSlip } from '@betting/core';
 
 function EmojiIcon({ emoji }: { emoji: string }) {
-  return <Text style={{ fontSize: 20 }}>{emoji}</Text>;
+  // aria-hidden：否则读屏会把它和标题一起念，出现「⚽ ⚽ 赛事」的重复朗读
+  return <Text style={{ fontSize: 20 }} aria-hidden accessible={false}>{emoji}</Text>;
 }
 
 export default function TabsLayout() {
+  // 下注单角标：跨页共享的 slip 单例，选中赔率后 tab 上直接可见数量
+  const slip = useBetSlip();
+  const slipBadge = slip.items.length > 0 ? slip.items.length : undefined;
   return (
     <Tabs
       screenOptions={{
@@ -27,7 +32,14 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: '赛事', tabBarIcon: () => <EmojiIcon emoji="⚽" /> }} />
       <Tabs.Screen name="promo" options={{ title: '促销', tabBarIcon: () => <EmojiIcon emoji="🎁" /> }} />
-      <Tabs.Screen name="slip" options={{ title: '下注单', tabBarIcon: () => <EmojiIcon emoji="🎫" /> }} />
+      <Tabs.Screen
+        name="slip"
+        options={{
+          title: '下注单',
+          tabBarBadge: slipBadge,
+          tabBarIcon: () => <EmojiIcon emoji="🎫" />,
+        }}
+      />
       <Tabs.Screen name="account" options={{ title: '我的', tabBarIcon: () => <EmojiIcon emoji="👤" /> }} />
       <Tabs.Screen name="support" options={{ href: null }} />
     </Tabs>

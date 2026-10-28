@@ -1,16 +1,43 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { api, useAuth, useBets, usePreferences, useMyVip, useWithdrawals, useUsers, useMatches, useRiskLimits, useAnalyticsDashboard, useAnalyticsTrends, useAnalyticsHotMatches, useAnalyticsUsers, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS, PAYMENT_STATUS_LABELS, WITHDRAWAL_METHOD_LABELS, WITHDRAWAL_STATUS_LABELS } from '@betting/core';
 import type { Bet, User, Market, RiskField, PaymentOrder, Withdrawal, DashboardStats, TrendPoint, HotMatch, UserAnalytics, MyVip } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
+import { formatLocalDateTime } from '../../lib/datetime';
+
+/** VIP 等级中文名（tier key 来自 vip_tiers 表） */
+const VIP_TIER_LABELS: Record<string, string> = {
+  bronze: '青铜',
+  silver: '白银',
+  gold: '黄金',
+  platinum: '铂金',
+  diamond: '钻石',
+};
+
+function vipTierLabel(tier: string): string {
+  return VIP_TIER_LABELS[tier] ?? tier.charAt(0).toUpperCase() + tier.slice(1);
+}
 
 function betLabel(b: Bet): string {
   if (b.bet_type === 'parlay' && b.legs && b.legs.length > 0) {
     return `${b.legs.length} 串 @${b.price.toFixed(2)}`;
   }
   return `${SEL_LABELS[b.selection ?? ''] ?? b.selection} @${b.price.toFixed(2)}`;
+}
+
+/** 注单的对阵描述：单注看 market，串关取各腿（最多展示前 2 腿） */
+function betMatchLine(b: Bet): string | null {
+  if (b.bet_type === 'parlay' && b.legs && b.legs.length > 0) {
+    const pairs = b.legs.slice(0, 2).map((l) => `${l.home_team} vs ${l.away_team}`);
+    if (b.legs.length > 2) pairs.push(`等 ${b.legs.length} 场`);
+    return pairs.join(' + ');
+  }
+  if (b.market?.home_team && b.market?.away_team) {
+    return `${b.market.home_team} vs ${b.market.away_team}`;
+  }
+  return null;
 }
 
 function statusColor(status: string): string {
@@ -54,7 +81,7 @@ function AuthForm() {
       <Card style={styles.authCard} glass>
         <Text style={styles.authTitle}>{mode === 'login' ? '🔐 登录' : '✨ 注册新账号'}</Text>
         <Text style={styles.authSub}>
-          {mode === 'login' ? '登录后查看余额、下注记录与偏好' : '注册即送 ¥0 余额，先充后玩'}
+          {mode === 'login' ? '登录后查看余额、下注记录与偏好' : '注册后即可充值投注（演示环境为模拟支付）'}
         </Text>
 
         <TextInput
@@ -578,24 +605,43 @@ function AnalyticsPanel() {
 /** VIP 等级卡片（CRM 忠诚度计划） */
 function VipCard() {
   const vip = useMyVip();
+  // 页面 keep-alive：切回时重取，下注后累计投注/等级进度才不会停留在旧值
+  useFocusEffect(
+    useCallback(() => {
+      vip.refresh();
+      return undefined;
+    }, []), // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const data = vip.data?.vip;
   if (!data) return null;
   const current = data.tiers.find((t) => t.tier === data.tier);
   if (!current) return null;
-  const nextTier = data.next ? data.tiers.find((t) => t.tier === data.next) : null;
+  // next 与当前同级说明 stake 为负/口径异常，此时不展示"还差"提示
+  const nextTier =
+    data.next && data.next !== data.tier
+      ? data.tiers.find((t) => t.tier === data.next)
+      : null;
+  const gap = nextTier ? Math.max(0, nextTier.min_lifetime_stake - data.stake) : 0;
   const pct = Math.round(data.progress * 100);
   return (
     <Card style={styles.sectionCard} glass>
       <View style={styles.vipHeader}>
         <Text style={styles.vipBadge}>{current.badge}</Text>
         <View style={{ flex: 1 }}>
-          <Text style={styles.vipTitle}>VIP {current.tier}</Text>
+          <Text style={styles.vipTitle}>
+            VIP {vipTierLabel(current.tier)}
+            {current.tier !== data.tier ? `（${data.tier}）` : ''}
+          </Text>
           <Text style={styles.vipPerks}>{current.perks}</Text>
         </View>
       </View>
       <View style={styles.vipMetaRow}>
         <Text style={styles.vipStake}>累计投注 ¥{data.stake.toLocaleString()}</Text>
-        <Text style={styles.vipNext}>{nextTier ? `距 ${nextTier.badge} ${nextTier.tier} 还差 ¥${Math.max(0, nextTier.min_lifetime_stake - data.stake).toLocaleString()}` : '已达最高等级'}</Text>
+        <Text style={styles.vipNext}>
+          {nextTier
+            ? `距 ${nextTier.badge} ${vipTierLabel(nextTier.tier)} 还差 ¥${gap.toLocaleString()}`
+            : '已达最高等级'}
+        </Text>
       </View>
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${pct}%` }]} />
@@ -676,6 +722,8 @@ function WithdrawCard({ isAdmin }: { isAdmin: boolean }) {
         {(['bank', 'crypto', 'usdt'] as const).map((m) => (
           <Pressable
             key={m}
+            accessibilityRole="button"
+            accessibilityState={{ selected: method === m }}
             onPress={() => setMethod(m)}
             style={[styles.chip, { borderWidth: 1, borderColor: method === m ? colors.secondary : colors.border }]}
           >
@@ -724,7 +772,7 @@ function WithdrawCard({ isAdmin }: { isAdmin: boolean }) {
             <View key={w.id} style={styles.orderRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.orderNo}>{w.wd_no} · ¥{w.amount.toLocaleString()}</Text>
-                <Text style={styles.hint}>{w.created_at} · {WITHDRAWAL_METHOD_LABELS[w.method]}{w.reject_reason ? ` · ${w.reject_reason}` : ''}</Text>
+                <Text style={styles.hint}>{formatLocalDateTime(w.created_at)} · {WITHDRAWAL_METHOD_LABELS[w.method]}{w.reject_reason ? ` · ${w.reject_reason}` : ''}</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={[styles.orderStatus, { color: w.status === 'paid' || w.status === 'approved' ? colors.success : w.status === 'rejected' ? colors.danger : colors.textSecondary }]}>
@@ -773,6 +821,23 @@ export default function AccountScreen() {
       setLoadingOrders(false);
     }
   };
+
+  // 页面常驻 keep-alive 堆叠，切回时必须重新拉数据，
+  // 否则刚下的注单/新余额要等刷新页面才出现
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      bets.refresh();
+      prefs.refresh();
+      loadOrders();
+      api
+        .getUser(user.id)
+        .then((fresh) => auth.update({ ...user, ...fresh.user }))
+        .catch(() => {});
+      return undefined;
+      // refresh 回调随登录用户变化；函数引用不进依赖避免循环刷新
+    }, [user?.id]), // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   /** 第一步：创建充值订单（走支付通道） */
   const createOrder = async () => {
@@ -845,7 +910,7 @@ export default function AccountScreen() {
         <SafeAreaView style={styles.safe} edges={['top']}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <View style={styles.brand}>
-              <Text style={styles.brandTitle}>⚡ BET NOW</Text>
+              <Text style={styles.brandTitle}>⚡ BET PLAY</Text>
               <Text style={styles.brandSub}>登录你的投注账户</Text>
             </View>
             <AuthForm />
@@ -940,7 +1005,7 @@ export default function AccountScreen() {
                 <View key={o.id} style={styles.orderRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.orderNo}>{o.order_no}</Text>
-                    <Text style={styles.hint}>{o.created_at} · {o.provider}</Text>
+                    <Text style={styles.hint}>{formatLocalDateTime(o.created_at)} · {o.provider}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={styles.orderAmt}>¥{o.amount.toLocaleString()}</Text>
@@ -982,25 +1047,41 @@ export default function AccountScreen() {
           {/* 投注记录 */}
           <SectionTitle style={styles.recordTitle}>📋 投注记录</SectionTitle>
           {bets.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
-          {!bets.loading && (bets.data?.bets ?? []).length === 0 && <EmptyState text="暂无投注记录，去赛事页下第一注" />}
-          {(bets.data?.bets ?? []).map((b) => (
-            <Card key={b.id} style={styles.betRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.betMain}>
-                  {betLabel(b)} · ¥{b.stake}
-                </Text>
-                <Text style={styles.betSub}>
-                  #{b.id} · {b.created_at?.replace('T', ' ').slice(0, 16)}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[styles.betStatus, { color: statusColor(b.status) }]}>
-                  {b.status.toUpperCase()}
-                </Text>
-                {b.status === 'won' && <Text style={styles.betPayout}>+¥{b.potential_payout}</Text>}
-              </View>
-            </Card>
-          ))}
+          {!bets.loading && (bets.data?.bets ?? []).length === 0 && (
+            <EmptyState
+              icon="📋"
+              title="暂无投注记录"
+              desc="选中赔率后到下注单提交即可"
+              actionLabel="去赛事页"
+              onAction={() => router.push('/')}
+            />
+          )}
+          {(bets.data?.bets ?? []).map((b) => {
+            const matchLine = betMatchLine(b);
+            return (
+              <Card key={b.id} style={styles.betRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.betMain}>
+                    {betLabel(b)} · ¥{b.stake}
+                  </Text>
+                  {matchLine ? (
+                    <Text style={styles.betMatch} numberOfLines={1}>
+                      {matchLine}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.betSub}>
+                    #{b.id} · {formatLocalDateTime(b.created_at)}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[styles.betStatus, { color: statusColor(b.status) }]}>
+                    {b.status.toUpperCase()}
+                  </Text>
+                  {b.status === 'won' && <Text style={styles.betPayout}>+¥{b.potential_payout}</Text>}
+                </View>
+              </Card>
+            );
+          })}
         </ScrollView>
       </SafeAreaView>
     </Screen>
@@ -1062,6 +1143,7 @@ const styles = StyleSheet.create({
   chipText: { fontSize: fontSize.sm, fontWeight: font.regular },
   betRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   betMain: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
+  betMatch: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 2 },
   betSub: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
   betStatus: { fontSize: fontSize.sm, fontWeight: font.bold },
   betPayout: { color: colors.success, fontSize: fontSize.sm, marginTop: 2 },

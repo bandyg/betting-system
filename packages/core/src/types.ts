@@ -18,6 +18,10 @@ export interface Market {
   line: number | null;
   status: string;
   odds: OddsItem[];
+  /** 仅注单详情（GET /bets）附带：所属比赛的对阵与开赛时间 */
+  home_team?: string;
+  away_team?: string;
+  kickoff_time?: string;
 }
 
 export interface Match {
@@ -312,10 +316,11 @@ export interface WithdrawalsResponse {
   withdrawals: Withdrawal[];
 }
 
+// 三个渠道必须是互斥的到账方式：「加密货币」单独出现时与 USDT 语义重叠，拆成明确币种
 export const WITHDRAWAL_METHOD_LABELS: Record<Withdrawal['method'], string> = {
   bank: '银行卡',
-  crypto: '加密货币',
-  usdt: 'USDT',
+  crypto: '数字货币（BTC/ETH）',
+  usdt: 'USDT · TRC20',
 };
 
 export const WITHDRAWAL_STATUS_LABELS: Record<WithdrawalStatus, string> = {

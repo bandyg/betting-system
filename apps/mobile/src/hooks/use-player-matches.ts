@@ -39,7 +39,7 @@ function startOfLocalDay(d: Date): Date {
 }
 
 /** today => 本地今天 00:00 到明天 00:00；3d => now-3h ~ now+3d；all => now-3h 起，无上限 */
-function buildWindow(when: MatchWhen): { from: string; to?: string } {
+export function buildWindow(when: MatchWhen): { from: string; to?: string } {
   const now = new Date();
   if (when === 'today') {
     const from = startOfLocalDay(now);

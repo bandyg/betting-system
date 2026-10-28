@@ -68,8 +68,11 @@ export function useMatches(params?: MatchListParams) {
   ]);
 }
 
-export function useSports() {
-  return useAsync<SportsResponse>(() => api.getSports());
+export function useSports(window?: { from?: string; to?: string }) {
+  return useAsync<SportsResponse>(() => api.getSports(window), [
+    window?.from,
+    window?.to,
+  ]);
 }
 
 export function useLeagues(sport?: string) {
@@ -341,6 +344,10 @@ export interface BetSlipItem {
   price: number;
   label: string;
   stake: number;
+  /** 所属比赛的展示信息（队名对阵、联赛、开赛时间）——下注单里区分多场同赔率必须显示 */
+  matchLabel?: string;
+  league?: string;
+  kickoff?: string;
 }
 
 export interface BetSlipState {

@@ -17,6 +17,7 @@ import {
   MARKET_STATUS_LABELS,
 } from '@betting/core';
 import type { Match, OddsItem } from '@betting/core';
+import type { MatchWhen } from '../../hooks/use-player-matches';
 import {
   Card,
   Screen,
@@ -34,38 +35,17 @@ import {
   usePlayerMatches,
 } from '../../hooks/use-player-matches';
 import type { PlayerMatchFilters } from '../../hooks/use-player-matches';
-
-const SPORT_ICONS: Record<string, string> = {
-  soccer: '\u26BD',
-  basketball: '\uD83C\uDFC0',
-  tennis: '\uD83C\uDFBE',
-  baseball: '\u26BE',
-  icehockey: '\uD83C\uDFD2',
-  football: '\uD83C\uDFC8',
-  mma: '\uD83E\uDD4A',
-  boxing: '\uD83E\uDD4A',
-  other: '\uD83C\uDFC6',
-};
+import { sportIcon } from '../../lib/sport-display';
+import { formatKickoffLocal, kickoffCountdownSuffix } from '../../lib/datetime';
 
 /** LIVE 只认开赛后 3 小时内；几个月前的 scheduled 陈数据不再显示 LIVE */
 const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
 
-function sportIcon(sport: string | null): string {
-  return SPORT_ICONS[sport ?? ''] ?? SPORT_ICONS.other;
-}
-
-function formatKickoff(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = d.getTime() - now.getTime();
-  const diffH = Math.floor(diffMs / 3600000);
-  const diffM = Math.floor((diffMs % 3600000) / 60000);
-
-  let countdown = '';
-  if (diffH > 0 && diffH < 48) countdown = ` \u00B7 ${diffH}h ${diffM}m`;
-  else if (diffM > 0 && diffH === 0) countdown = ` \u00B7 ${diffM}m`;
-
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}${countdown}`;
+/** 下注单条目需要的比赛展示信息 */
+export interface PickMatchInfo {
+  matchLabel: string;
+  league?: string;
+  kickoff?: string;
 }
 
 function impliedProbability(price: number): string {
@@ -75,13 +55,21 @@ function impliedProbability(price: number): string {
 function OddsRow({
   odds,
   matchId,
+  matchInfo,
   suspended,
   onPick,
 }: {
   odds: OddsItem[];
   matchId: number;
+  matchInfo: PickMatchInfo;
   suspended: boolean;
-  onPick: (marketId: number, selection: string, price: number, label: string) => void;
+  onPick: (pick: {
+    marketId: number;
+    selection: string;
+    price: number;
+    label: string;
+    matchInfo: PickMatchInfo;
+  }) => void;
 }) {
   const { items } = useBetSlip();
   return (
@@ -93,7 +81,9 @@ function OddsRow({
           <Pressable
             key={o.selection}
             disabled={suspended}
-            onPress={() => onPick(matchId, o.selection, o.price, label)}
+            accessibilityRole="button"
+            aria-label={`${matchInfo.matchLabel} ${label} @${o.price.toFixed(2)}`}
+            onPress={() => onPick({ marketId: matchId, selection: o.selection, price: o.price, label, matchInfo })}
             style={({ pressed }) => [
               styles.oddsBtn,
               {
@@ -127,8 +117,19 @@ function MarketBlock({
   onPick,
 }: {
   match: Match;
-  onPick: (marketId: number, selection: string, price: number, label: string) => void;
+  onPick: (pick: {
+    marketId: number;
+    selection: string;
+    price: number;
+    label: string;
+    matchInfo: PickMatchInfo;
+  }) => void;
 }) {
+  const matchInfo: PickMatchInfo = {
+    matchLabel: `${match.home_team} vs ${match.away_team}`,
+    league: match.league ?? undefined,
+    kickoff: match.kickoff_time,
+  };
   return (
     <View style={styles.marketBlock}>
       {match.markets.map((m) => (
@@ -143,7 +144,7 @@ function MarketBlock({
               </Text>
             )}
           </Text>
-          <OddsRow odds={m.odds} matchId={m.id} suspended={m.status !== 'open'} onPick={onPick} />
+          <OddsRow odds={m.odds} matchId={m.id} matchInfo={matchInfo} suspended={m.status !== 'open'} onPick={onPick} />
         </View>
       ))}
     </View>
@@ -155,7 +156,13 @@ function MatchCard({
   onPick,
 }: {
   match: Match;
-  onPick: (marketId: number, selection: string, price: number, label: string) => void;
+  onPick: (pick: {
+    marketId: number;
+    selection: string;
+    price: number;
+    label: string;
+    matchInfo: PickMatchInfo;
+  }) => void;
 }) {
   const kickoffMs = Date.parse(match.kickoff_time);
   const now = Date.now();
@@ -181,7 +188,8 @@ function MatchCard({
             {match.home_team} <Text style={styles.vs}>vs</Text> {match.away_team}
           </Text>
           <Text style={styles.kickoff}>
-            {'\uD83D\uDD50'} {formatKickoff(match.kickoff_time)} {'\u00B7'} {statusLabel}
+            {'\uD83D\uDD50'} {formatKickoffLocal(match.kickoff_time)}
+            {kickoffCountdownSuffix(match.kickoff_time, now)} {'\u00B7'} {statusLabel}
             {isLive ? <Text style={styles.liveBadge}> {'\u25CF'} LIVE</Text> : null}
             {isFinished ? <Text style={styles.finishedBadge}> 已完场</Text> : null}
             {isFeed ? <Text style={styles.feedBadge}> FEED</Text> : null}
@@ -270,8 +278,22 @@ export default function MatchesScreen() {
 
   const { add } = useBetSlip();
   const onPick = useCallback(
-    (marketId: number, selection: string, price: number, label: string) => {
-      add({ marketId, selection, price, label });
+    (pick: {
+      marketId: number;
+      selection: string;
+      price: number;
+      label: string;
+      matchInfo: PickMatchInfo;
+    }) => {
+      add({
+        marketId: pick.marketId,
+        selection: pick.selection,
+        price: pick.price,
+        label: pick.label,
+        matchLabel: pick.matchInfo.matchLabel,
+        league: pick.matchInfo.league,
+        kickoff: pick.matchInfo.kickoff,
+      });
     },
     [add],
   );
@@ -366,6 +388,13 @@ export default function MatchesScreen() {
     filters.league !== null ||
     filters.onlyOpen;
 
+  // 空态文案要跟当前日期筛选自洽：不能再建议用户选一个已经选中的范围
+  const whenEmptyHint: Record<MatchWhen, { desc: string; actionLabel?: string }> = {
+    today: { desc: '今天暂无赛事，试试「近3天」或「全部」', actionLabel: '查看近3天' },
+    '3d': { desc: '近3天暂无赛事，试试「全部」查看更远赛程', actionLabel: '查看全部日期' },
+    all: { desc: '暂无可浏览的赛事，下拉刷新试试' },
+  };
+
   const emptyState = hasNarrowFilters ? (
     <EmptyState
       testID="matches-empty"
@@ -380,9 +409,11 @@ export default function MatchesScreen() {
       testID="matches-empty"
       icon="📅"
       title="该时段暂无赛事"
-      desc="试试把日期范围放宽到近3天或全部"
-      actionLabel="查看全部日期"
-      onAction={() => patchFilters({ when: 'all' })}
+      desc={whenEmptyHint[filters.when].desc}
+      actionLabel={whenEmptyHint[filters.when].actionLabel}
+      onAction={() =>
+        patchFilters({ when: filters.when === 'today' ? '3d' : 'all' })
+      }
     />
   ) : (
     <EmptyState testID="matches-empty" icon="📭" title="暂无赛事" desc="下拉刷新试试" />

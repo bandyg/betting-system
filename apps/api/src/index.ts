@@ -46,6 +46,9 @@ app.use((_req, res, next) => {
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
   res.setHeader('X-XSS-Protection', '0'); // 现代标准建议显式关闭遗留易误伤过滤器
+  // 账户/赔率/注单都是强实时数据：ETag + 无 Cache-Control 会被浏览器启发式缓存，
+  // 刷新后读到旧余额（修复：/api 一律禁止缓存，/health 无所谓也一并禁掉）
+  res.setHeader('Cache-Control', 'no-store');
   next();
 });
 

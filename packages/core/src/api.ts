@@ -143,10 +143,20 @@ export const api = {
     if (params?.sort) qs.push(`sort=${encodeURIComponent(params.sort)}`);
     return request<MatchesResponse>(`/matches${qs.length ? `?${qs.join('&')}` : ''}`);
   },
-  // sports
-  getSports: () => request<SportsResponse>('/sports'),
-  getLeagues: (sport?: string) =>
-    request<LeaguesResponse>(sport ? `/leagues?sport=${encodeURIComponent(sport)}` : '/leagues'),
+  // sports（窗口口径与 /matches 对齐：默认服务端只数 scheduled 且未开赛的赛事）
+  getSports: (window?: { from?: string; to?: string }) => {
+    const qs: string[] = [];
+    if (window?.from) qs.push(`from=${encodeURIComponent(window.from)}`);
+    if (window?.to) qs.push(`to=${encodeURIComponent(window.to)}`);
+    return request<SportsResponse>(`/sports${qs.length ? `?${qs.join('&')}` : ''}`);
+  },
+  getLeagues: (sport?: string, window?: { from?: string; to?: string }) => {
+    const qs: string[] = [];
+    if (sport) qs.push(`sport=${encodeURIComponent(sport)}`);
+    if (window?.from) qs.push(`from=${encodeURIComponent(window.from)}`);
+    if (window?.to) qs.push(`to=${encodeURIComponent(window.to)}`);
+    return request<LeaguesResponse>(`/leagues${qs.length ? `?${qs.join('&')}` : ''}`);
+  },
   createMatch: (homeTeam: string, awayTeam: string, kickoffTime: string, sport?: string, league?: string) =>
     request<{ match: Match }>('/matches', {
       method: 'POST',
@@ -204,6 +214,9 @@ export const api = {
     const qs = params.toString();
     return request<ContentsResponse>(qs ? `/cms/contents?${qs}` : '/cms/contents');
   },
+  // 单条内容详情：服务端对 published 内容阅读自增 view_count（公告详情必须走这里，否则阅读数永远是 0）
+  getContent: (id: number) =>
+    request<{ content: Content }>(`/cms/contents/${id}`),
   publishContent: (id: number) =>
     request<{ content: Content }>(`/cms/contents/${id}/publish`, { method: 'POST' }),
   unpublishContent: (id: number) =>

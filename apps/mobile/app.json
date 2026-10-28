@@ -1,11 +1,11 @@
 {
  "expo": {
-  "name": "mobile",
-  "slug": "mobile",
+  "name": "BET PLAY",
+  "slug": "bet-play",
   "version": "1.0.0",
   "orientation": "portrait",
   "icon": "./assets/images/icon.png",
-  "scheme": "mobile",
+  "scheme": "betplay",
   "userInterfaceStyle": "automatic",
   "ios": {
    "icon": "./assets/expo.icon"
@@ -21,7 +21,9 @@
   },
   "web": {
    "output": "single",
-   "favicon": "./assets/images/favicon.png"
+   "favicon": "./assets/images/favicon.png",
+   "name": "BET PLAY · 赛前固定赔率",
+   "title": "BET PLAY · 赛前固定赔率"
   },
   "plugins": [
    "expo-router",

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { api, usePromotions, useCurrentUser, useContents, useClaims } from '@betting/core';
 import type { Content, Promotion, PromotionClaim } from '@betting/core';
 import { Screen, PromotionCard, Banner, FlashMsg, MarkdownText, colors, radius, fontSize, font, spacing, SectionTitle } from '@betting/ui';
+import { formatLocalDateTime } from '../../lib/datetime';
 
 function bonusLabel(p: Promotion): string {
   if (p.bonus_type === 'deposit_bonus') {
@@ -106,6 +107,19 @@ export default function PromoScreen() {
   const adminContents = contents.data?.contents ?? [];
   const [viewing, setViewing] = useState<Content | null>(null);
 
+  // 打开详情必须走详情接口：服务端在 GET /cms/contents/:id 时阅读 +1，
+  // 此前直接用列表数据弹窗，阅读数永远显示 0
+  const openContent = async (c: Content) => {
+    setViewing(c); // 先用列表数据展示，避免弹窗闪烁
+    try {
+      const fresh = await api.getContent(c.id);
+      setViewing(fresh.content);
+      contents.refresh();
+    } catch {
+      // 详情拉取失败时保留列表数据
+    }
+  };
+
   const claim = async (p: Promotion) => {
     if (!user) {
       setMsg({ kind: 'err', text: '请先到「我的」页登录' });
@@ -193,6 +207,8 @@ export default function PromoScreen() {
             {['zh', 'en'].map((l) => (
               <Pressable
                 key={l}
+                accessibilityRole="button"
+                accessibilityState={{ selected: locale === l }}
                 onPress={() => setLocale(l)}
                 style={({ pressed }) => [
                   styles.langChip,
@@ -207,24 +223,42 @@ export default function PromoScreen() {
           </View>
         </View>
 
-        {/* CMS 公告 banner（点按看全文） */}
-        {(contents.data?.contents ?? []).slice(0, 2).map((c) => (
-          <Pressable key={c.id} onPress={() => setViewing(c)} style={styles.bannerWrap}>
-            <Banner text={c.title} />
-          </Pressable>
-        ))}
+        {/* CMS 公告 banner（点按看全文）——只展示近期公告，避免几个月前的维护通知常驻置顶 */}
+        {(contents.data?.contents ?? [])
+          .filter((c) => {
+            const t = Date.parse(c.publish_at ?? c.updated_at ?? '');
+            return Number.isNaN(t) || Date.now() - t < 14 * 24 * 3600 * 1000;
+          })
+          .slice(0, 2)
+          .map((c) => (
+            <Pressable
+              key={c.id}
+              accessibilityRole="button"
+              onPress={() => openContent(c)}
+              style={styles.bannerWrap}
+            >
+              <Banner text={c.title} />
+            </Pressable>
+          ))}
 
         {/* 公告/文章列表 */}
         {!contents.loading && (contents.data?.contents ?? []).length > 0 && (
           <View style={styles.contentListWrap}>
             <SectionTitle>📰 公告中心</SectionTitle>
             {(contents.data?.contents ?? []).map((c) => (
-              <Pressable key={c.id} onPress={() => setViewing(c)} style={({ pressed }) => [styles.contentListItem, { opacity: pressed ? 0.7 : 1 }]}>
+              <Pressable
+                key={c.id}
+                accessibilityRole="button"
+                onPress={() => openContent(c)}
+                style={({ pressed }) => [styles.contentListItem, { opacity: pressed ? 0.7 : 1 }]}
+              >
                 <Text style={styles.contentListTitle} numberOfLines={1}>
                   {c.title}
                   <Text style={styles.contentListType}>  [{c.type === 'promotion' ? '活动' : c.type === 'article' ? '文章' : '公告'}]</Text>
                 </Text>
-                <Text style={styles.contentListMeta}>👁 {c.view_count} 阅读{c.publish_at ? ` · ${c.publish_at}` : ''}</Text>
+                <Text style={styles.contentListMeta}>
+                  👁 {c.view_count} 阅读{c.publish_at ? ` · ${formatLocalDateTime(c.publish_at)}` : ''}
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -405,7 +439,7 @@ export default function PromoScreen() {
                   </View>
                   <Text style={styles.modalMeta}>
                     {viewing.type === 'promotion' ? '活动' : viewing.type === 'article' ? '文章' : '公告'} · 👁 {viewing.view_count} 阅读
-                    {viewing.publish_at ? ` · ${viewing.publish_at}` : ''}
+                    {viewing.publish_at ? ` · ${formatLocalDateTime(viewing.publish_at)}` : ''}
                   </Text>
                   <View style={styles.modalBody}>
                     <MarkdownText body={viewing.body || '（暂无正文）'} />

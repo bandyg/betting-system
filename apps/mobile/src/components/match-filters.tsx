@@ -4,27 +4,8 @@ import { useSports } from '@betting/core';
 import type { LeagueInfo } from '@betting/core';
 import { Input, font, fontSize, radius, spacing, useTheme } from '@betting/ui';
 import type { MatchWhen, PlayerMatchFilters } from '../hooks/use-player-matches';
-import { DEFAULT_PLAYER_MATCH_FILTERS } from '../hooks/use-player-matches';
-
-const SPORT_ICONS: Record<string, string> = {
-  soccer: '\u26BD',
-  basketball: '\uD83C\uDFC0',
-  tennis: '\uD83C\uDFBE',
-  baseball: '\u26BE',
-  icehockey: '\uD83C\uDFD2',
-  football: '\uD83C\uDFC8',
-  mma: '\uD83E\uDD4A',
-  boxing: '\uD83E\uDD4A',
-  other: '\uD83C\uDFC6',
-};
-
-function sportIcon(sport: string | null): string {
-  return SPORT_ICONS[sport ?? ''] ?? SPORT_ICONS.other;
-}
-
-function sportLabel(sport: string): string {
-  return sport ? sport.charAt(0).toUpperCase() + sport.slice(1) : sport;
-}
+import { DEFAULT_PLAYER_MATCH_FILTERS, buildWindow } from '../hooks/use-player-matches';
+import { sportIcon, sportLabel } from '../lib/sport-display';
 
 /** 稳定的 testID / 折叠 key 片段：保留中文与字母数字，其余折成 - */
 export function leagueSlug(value: string): string {
@@ -59,6 +40,8 @@ function FilterChip({
   return (
     <Pressable
       testID={testID}
+      accessibilityRole="button"
+      accessibilityState={{ selected: !!active }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
@@ -79,6 +62,12 @@ function FilterChip({
   );
 }
 
+/** 行首小标题：三行 chips（运动/联赛/时间）外观相同，没有标注时「全部/全部联赛/全部」语义易混 */
+function RowCaption({ text }: { text: string }) {
+  const t = useTheme();
+  return <Text style={[styles.rowCaption, { color: t.textMuted }]}>{text}</Text>;
+}
+
 export interface MatchFiltersProps {
   filters: PlayerMatchFilters;
   onChange: (patch: Partial<PlayerMatchFilters>) => void;
@@ -97,7 +86,10 @@ export function MatchFilters({
   onToggleCollapseAll,
 }: MatchFiltersProps) {
   const t = useTheme();
-  const { data } = useSports();
+  // 计数口径与列表一致：/sports 按当前日期窗口（scheduled 且在窗口内）统计，
+  // 保证 chip 上的数字 = 选中该分类后列表能看到的场次数
+  const window = useMemo(() => buildWindow(filters.when), [filters.when]);
+  const { data } = useSports(window);
   const sports = useMemo(() => data?.sports ?? [], [data]);
 
   const selectedSport = useMemo(
@@ -149,34 +141,8 @@ export function MatchFilters({
       </View>
 
       {/* 运动项目 chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRowContent}
-        style={styles.chipRow}
-      >
-        <FilterChip
-          label="全部"
-          active={filters.sport === null}
-          onPress={() => onChange({ sport: null, league: null })}
-          testID="sport-all"
-        />
-        {sports.map((s) => {
-          const count = s.leagues.reduce((sum, l) => sum + l.count, 0);
-          return (
-            <FilterChip
-              key={s.sport}
-              label={`${sportIcon(s.sport)} ${sportLabel(s.sport)} ${count}`}
-              active={filters.sport === s.sport}
-              onPress={() => onChange({ sport: s.sport, league: null })}
-              testID={`sport-${s.sport}`}
-            />
-          );
-        })}
-      </ScrollView>
-
-      {/* 选中运动后的联赛 chips */}
-      {selectedSport && leagueChips.length > 0 ? (
+      <View>
+        <RowCaption text="运动分类" />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -184,43 +150,78 @@ export function MatchFilters({
           style={styles.chipRow}
         >
           <FilterChip
-            label="全部联赛"
-            active={filters.league === null}
-            onPress={() => onChange({ league: null })}
-            testID="league-all"
+            label="全部"
+            active={filters.sport === null}
+            onPress={() => onChange({ sport: null, league: null })}
+            testID="sport-all"
           />
-          {leagueChips.map((l) => (
-            <FilterChip
-              key={l.league}
-              label={`${l.league} ${l.count}`}
-              active={filters.league === l.league}
-              onPress={() => onChange({ league: filters.league === l.league ? null : l.league })}
-              testID={`league-${leagueSlug(l.league)}`}
-            />
-          ))}
+          {sports.map((s) => {
+            const count = s.leagues.reduce((sum, l) => sum + l.count, 0);
+            return (
+              <FilterChip
+                key={s.sport}
+                label={`${sportIcon(s.sport)} ${sportLabel(s.sport)} ${count}`}
+                active={filters.sport === s.sport}
+                onPress={() => onChange({ sport: s.sport, league: null })}
+                testID={`sport-${s.sport}`}
+              />
+            );
+          })}
         </ScrollView>
+      </View>
+
+      {/* 选中运动后的联赛 chips */}
+      {selectedSport && leagueChips.length > 0 ? (
+        <View>
+          <RowCaption text="联赛" />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRowContent}
+            style={styles.chipRow}
+          >
+            <FilterChip
+              label="全部联赛"
+              active={filters.league === null}
+              onPress={() => onChange({ league: null })}
+              testID="league-all"
+            />
+            {leagueChips.map((l) => (
+              <FilterChip
+                key={l.league}
+                label={`${l.league} ${l.count}`}
+                active={filters.league === l.league}
+                onPress={() => onChange({ league: filters.league === l.league ? null : l.league })}
+                testID={`league-${leagueSlug(l.league)}`}
+              />
+            ))}
+          </ScrollView>
+        </View>
       ) : null}
 
       {/* 日期窗口 + 仅开盘 */}
-      <View style={styles.whenRow}>
-        {WHEN_OPTIONS.map(([value, label]) => (
+      <View>
+        <RowCaption text="时间与盘口" />
+        <View style={styles.whenRow}>
+          {WHEN_OPTIONS.map(([value, label]) => (
+            <FilterChip
+              key={value}
+              label={label}
+              active={filters.when === value}
+              onPress={() => onChange({ when: value })}
+              testID={`when-${value}`}
+            />
+          ))}
           <FilterChip
-            key={value}
-            label={label}
-            active={filters.when === value}
-            onPress={() => onChange({ when: value })}
-            testID={`when-${value}`}
+            label="仅开盘"
+            active={filters.onlyOpen}
+            onPress={() => onChange({ onlyOpen: !filters.onlyOpen })}
+            testID="only-open"
           />
-        ))}
-        <FilterChip
-          label="仅开盘"
-          active={filters.onlyOpen}
-          onPress={() => onChange({ onlyOpen: !filters.onlyOpen })}
-          testID="only-open"
-        />
+        </View>
       </View>
 
-      {/* 结果数 / 重置 / 全部收起 */}
+      {/* 结果数 / 重置 / 全部收起（空列表没有可收起的东西） */}
       <View style={styles.metaRow}>
         <Text testID="result-count" style={[styles.metaText, { color: t.text }]}>
           共 <Text style={styles.metaStrong}>{total}</Text> 场
@@ -228,15 +229,18 @@ export function MatchFilters({
         {!isDefault ? (
           <FilterChip label="重置" onPress={onReset} testID="filters-reset" />
         ) : null}
-        <Pressable
-          testID="collapse-all"
-          onPress={onToggleCollapseAll}
-          style={({ pressed }) => [styles.collapseBtn, { opacity: pressed ? 0.7 : 1 }]}
-        >
-          <Text style={[styles.collapseText, { color: t.secondary }]}>
-            {allCollapsed ? '全部展开' : '全部收起'}
-          </Text>
-        </Pressable>
+        {total > 0 ? (
+          <Pressable
+            testID="collapse-all"
+            accessibilityRole="button"
+            onPress={onToggleCollapseAll}
+            style={({ pressed }) => [styles.collapseBtn, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={[styles.collapseText, { color: t.secondary }]}>
+              {allCollapsed ? '全部展开' : '全部收起'}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -274,6 +278,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipText: { fontSize: fontSize.sm, fontWeight: font.medium },
+  rowCaption: {
+    fontSize: fontSize.xs,
+    fontWeight: font.bold,
+    marginBottom: 2,
+    opacity: 0.8,
+  },
   whenRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

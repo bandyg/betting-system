@@ -1,17 +1,45 @@
-import { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useBetSlip, useCurrentUser, useBets, placeBetItems, placeParlayItems } from '@betting/core';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { api, useBetSlip, useCurrentUser, useBets, placeBetItems, placeParlayItems } from '@betting/core';
 import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, EmptyState, SectionTitle } from '@betting/ui';
+import { formatKickoffLocal } from '../../lib/datetime';
 
 export default function SlipScreen() {
   const slip = useBetSlip();
-  const { user } = useCurrentUser();
+  const { user, update } = useCurrentUser();
   const bets = useBets(user?.id);
+  const router = useRouter();
   const [stake, setStake] = useState('100');
   const [parlay, setParlay] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  // 登录态变化后清掉旧提示：此前未登录时点的「请先登录」红条在登录成功后仍挂着
+  useEffect(() => {
+    if (user) setMsg((prev) => (prev && prev.text.includes('登录') ? null : prev));
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 页面从 keep-alive 堆叠里切回时同步一次余额，避免展示陈旧资金数据
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      if (user) {
+        api
+          .getUser(user.id)
+          .then((fresh) => {
+            if (!cancelled) update({ ...user, ...fresh.user });
+          })
+          .catch(() => {
+            // 静默：余额刷新失败不打断页面
+          });
+      }
+      return () => {
+        cancelled = true;
+      };
+    }, [user?.id]), // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   const submit = async () => {
     if (!user) {
@@ -34,13 +62,18 @@ export default function SlipScreen() {
     setSubmitting(true);
     setMsg(null);
     try {
+      let balanceAfter: number;
       if (parlay) {
         const result = await placeParlayItems(slip.items, amount);
         setMsg({ kind: 'ok', text: `✅ 串关下注成功（${slip.items.length} 串），余额 ¥${result.balance}` });
+        balanceAfter = result.balance;
       } else {
         const results = await placeBetItems(user.id, slip.items.map((i) => ({ ...i, stake: amount })));
-        setMsg({ kind: 'ok', text: `✅ 下注成功 ${results.length} 单，余额 ¥${results[results.length - 1].balance}` });
+        balanceAfter = results[results.length - 1].balance;
+        setMsg({ kind: 'ok', text: `✅ 下注成功 ${results.length} 单，余额 ¥${balanceAfter}` });
       }
+      // 服务端扣款后的真实余额同步进全局登录态，「我的」页不再展示旧余额
+      update({ ...user, balance: balanceAfter });
       slip.clear();
       setParlay(false);
       bets.refresh();
@@ -62,7 +95,15 @@ export default function SlipScreen() {
           <SectionTitle>🎫 下注单</SectionTitle>
         </View>
 
-        {slip.items.length === 0 && !msg && <EmptyState text="还没有选中的赔率，去赛事页点一下赔率" />}
+        {slip.items.length === 0 && !msg && (
+          <EmptyState
+            icon="🎫"
+            title="还没有选中的赔率"
+            desc="回到赛事页，点一下想投的赔率即可加入下注单"
+            actionLabel="去赛事页"
+            onAction={() => router.push('/')}
+          />
+        )}
 
         {msg && <FlashMsg msg={msg} />}
 
@@ -76,10 +117,29 @@ export default function SlipScreen() {
               renderItem={({ item }) => (
                 <Card style={styles.slipItem} glass>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.slipLabel}>{item.label}</Text>
-                    <Text style={styles.slipPrice}>@{item.price.toFixed(2)}</Text>
+                    <Text style={styles.slipLabel}>
+                      {item.label} <Text style={styles.slipPrice}>@{item.price.toFixed(2)}</Text>
+                    </Text>
+                    {item.matchLabel ? (
+                      <Text style={styles.slipMatch} numberOfLines={1}>
+                        {item.matchLabel}
+                      </Text>
+                    ) : null}
+                    <Text style={styles.slipMeta} numberOfLines={1}>
+                      {[
+                        item.league,
+                        item.kickoff ? formatKickoffLocal(item.kickoff) : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
                   </View>
-                  <Pressable onPress={() => slip.remove(item.marketId, item.selection)} hitSlop={8}>
+                  <Pressable
+                    accessibilityRole="button"
+                    aria-label={`移除 ${item.label}`}
+                    onPress={() => slip.remove(item.marketId, item.selection)}
+                    hitSlop={8}
+                  >
                     <Text style={styles.remove}>✕</Text>
                   </Pressable>
                 </Card>
@@ -88,7 +148,12 @@ export default function SlipScreen() {
 
             <View style={styles.footer}>
               {slip.items.length >= 2 && (
-                <Pressable style={styles.parlayToggle} onPress={() => setParlay(!parlay)}>
+                <Pressable
+                  accessibilityRole="button"
+                  aria-label={parlay ? '关闭串关模式' : '开启串关模式'}
+                  style={styles.parlayToggle}
+                  onPress={() => setParlay(!parlay)}
+                >
                   <View style={[styles.parlayBox, parlay && styles.parlayBoxOn]}>
                     {parlay && <Text style={styles.parlayCheck}>✓</Text>}
                   </View>
@@ -134,7 +199,9 @@ const styles = StyleSheet.create({
   listContent: { padding: spacing.lg, paddingBottom: 20 },
   slipItem: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
   slipLabel: { color: colors.text, fontSize: fontSize.lg, fontWeight: font.bold },
-  slipPrice: { color: colors.secondary, fontSize: fontSize.md, marginTop: 4 },
+  slipPrice: { color: colors.secondary, fontSize: fontSize.md, fontWeight: font.bold },
+  slipMatch: { color: colors.text, fontSize: fontSize.sm, marginTop: 4 },
+  slipMeta: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
   remove: { color: colors.danger, fontSize: fontSize.xl, paddingHorizontal: 8 },
   footer: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
   stakeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },

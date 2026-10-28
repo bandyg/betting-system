@@ -1,10 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
   type TextStyle,
@@ -89,6 +91,8 @@ export function Button({
     <Animated.View style={[styles.buttonWrap, animStyle]}>
       <Pressable
         testID={testID}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !!disabled || !!loading, busy: !!loading }}
         onPress={onPress}
         disabled={disabled || loading}
         onPressIn={() => {
@@ -241,13 +245,16 @@ export function PromotionCard({
         </View>
       ) : (
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`申请领取 ${title}`}
           onPress={onClaim}
           style={({ pressed }) => [
             styles.promoClaimBtn,
             { backgroundColor: t.gradientStart, opacity: pressed ? 0.8 : 1 },
           ]}
         >
-          <Text style={{ color: '#fff', fontSize: fontSize.sm, fontWeight: font.bold }}>领取</Text>
+          <Text style={{ color: '#fff', fontSize: fontSize.sm, fontWeight: font.bold }}>申请领取</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 10, marginTop: 1 }}>审核通过后到账</Text>
         </Pressable>
       )}
     </Card>
@@ -271,7 +278,8 @@ export function SectionTitle({ children, style }: { children: React.ReactNode; s
   return <Text style={[styles.sectionTitle, { color: t.text }, style]}>{children}</Text>;
 }
 
-/* ---------------- Screen (暗色背景容器，带进入转场) ---------------- */
+/* ---------------- Screen (暗色背景容器，带进入转场) ----------------
+ * web 宽屏时内容居中限宽：手机版布局拉伸到 1280px 会变形（搜索框/表单全宽）。 */
 export function Screen({
   children,
   style,
@@ -280,8 +288,18 @@ export function Screen({
   style?: StyleProp<ViewStyle>;
 }) {
   const t = useTheme();
+  const { width } = useWindowDimensions();
+  const capped = Platform.OS === 'web' && width > 720;
   return (
-    <Animated.View entering={FadeInDown.duration(320)} style={[styles.screen, { backgroundColor: t.bg }, style]}>
+    <Animated.View
+      entering={FadeInDown.duration(320)}
+      style={[
+        styles.screen,
+        capped && { width: '100%', maxWidth: 720, alignSelf: 'center' },
+        { backgroundColor: t.bg },
+        style,
+      ]}
+    >
       {children}
     </Animated.View>
   );
@@ -330,6 +348,7 @@ export function EmptyState({
       {actionLabel && onAction ? (
         <Pressable
           testID={testID ? `${testID}-action` : 'empty-state-action'}
+          accessibilityRole="button"
           onPress={onAction}
           style={{ marginTop: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md, borderColor: t.borderStrong, borderWidth: 1 }}
         >
@@ -442,9 +461,10 @@ const styles = StyleSheet.create({
   },
   promoClaimBtn: {
     marginLeft: 12,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: 18,
     paddingVertical: 10,
+    alignItems: 'center',
   },
   promoClaimed: {
     marginLeft: 12,

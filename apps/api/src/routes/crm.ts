@@ -309,12 +309,11 @@ function listVipTiers(): VipTierRow[] {
   return db.prepare('SELECT * FROM vip_tiers ORDER BY min_lifetime_stake').all() as VipTierRow[];
 }
 
-/** 用户累计投注额（settled 的 bet_stake 总额，不含 void 退款） */
+/** 用户累计投注额（bets.stake 直加；transactions 里 bet_stake 记的是负数，SUM 会得出负值，与 crmSegments 口径保持一致并排除 void） */
 function lifetimeStake(userId: number): number {
   const row = db.prepare(
-    `SELECT COALESCE(SUM(t.amount), 0) AS total FROM transactions t
-     JOIN accounts a ON a.id = t.account_id
-     WHERE a.user_id = ? AND t.type = 'bet_stake'`,
+    `SELECT COALESCE(SUM(stake), 0) AS total FROM bets
+     WHERE user_id = ? AND status != 'void'`,
   ).get(userId) as { total: number };
   return row.total;
 }
