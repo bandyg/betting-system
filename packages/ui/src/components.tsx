@@ -279,7 +279,11 @@ export function SectionTitle({ children, style }: { children: React.ReactNode; s
 }
 
 /* ---------------- Screen (暗色背景容器，带进入转场) ----------------
- * web 宽屏时内容居中限宽：手机版布局拉伸到 1280px 会变形（搜索框/表单全宽）。 */
+ * web 宽屏时呈现「手机壳」形态：整列限宽 430 居中 + 描边，配合更暗的场景底色，
+ * 明确移动优先产品在桌面上的身份（此前 720 半宽拉伸 + 全宽 tab 栏两头不像）。 */
+export const APP_SHELL_MAX_WIDTH = 430;
+export const APP_SHELL_MIN_VIEWPORT = 560;
+
 export function Screen({
   children,
   style,
@@ -289,13 +293,20 @@ export function Screen({
 }) {
   const t = useTheme();
   const { width } = useWindowDimensions();
-  const capped = Platform.OS === 'web' && width > 720;
+  const capped = Platform.OS === 'web' && width > APP_SHELL_MIN_VIEWPORT;
   return (
     <Animated.View
       entering={FadeInDown.duration(320)}
       style={[
         styles.screen,
-        capped && { width: '100%', maxWidth: 720, alignSelf: 'center' },
+        capped && {
+          width: '100%',
+          maxWidth: APP_SHELL_MAX_WIDTH,
+          alignSelf: 'center',
+          borderLeftWidth: 1,
+          borderRightWidth: 1,
+          borderColor: t.border,
+        },
         { backgroundColor: t.bg },
         style,
       ]}

@@ -508,6 +508,10 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: 40,
     maxHeight: '85%',
+    // 与应用壳同宽居中：宽屏 web 上弹层不再横跨整个窗口
+    width: '100%',
+    maxWidth: 430,
+    alignSelf: 'center',
   },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.sm },
   modalTitle: { color: colors.text, fontSize: fontSize.lg, fontWeight: font.bold, flex: 1 },
