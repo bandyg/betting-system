@@ -203,17 +203,17 @@ export default function TabsLayout() {
             sceneStyle: { backgroundColor: shell ? SHELL_BACKDROP : colors.bg },
           }}
         >
-          <Tabs.Screen name="index" options={{ title: '赛事', tabBarIcon: () => <Icon name="calendar" size={19} /> }} />
-          <Tabs.Screen name="promo" options={{ title: '促销', tabBarIcon: () => <Icon name="gift" size={19} /> }} />
+          <Tabs.Screen name="index" options={{ title: '赛事', tabBarIcon: ({ color }) => <Icon name="calendar" size={19} color={color} /> }} />
+          <Tabs.Screen name="promo" options={{ title: '促销', tabBarIcon: ({ color }) => <Icon name="gift" size={19} color={color} /> }} />
           <Tabs.Screen
             name="slip"
             options={{
               title: '下注单',
               tabBarBadge: slipBadge,
-              tabBarIcon: () => <Icon name="ticket" size={19} />,
+              tabBarIcon: ({ color }) => <Icon name="ticket" size={19} color={color} />,
             }}
           />
-          <Tabs.Screen name="account" options={{ title: '我的', tabBarIcon: () => <Icon name="user" size={19} /> }} />
+          <Tabs.Screen name="account" options={{ title: '我的', tabBarIcon: ({ color }) => <Icon name="user" size={19} color={color} /> }} />
           <Tabs.Screen name="support" options={{ href: null }} />
         </Tabs>
       </View>
