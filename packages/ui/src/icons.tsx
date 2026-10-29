@@ -3,6 +3,7 @@
  * 全部 24 viewBox、1.7 描边、round 端点，颜色随 currentColor。
  */
 import React from 'react';
+import type { ColorValue } from 'react-native';
 import { Path, Circle, Rect, G } from 'react-native-svg';
 import Svg from 'react-native-svg';
 
@@ -144,7 +145,7 @@ export function Icon({
 }: {
   name: IconName;
   size?: number;
-  color?: string;
+  color?: ColorValue;
   strokeWidth?: number;
 }) {
   return (
@@ -178,7 +179,7 @@ const SPORT_ICON: Record<string, IconName> = {
 };
 
 /** 运动图标（key 与 core 的 sport 归一化值一致；未知回落奖杯） */
-export function SportIcon({ sport, size = 15, color }: { sport: string | null; size?: number; color?: string }) {
+export function SportIcon({ sport, size = 15, color }: { sport: string | null; size?: number; color?: ColorValue }) {
   const name = SPORT_ICON[sport ?? ''] ?? 'trophy';
   return <Icon name={name} size={size} color={color} />;
 }
