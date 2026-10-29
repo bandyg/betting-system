@@ -56,14 +56,16 @@ const insertOdds = db.prepare('INSERT INTO odds (market_id, selection, price) VA
 
 const seed = db.transaction(() => {
   let created = 0;
+  // 幂等键带日期：跨天重跑会生成新一"代"赛程（旧一代随开赛自然滚出窗口）
+  const gen = new Date().toISOString().slice(0, 10);
   for (const m of DEMO) {
     // 幂等：external_id 唯一标记
-    const exists = db.prepare('SELECT id FROM matches WHERE external_id = ?').get(`${MARKER}:${m.league}:${m.home}`);
+    const exists = db.prepare('SELECT id FROM matches WHERE external_id = ?').get(`${MARKER}:${gen}:${m.league}:${m.home}`);
     if (exists) continue;
     const kickoff = new Date(now + m.inH * hour);
     // 对齐到整点分钟，观感更自然
     kickoff.setMinutes(0, 0, 0);
-    const info = insertMatch.run(m.home, m.away, kickoff.toISOString(), `${MARKER}:${m.league}:${m.home}`, m.sport, m.league);
+    const info = insertMatch.run(m.home, m.away, kickoff.toISOString(), `${MARKER}:${gen}:${m.league}:${m.home}`, m.sport, m.league);
     const matchId = Number(info.lastInsertRowid);
     if (m.sport === 'soccer' || m.sport === 'icehockey') {
       const mk = insertMarket.run(matchId, '1x2', null, m.suspend ? 'suspended' : 'open');
