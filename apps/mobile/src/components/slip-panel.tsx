@@ -17,6 +17,14 @@ export interface SlipPanelProps {
   onMsgChange?: (msg: { kind: 'ok' | 'err'; text: string } | null) => void;
 }
 
+/** 服务端部分校验错误是英文（如 insufficient balance: have 0, need 100），面板层转成用户可读文案 */
+function localizeBetError(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  const m = raw.match(/insufficient balance: have ([\d.]+), need ([\d.]+)/);
+  if (m) return `余额不足：当前 ¥${Number(m[1])}，本次需要 ¥${Number(m[2])}`;
+  return raw;
+}
+
 export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
   const slip = useBetSlip();
   const { user, update } = useCurrentUser();
@@ -84,7 +92,7 @@ export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
       setParlay(false);
       bets.refresh();
     } catch (e) {
-      patchMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+      patchMsg({ kind: 'err', text: localizeBetError(e) });
     } finally {
       setSubmitting(false);
     }
