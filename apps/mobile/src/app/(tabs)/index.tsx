@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.danger,
     backgroundColor: colors.bgElevated,
   },
-  evTime: { width: 66, flex: 0 },
+  evTime: { width: 66 },
   evDay: { fontSize: 10, color: colors.textMuted },
   evTimeText: { fontSize: 12, fontWeight: font.bold, color: colors.text, fontVariant: ['tabular-nums'] as const },
   liveText: { color: colors.danger, fontSize: 10, fontWeight: '900' },
