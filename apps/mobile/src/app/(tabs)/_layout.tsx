@@ -40,7 +40,7 @@ function GreenHeader({ compact }: { compact?: boolean }) {
       {user ? (
         <>
           <View style={styles.balChip}>
-            <Text style={styles.balText}>¥{(user.balance ?? 0).toLocaleString()}</Text>
+            <Text style={styles.balText}>¥{(user.balance ?? 0).toLocaleString('zh-CN')}</Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -185,8 +185,9 @@ export default function TabsLayout() {
             tabBarStyle: {
               backgroundColor: colors.bgElevated,
               borderTopColor: colors.border,
-              height: Platform.OS === 'web' ? 58 : 84,
-              paddingBottom: Platform.OS === 'web' ? 10 : 24,
+              // web 端高度过矮会把图标下的文字标签挤成 2px（RN-web flex 压缩），至少留 icon 19 + label 12 + 余量
+              height: Platform.OS === 'web' ? 66 : 84,
+              paddingBottom: Platform.OS === 'web' ? 8 : 24,
               paddingTop: 7,
               ...(shell
                 ? {
@@ -199,7 +200,7 @@ export default function TabsLayout() {
                   }
                 : {}),
             },
-            tabBarLabelStyle: { fontSize: 10.5, fontWeight: '700' },
+            tabBarLabelStyle: { fontSize: 10.5, fontWeight: '700', lineHeight: 13 },
             sceneStyle: { backgroundColor: shell ? SHELL_BACKDROP : colors.bg },
           }}
         >

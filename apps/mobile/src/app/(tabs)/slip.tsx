@@ -47,7 +47,7 @@ export default function SlipScreen() {
 
         {slip.items.length === 0 && !msg && (
           <EmptyState
-            icon="🎫"
+            iconName="ticket"
             title="还没有选中的赔率"
             desc="回到赛事页，点一下想投的赔率即可加入下注单"
             actionLabel="去赛事页"

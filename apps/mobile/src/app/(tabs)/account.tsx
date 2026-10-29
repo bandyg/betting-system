@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { api, useAuth, useBets, usePreferences, useMyVip, useWithdrawals, useUsers, useMatches, useRiskLimits, useAnalyticsDashboard, useAnalyticsTrends, useAnalyticsHotMatches, useAnalyticsUsers, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS, PAYMENT_STATUS_LABELS, WITHDRAWAL_METHOD_LABELS, WITHDRAWAL_STATUS_LABELS } from '@betting/core';
 import type { Bet, User, Market, RiskField, PaymentOrder, Withdrawal, DashboardStats, TrendPoint, HotMatch, UserAnalytics, MyVip } from '@betting/core';
-import { Card, Screen, Button, FlashMsg, sbColors as colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
+import { Card, Screen, Button, FlashMsg, Icon, SbBolt, sbColors as colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 import { formatLocalDateTime } from '../../lib/datetime';
 
 /** VIP 等级中文名（tier key 来自 vip_tiers 表） */
@@ -626,7 +626,9 @@ function VipCard() {
   return (
     <Card style={styles.sectionCard} glass>
       <View style={styles.vipHeader}>
-        <Text style={styles.vipBadge}>{current.badge}</Text>
+        <View style={styles.vipBadgeTile}>
+          <Icon name="trophy" size={22} color={colors.accent} />
+        </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.vipTitle}>
             VIP {vipTierLabel(current.tier)}
@@ -636,10 +638,10 @@ function VipCard() {
         </View>
       </View>
       <View style={styles.vipMetaRow}>
-        <Text style={styles.vipStake}>累计投注 ¥{data.stake.toLocaleString()}</Text>
+        <Text style={styles.vipStake}>累计投注 {fmtMoney(data.stake)}</Text>
         <Text style={styles.vipNext}>
           {nextTier
-            ? `距 ${nextTier.badge} ${vipTierLabel(nextTier.tier)} 还差 ¥${gap.toLocaleString()}`
+            ? `距${vipTierLabel(nextTier.tier)}还差 ${fmtMoney(gap)}`
             : '已达最高等级'}
         </Text>
       </View>
@@ -673,7 +675,7 @@ function WithdrawCard({ isAdmin }: { isAdmin: boolean }) {
     setMsg(null);
     try {
       const res = await api.createWithdrawal({ amount: amt, method, account_info: accountInfo.trim() });
-      setMsg({ kind: 'ok', text: `✅ 提现申请已提交（${res.withdrawal.wd_no}），等待审批` });
+      setMsg({ kind: 'ok', text: `提现申请已提交（${res.withdrawal.wd_no}），等待审批` });
       setAmount('');
       setAccountInfo('');
       mine.refresh();
@@ -692,7 +694,7 @@ function WithdrawCard({ isAdmin }: { isAdmin: boolean }) {
       else if (action === 'reject') await api.rejectWithdrawal(w.id, '不符合提现条件');
       else await api.markWithdrawalPaid(w.id);
       const label = action === 'approve' ? '已通过' : action === 'reject' ? '已驳回' : '已打款';
-      setMsg({ kind: 'ok', text: `✅ ${w.wd_no} ${label}` });
+      setMsg({ kind: 'ok', text: `${w.wd_no} ${label}` });
       mine.refresh();
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
@@ -753,7 +755,7 @@ function WithdrawCard({ isAdmin }: { isAdmin: boolean }) {
           {pending.map((w) => (
             <View key={w.id} style={styles.orderRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.orderNo}>{w.wd_no} · ¥{w.amount.toLocaleString()}</Text>
+                <Text style={styles.orderNo}>{w.wd_no} · {fmtMoney(w.amount)}</Text>
                 <Text style={styles.hint}>用户#{w.user_id} · {WITHDRAWAL_METHOD_LABELS[w.method]} · {w.account_info || '未填账户'}</Text>
               </View>
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -771,7 +773,7 @@ function WithdrawCard({ isAdmin }: { isAdmin: boolean }) {
           {list.slice(0, 5).map((w) => (
             <View key={w.id} style={styles.orderRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.orderNo}>{w.wd_no} · ¥{w.amount.toLocaleString()}</Text>
+                <Text style={styles.orderNo}>{w.wd_no} · {fmtMoney(w.amount)}</Text>
                 <Text style={styles.hint}>{formatLocalDateTime(w.created_at)} · {WITHDRAWAL_METHOD_LABELS[w.method]}{w.reject_reason ? ` · ${w.reject_reason}` : ''}</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
@@ -868,7 +870,7 @@ export default function AccountScreen() {
     try {
       const res = await api.mockPay(pendingOrder.order_no, 'paid');
       const balance = res.balance ?? user?.balance ?? 0;
-      setMsg({ kind: 'ok', text: `✅ 支付成功，已入账 ¥${pendingOrder.amount.toLocaleString()}，余额 ¥${balance.toLocaleString()}` });
+      setMsg({ kind: 'ok', text: `支付成功，已入账 ${fmtMoney(pendingOrder.amount)}，余额 ${fmtMoney(balance)}` });
       setPendingOrder(null);
       loadOrders();
       // 刷新当前用户对象（余额等字段）
@@ -894,7 +896,7 @@ export default function AccountScreen() {
       });
       setFavTeam(res.preferences.favorite_team ?? '');
       setOptIn(res.preferences.marketing_opt_in);
-      setMsg({ kind: 'ok', text: '✅ 偏好已保存' });
+      setMsg({ kind: 'ok', text: '偏好已保存' });
       prefs.refresh();
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
@@ -910,7 +912,10 @@ export default function AccountScreen() {
         <SafeAreaView style={styles.safe} edges={['top']}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <View style={styles.brand}>
-              <Text style={styles.brandTitle}>⚡ BET PLAY</Text>
+              <View style={styles.brandRow}>
+                <SbBolt size={22} />
+                <Text style={styles.brandTitle}>BET PLAY</Text>
+              </View>
               <Text style={styles.brandSub}>登录你的投注账户</Text>
             </View>
             <AuthForm />
@@ -932,7 +937,7 @@ export default function AccountScreen() {
             <View style={styles.userRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.userName}>#{user.id} {user.name}</Text>
-                <Text style={styles.balance}>余额 ¥{user.balance.toLocaleString()}</Text>
+                <Text style={styles.balance}>余额 {fmtMoney(user.balance)}</Text>
               </View>
               <Pressable onPress={auth.logout} hitSlop={8} style={styles.logoutBtn}>
                 <Text style={styles.logoutText}>退出登录</Text>
@@ -981,14 +986,14 @@ export default function AccountScreen() {
                 <View style={styles.orderRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.orderNo}>订单 {pendingOrder.order_no}</Text>
-                    <Text style={styles.orderAmt}>¥{pendingOrder.amount.toLocaleString()} · {PAYMENT_STATUS_LABELS[pendingOrder.status]}</Text>
+                    <Text style={styles.orderAmt}>{fmtMoney(pendingOrder.amount)} · {PAYMENT_STATUS_LABELS[pendingOrder.status]}</Text>
                   </View>
                   <Pressable onPress={cancelOrder} hitSlop={8}>
                     <Text style={styles.cancelText}>取消</Text>
                   </Pressable>
                 </View>
                 <Text style={styles.hint}>沙箱环境：点击「模拟支付」即完成支付并回调入账。</Text>
-                <Button title="💳 模拟支付" onPress={doPay} loading={paying} style={{ marginTop: spacing.sm }} />
+                <Button title="模拟支付" onPress={doPay} loading={paying} style={{ marginTop: spacing.sm }} />
               </View>
             )}
           </Card>
@@ -1008,7 +1013,7 @@ export default function AccountScreen() {
                     <Text style={styles.hint}>{formatLocalDateTime(o.created_at)} · {o.provider}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.orderAmt}>¥{o.amount.toLocaleString()}</Text>
+                    <Text style={styles.orderAmt}>{fmtMoney(o.amount)}</Text>
                     <Text style={[styles.orderStatus, { color: o.status === 'paid' ? colors.success : o.status === 'failed' ? colors.danger : colors.textSecondary }]}>
                       {PAYMENT_STATUS_LABELS[o.status]}
                     </Text>
@@ -1093,6 +1098,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: 120 },
   // 登录页
   brand: { alignItems: 'center', marginTop: spacing.xl, marginBottom: spacing.xl },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brandTitle: { color: colors.text, fontSize: 28, fontWeight: font.bold, letterSpacing: 1 },
   brandSub: { color: colors.textSecondary, fontSize: fontSize.md, marginTop: spacing.sm },
   authCard: { paddingVertical: spacing.lg },
@@ -1153,7 +1159,16 @@ const styles = StyleSheet.create({
   hint: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: spacing.sm },
   // VIP 等级（CRM 忠诚度计划）
   vipHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
-  vipBadge: { fontSize: 40 },
+  vipBadgeTile: {
+    width: 48,
+    height: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   vipTitle: { color: colors.text, fontSize: fontSize.xl, fontWeight: font.bold, textTransform: 'capitalize' },
   vipPerks: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 4 },
   vipMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
@@ -1164,8 +1179,9 @@ const styles = StyleSheet.create({
   vipBenefits: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   vipBenefit: { color: colors.success, fontSize: fontSize.xs, fontWeight: font.bold },
   orderRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  orderNo: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
-  orderAmt: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 2 },
+  // 层级：金额/状态是主信息，长单号退为辅助小字
+  orderNo: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: font.regular },
+  orderAmt: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
   orderStatus: { fontSize: fontSize.sm, fontWeight: font.bold },
   cancelText: { color: colors.danger, fontSize: fontSize.sm, fontWeight: font.bold },
   // 报表 (Step 33)
@@ -1174,7 +1190,7 @@ const styles = StyleSheet.create({
   statCard: {
     flexBasis: '30%',
     flexGrow: 1,
-    backgroundColor: 'rgba(19,26,46,0.6)',
+    backgroundColor: 'rgba(26,26,26,0.6)',
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,

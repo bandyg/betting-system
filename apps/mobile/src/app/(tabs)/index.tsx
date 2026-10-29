@@ -116,7 +116,7 @@ function MarketOdds({
                 matchInfo,
               })
             }
-            aria-label={`${matchInfo.matchLabel} ${SEL_LABELS[o.selection] ?? o.selection} @${o.price.toFixed(2)}`}
+            accessibilityLabel={`${matchInfo.matchLabel} ${SEL_LABELS[o.selection] ?? o.selection} @${o.price.toFixed(2)}`}
             testID={`odds-${market.id}-${o.selection}`}
           />
         );
@@ -161,10 +161,18 @@ function EventRow({
   };
   const primary = match.markets.find((m) => m.type === '1x2') ?? match.markets[0];
   const extras = match.markets.filter((m) => m.id !== primary?.id);
+  // 桌面行内联展示的前 N 个附加玩法（更接近 bet365 的多盘口列），其余收进 +N 展开
+  const INLINE_EXTRA_COUNT = 2;
+  const inlineExtras = desktop ? extras.slice(0, INLINE_EXTRA_COUNT) : [];
+  const overflowExtras = desktop ? extras.slice(INLINE_EXTRA_COUNT) : extras;
   const pinned = pins.has(match.id);
-  const metaText = `${formatKickoffLocal(match.kickoff_time)}${
-    !isLive ? ` · ${kickoffCountdownSuffixSafe(match.kickoff_time, now)}` : ''
-  } · ${statusLabel}`;
+  const metaText = [
+    formatKickoffLocal(match.kickoff_time),
+    !isLive ? kickoffCountdownSuffixSafe(match.kickoff_time, now) : null,
+    statusLabel,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   if (desktop) {
     return (
@@ -191,29 +199,39 @@ function EventRow({
           accessibilityRole="button"
           accessibilityLabel={pinned ? '取消钉选' : '钉选赛事'}
           onPress={() => pins.toggle(match.id)}
-          hitSlop={6}
+          hitSlop={8}
           style={styles.evPin}
         >
           <Icon name="star" size={14} color={pinned ? colors.accent : colors.textMuted} />
         </Pressable>
         {isSettled || !primary ? (
-          <Text style={styles.evScore}>{match.home_score ?? 0} : {match.away_score ?? 0}</Text>
+          <Text style={[styles.evScore, styles.evFinalScore]}>{match.home_score ?? 0} : {match.away_score ?? 0}</Text>
         ) : (
           <MarketOdds market={primary} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
         )}
-        {extras.length > 0 ? (
+        {!isSettled && inlineExtras.map((m) => (
+          <View key={m.id} style={styles.inlineMarket}>
+            <Text style={styles.marketTitle} numberOfLines={1}>
+              {TYPE_LABELS[m.type] ?? m.type}
+              {m.line != null ? ` @${m.line}` : ''}
+            </Text>
+            <MarketOdds market={m} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
+          </View>
+        ))}
+        {overflowExtras.length > 0 ? (
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={expanded ? '收起其余玩法' : `展开其余 ${overflowExtras.length} 个玩法`}
             testID={`more-markets-${match.id}`}
             onPress={() => setExpanded((v) => !v)}
             style={styles.moreBtn}
           >
-            <Text style={styles.moreText}>{expanded ? '−' : `+${extras.length}`}</Text>
+            <Text style={styles.moreText}>{expanded ? '−' : `+${overflowExtras.length}`}</Text>
           </Pressable>
         ) : null}
-        {expanded && extras.length > 0 ? (
+        {expanded && overflowExtras.length > 0 ? (
           <View style={styles.expandBlock}>
-            {extras.map((m) => (
+            {overflowExtras.map((m) => (
               <View key={m.id} style={styles.expandItem}>
                 <Text style={styles.marketTitle}>
                   {TYPE_LABELS[m.type] ?? m.type}
@@ -235,7 +253,7 @@ function EventRow({
         accessibilityRole="button"
         accessibilityLabel={pinned ? '取消钉选' : '钉选赛事'}
         onPress={() => pins.toggle(match.id)}
-        hitSlop={6}
+        hitSlop={10}
         style={styles.mPin}
       >
         <Icon name="star" size={13} color={pinned ? colors.accent : colors.textMuted} />
@@ -395,8 +413,9 @@ export default function MatchesScreen() {
     loadMore,
   } = usePlayerMatches(filters);
 
-  const { add, items: slipItems } = useBetSlip();
-  // 桌面 webapp：右侧下注单 dock（选中赔率后即时结算，无需跳 /slip）
+  const { add, clear: clearSlip, items: slipItems } = useBetSlip();
+  // 桌面 webapp：右侧下注单 dock 常驻（选中赔率后即时结算，无需跳 /slip）；
+  // 常驻避免首次选注时列表列突然变窄（CLS），空态内嵌引导文案
   const { width: winW } = useWindowDimensions();
   const desktop = Platform.OS === 'web' && winW >= DESKTOP_MIN_VIEWPORT;
   const [dockMsg, setDockMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
@@ -408,7 +427,7 @@ export default function MatchesScreen() {
       dockTimer.current = setTimeout(() => setDockMsg(null), 4000);
     }
   }, []);
-  const dockVisible = desktop && (slipItems.length > 0 || dockMsg !== null);
+  const dockVisible = desktop;
 
   // WS 赔率涨跌：与上一笔价格对比，1.5s 后清除闪烁
   const priceRef = useRef<Record<number, Record<string, number>>>({});
@@ -561,7 +580,7 @@ export default function MatchesScreen() {
   const emptyState = hasNarrowFilters ? (
     <EmptyState
       testID="matches-empty"
-      icon="🔍"
+      iconName="search"
       title="没有符合条件的赛事"
       desc="换个关键词，或清除部分筛选条件"
       actionLabel="清除筛选"
@@ -570,7 +589,7 @@ export default function MatchesScreen() {
   ) : filters.when !== 'all' ? (
     <EmptyState
       testID="matches-empty"
-      icon="📅"
+      iconName="calendar"
       title="该时段暂无赛事"
       desc={whenEmptyHint[filters.when].desc}
       actionLabel={whenEmptyHint[filters.when].actionLabel}
@@ -579,7 +598,7 @@ export default function MatchesScreen() {
       }
     />
   ) : (
-    <EmptyState testID="matches-empty" icon="📭" title="暂无赛事" desc="下拉刷新试试" />
+    <EmptyState testID="matches-empty" iconName="calendar" title="暂无赛事" desc="下拉刷新试试" />
   );
 
   return (
@@ -648,9 +667,19 @@ export default function MatchesScreen() {
                 <Text style={styles.dockTitle}>
                   下注单{slipItems.length > 0 ? ` · ${slipItems.length}` : ''}
                 </Text>
-                <Text style={styles.dockClear}>清空</Text>
+                {slipItems.length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="清空下注单"
+                    onPress={() => clearSlip()}
+                    hitSlop={8}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                  >
+                    <Text style={styles.dockClear}>清空</Text>
+                  </Pressable>
+                ) : null}
               </View>
-              <SlipPanel slim onMsgChange={onDockMsg} />
+              <SlipPanel slim onMsgChange={onDockMsg} emptyHint />
             </View>
           ) : null}
         </View>
@@ -690,7 +719,7 @@ const styles = StyleSheet.create({
     width: 300,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#1F5236',
+    borderColor: 'rgba(15,130,70,0.55)',
     backgroundColor: colors.bgElevated,
     padding: 12,
     position: 'relative',
@@ -739,7 +768,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.bgElevated,
-    borderBottomColor: '#1F1F1F',
+    borderBottomColor: colors.border,
     borderRadius: radius.sm,
     marginBottom: 3,
     paddingVertical: 5,
@@ -755,7 +784,8 @@ const styles = StyleSheet.create({
   evDay: { fontSize: 10, color: colors.textMuted },
   evTimeText: { fontSize: 12, fontWeight: font.bold, color: colors.text, fontVariant: ['tabular-nums'] as const },
   liveText: { color: colors.danger, fontSize: 10, fontWeight: '900' },
-  evTeams: { flex: 1, minWidth: 160, paddingRight: 8 },
+  // 对阵列限宽：剩余空间留给内联玩法组，而不是把赔率孤零零推到行最右端
+  evTeams: { flex: 1, minWidth: 160, maxWidth: 320, paddingRight: 8 },
   evName: { fontSize: 12.5, fontWeight: font.bold, color: colors.text },
   evVs: { color: colors.textMuted, fontWeight: font.medium },
   evScore: {
@@ -765,8 +795,10 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'] as const,
     paddingHorizontal: 8,
   },
+  evFinalScore: { color: colors.text, fontSize: 14 },
   evPin: { paddingHorizontal: 6 },
   oddsRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', alignItems: 'center' },
+  inlineMarket: { marginRight: spacing.md, maxWidth: 200 },
   lockPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -780,17 +812,17 @@ const styles = StyleSheet.create({
   },
   lockText: { color: colors.warning, fontSize: 10.5, fontWeight: font.bold, letterSpacing: 1 },
   moreBtn: {
-    width: 30,
-    height: 34,
+    minWidth: 32,
+    height: 36,
+    paddingHorizontal: 6,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 4,
+    marginLeft: 'auto',
   },
-  moreText: { color: colors.textMuted, fontSize: 11 },
+  moreText: { color: colors.textSecondary, fontSize: 11.5, fontWeight: font.bold },
   expandBlock: {
     width: '100%',
     flexDirection: 'row',
@@ -814,7 +846,7 @@ const styles = StyleSheet.create({
   mCard: {
     backgroundColor: colors.bgElevated,
     borderWidth: 1,
-    borderColor: '#1F1F1F',
+    borderColor: colors.border,
     borderRadius: radius.sm,
     padding: 10,
     marginBottom: 6,

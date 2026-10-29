@@ -7,12 +7,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useBetSlip, useCurrentUser, useBets, placeBetItems, placeParlayItems } from '@betting/core';
-import { Card, Button, FlashMsg, sbColors as colors, radius, fontSize, font, spacing } from '@betting/ui';
+import { Card, Button, FlashMsg, Icon, sbColors as colors, radius, fontSize, font, spacing } from '@betting/ui';
 import { formatKickoffLocal } from '../lib/datetime';
 
 export interface SlipPanelProps {
   /** dock 场景：紧凑排版 */
   slim?: boolean;
+  /** 空单时展示引导文案（常驻 dock 用；/slip 整页有自己的 EmptyState，不开） */
+  emptyHint?: boolean;
   /** 提交反馈变化时上抛（dock 用它决定面板驻留） */
   onMsgChange?: (msg: { kind: 'ok' | 'err'; text: string } | null) => void;
 }
@@ -25,7 +27,7 @@ function localizeBetError(e: unknown): string {
   return raw;
 }
 
-export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
+export function SlipPanel({ slim = false, emptyHint = false, onMsgChange }: SlipPanelProps) {
   const slip = useBetSlip();
   const { user, update } = useCurrentUser();
   const bets = useBets(user?.id);
@@ -80,12 +82,12 @@ export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
       let balanceAfter: number;
       if (parlay) {
         const result = await placeParlayItems(slip.items, amount);
-        patchMsg({ kind: 'ok', text: `✅ 串关下注成功（${slip.items.length} 串），余额 ¥${result.balance}` });
+        patchMsg({ kind: 'ok', text: `串关下注成功（${slip.items.length} 串），余额 ¥${result.balance.toLocaleString('zh-CN')}` });
         balanceAfter = result.balance;
       } else {
         const results = await placeBetItems(user.id, slip.items.map((i) => ({ ...i, stake: amount })));
         balanceAfter = results[results.length - 1].balance;
-        patchMsg({ kind: 'ok', text: `✅ 下注成功 ${results.length} 单，余额 ¥${balanceAfter}` });
+        patchMsg({ kind: 'ok', text: `下注成功 ${results.length} 单，余额 ¥${balanceAfter.toLocaleString('zh-CN')}` });
       }
       // 服务端扣款后的真实余额同步进全局登录态，「我的」页不再展示旧余额
       update({ ...user, balance: balanceAfter });
@@ -106,6 +108,15 @@ export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
   return (
     <View style={styles.wrap}>
       {msg && <FlashMsg msg={msg} />}
+
+      {slip.items.length === 0 && !msg && emptyHint ? (
+        <View style={styles.emptyHintWrap}>
+          <View style={styles.emptyTile}>
+            <Icon name="ticket" size={20} color={colors.textMuted} />
+          </View>
+          <Text style={styles.emptyHintText}>点击赛事页的赔率即可加入下注单</Text>
+        </View>
+      ) : null}
 
       {slip.items.length > 0 && (
         <FlatList
@@ -168,6 +179,7 @@ export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
           )}
           <View style={styles.stakeRow}>
             <Text style={styles.stakeLabel}>{parlay ? '串关金额' : '每单金额'}</Text>
+            <View style={styles.stakeSpacer} />
             <TextInput
               value={stake}
               onChangeText={setStake}
@@ -195,9 +207,10 @@ export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
           </View>
           <View style={styles.acceptRow}>
             <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: acceptChanges }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: acceptChanges }}
               onPress={() => setAcceptChanges(!acceptChanges)}
+              hitSlop={10}
               style={[styles.acceptBox, acceptChanges && styles.acceptBoxOn]}
             >
               {acceptChanges ? <Text style={styles.acceptCheck}>✓</Text> : null}
@@ -209,16 +222,16 @@ export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
               {parlay ? `串关 ${slip.items.length} 场 · 预估回报` : `共 ${slip.items.length} 单 · 预估回报`}
             </Text>
             <Text style={styles.payout}>
-              ¥{projectedPayout.toLocaleString()}
+              ¥{projectedPayout.toLocaleString('zh-CN')}
             </Text>
           </View>
-          <Button title={submitting ? '提交中…' : `确认下注 ¥${totalStake.toLocaleString()}`} onPress={submit} loading={submitting} />
+          <Button title={submitting ? '提交中…' : `确认下注 ¥${totalStake.toLocaleString('zh-CN')}`} onPress={submit} loading={submitting} />
           {slip.items.length > 0 ? (
-            <Pressable accessibilityRole="button" onPress={() => slip.clear()} hitSlop={6} style={styles.clearWrap}>
+            <Pressable accessibilityRole="button" onPress={() => slip.clear()} hitSlop={8} style={styles.clearWrap}>
               <Text style={styles.clearText}>清空下注单</Text>
             </Pressable>
           ) : null}
-          {!user && <Text style={styles.hint}>⚠️ 未登录，下注前请到「我的」页登录</Text>}
+          {!user && <Text style={styles.hint}>未登录，下注前请到「我的」页登录</Text>}
         </View>
       )}
     </View>
@@ -227,16 +240,27 @@ export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
+  emptyHintWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: spacing.xl },
+  emptyTile: {
+    width: 52,
+    height: 52,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyHintText: { color: colors.textMuted, fontSize: fontSize.sm, textAlign: 'center' },
   listContent: { padding: spacing.lg, paddingBottom: 20 },
   slipItem: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
   slipItemSb: { borderLeftWidth: 3, borderLeftColor: colors.accent },
-  quickRow: { flexDirection: 'row', gap: 4, marginBottom: 10 },
-  quickChip: { flex: 1, alignItems: 'center', borderWidth: 1, borderRadius: 3, paddingVertical: 5, backgroundColor: colors.bg },
-  quickText: { fontSize: 10.5, fontWeight: '700', fontVariant: ['tabular-nums'] as const },
+  quickRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  quickChip: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 36, borderWidth: 1, borderRadius: 3, paddingVertical: 8, backgroundColor: colors.bg },
+  quickText: { fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] as const },
   acceptRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
   acceptBox: {
-    width: 16,
-    height: 16,
+    width: 20,
+    height: 20,
     borderRadius: 3,
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
@@ -244,7 +268,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   acceptBoxOn: { backgroundColor: colors.secondary, borderColor: colors.secondary },
-  acceptCheck: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  acceptCheck: { color: '#fff', fontSize: 12, fontWeight: '900' },
   acceptLabel: { color: colors.textSecondary, fontSize: 11 },
   clearWrap: { alignSelf: 'center', marginTop: 8, padding: 4 },
   clearText: { color: colors.textMuted, fontSize: 11 },
@@ -254,8 +278,10 @@ const styles = StyleSheet.create({
   slipMeta: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
   remove: { color: colors.danger, fontSize: fontSize.xl, paddingHorizontal: 8 },
   footer: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
-  stakeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
-  stakeLabel: { color: colors.textSecondary, fontSize: fontSize.md },
+  stakeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  // flexShrink 0：窄 dock 里「每单金额」曾被压成两行
+  stakeLabel: { color: colors.textSecondary, fontSize: fontSize.md, flexShrink: 0 },
+  stakeSpacer: { flex: 1, minWidth: 8 },
   stakeInput: {
     borderWidth: 1,
     borderColor: colors.borderStrong,
@@ -265,7 +291,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSize.lg,
     fontWeight: font.bold,
-    minWidth: 120,
+    width: 140,
     textAlign: 'right',
   },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },

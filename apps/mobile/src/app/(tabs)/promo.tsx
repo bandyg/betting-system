@@ -3,14 +3,14 @@ import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextIn
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api, usePromotions, useCurrentUser, useContents, useClaims } from '@betting/core';
 import type { Content, Promotion, PromotionClaim } from '@betting/core';
-import { Screen, PromotionCard, Banner, FlashMsg, MarkdownText, sbColors as colors, radius, fontSize, font, spacing, SectionTitle } from '@betting/ui';
+import { Screen, PromotionCard, Banner, FlashMsg, MarkdownText, Icon, sbColors as colors, radius, fontSize, font, spacing, SectionTitle } from '@betting/ui';
 import { formatLocalDateTime } from '../../lib/datetime';
 
 function bonusLabel(p: Promotion): string {
   if (p.bonus_type === 'deposit_bonus') {
-    return `💎 充值送 ${p.bonus_value}% 奖金${p.min_deposit > 0 ? `（最低充值 ¥${p.min_deposit}）` : ''}`;
+    return `充值送 ${p.bonus_value}% 奖金${p.min_deposit > 0 ? `（最低充值 ¥${p.min_deposit}）` : ''}`;
   }
-  return `🎫 免费投注 ¥${p.bonus_value}`;
+  return `免费投注 ¥${p.bonus_value}`;
 }
 
 export default function PromoScreen() {
@@ -133,7 +133,7 @@ export default function PromoScreen() {
     try {
       const res = await api.claimPromotion(p.id);
       setClaimStatus((prev) => ({ ...prev, [p.id]: res.claim.status }));
-      setMsg({ kind: 'ok', text: res.claim.status === 'pending' ? `✅ 已提交「${p.title}」审核` : `✅ 已领取「${p.title}」` });
+      setMsg({ kind: 'ok', text: res.claim.status === 'pending' ? `已提交「${p.title}」审核` : `已领取「${p.title}」` });
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -259,9 +259,12 @@ export default function PromoScreen() {
                   {c.title}
                   <Text style={styles.contentListType}>  [{c.type === 'promotion' ? '活动' : c.type === 'article' ? '文章' : '公告'}]</Text>
                 </Text>
-                <Text style={styles.contentListMeta}>
-                  👁 {c.view_count} 阅读{c.publish_at ? ` · ${formatLocalDateTime(c.publish_at)}` : ''}
-                </Text>
+                <View style={styles.metaRow}>
+                  <Icon name="eye" size={12} color={colors.textMuted} />
+                  <Text style={styles.contentListMeta}>
+                    {' '}{c.view_count} 阅读{c.publish_at ? ` · ${formatLocalDateTime(c.publish_at)}` : ''}
+                  </Text>
+                </View>
               </Pressable>
             ))}
           </View>
@@ -440,10 +443,12 @@ export default function PromoScreen() {
                       <Text style={styles.modalCloseText}>✕</Text>
                     </Pressable>
                   </View>
-                  <Text style={styles.modalMeta}>
-                    {viewing.type === 'promotion' ? '活动' : viewing.type === 'article' ? '文章' : '公告'} · 👁 {viewing.view_count} 阅读
-                    {viewing.publish_at ? ` · ${formatLocalDateTime(viewing.publish_at)}` : ''}
-                  </Text>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.modalMeta}>
+                      {viewing.type === 'promotion' ? '活动' : viewing.type === 'article' ? '文章' : '公告'} · {viewing.view_count} 阅读
+                      {viewing.publish_at ? ` · ${formatLocalDateTime(viewing.publish_at)}` : ''}
+                    </Text>
+                  </View>
                   <View style={styles.modalBody}>
                     <MarkdownText body={viewing.body || '（暂无正文）'} />
                   </View>
@@ -461,13 +466,13 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   langRow: { flexDirection: 'row', gap: spacing.xs },
-  langChip: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  langChip: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: 1, borderColor: colors.border },
   langChipText: { fontSize: fontSize.sm, fontWeight: font.bold },
   bannerWrap: { paddingHorizontal: spacing.lg, marginBottom: 4 },
   msgWrap: { paddingHorizontal: spacing.lg },
   listContent: { padding: spacing.lg, paddingBottom: 20 },
   empty: { color: colors.textSecondary, fontSize: fontSize.md, textAlign: 'center', marginTop: 40 },
-  adminBox: { marginHorizontal: spacing.lg, marginBottom: spacing.xl, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, backgroundColor: 'rgba(19,26,46,0.6)' },
+  adminBox: { marginHorizontal: spacing.lg, marginBottom: spacing.xl, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, backgroundColor: 'rgba(26,26,26,0.6)' },
   adminTitle: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: font.regular, marginBottom: spacing.md, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: {
     borderWidth: 1,
@@ -493,7 +498,7 @@ const styles = StyleSheet.create({
   miniBtnText: { color: colors.text, fontSize: fontSize.xs, fontWeight: font.bold },
   contentListWrap: { paddingHorizontal: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.sm },
   contentListItem: {
-    backgroundColor: 'rgba(19,26,46,0.6)',
+    backgroundColor: 'rgba(26,26,26,0.6)',
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -502,7 +507,8 @@ const styles = StyleSheet.create({
   },
   contentListTitle: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
   contentListType: { color: colors.secondary, fontSize: fontSize.sm, fontWeight: font.regular },
-  contentListMeta: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 4 },
+  contentListMeta: { color: colors.textMuted, fontSize: fontSize.xs },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: colors.bgElevated,
