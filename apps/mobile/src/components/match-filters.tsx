@@ -73,8 +73,9 @@ export interface MatchFiltersProps {
   onChange: (patch: Partial<PlayerMatchFilters>) => void;
   onReset: () => void;
   total: number;
-  allCollapsed: boolean;
-  onToggleCollapseAll: () => void;
+  /** 双列网格等无分组头的布局下没有可折叠对象，不传即隐藏「全部收起」 */
+  allCollapsed?: boolean;
+  onToggleCollapseAll?: () => void;
 }
 
 export function MatchFilters({
@@ -229,7 +230,7 @@ export function MatchFilters({
         {!isDefault ? (
           <FilterChip label="重置" onPress={onReset} testID="filters-reset" />
         ) : null}
-        {total > 0 ? (
+        {total > 0 && onToggleCollapseAll ? (
           <Pressable
             testID="collapse-all"
             accessibilityRole="button"

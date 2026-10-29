@@ -330,9 +330,23 @@ export default function MatchesScreen() {
 
   const groups = useMemo(() => groupByLeague(rowsSource), [rowsSource]);
 
-  // 扁平化成 ONE FlatList 的行：联赛头（通栏）+ 该联赛的赛事行（双列时两张并排）
+  // 扁平化成 ONE FlatList 的行。
+  // 单列（手机/平板/窄桌面）：联赛头（通栏）+ 该联赛的赛事行，支持分组折叠。
+  // 桌面双列：放弃联赛分头（卡片自带联赛标签），全部比赛按开赛时间排成纯双列网格，
+  //   否则联赛普遍只有 1 场时会出现「半宽卡 + 空占位」的稀疏布局。
   const rows = useMemo<MatchRowItem[]>(() => {
     const out: MatchRowItem[] = [];
+    if (twoUp) {
+      for (let i = 0; i < rowsSource.length; i += 2) {
+        out.push({
+          kind: 'pair',
+          key: `pair:${rowsSource[i].id}`,
+          a: rowsSource[i],
+          b: rowsSource[i + 1] ?? null,
+        });
+      }
+      return out;
+    }
     for (const group of groups) {
       out.push({
         kind: 'league',
@@ -342,21 +356,10 @@ export default function MatchesScreen() {
         count: group.matches.length,
       });
       if (collapsed[group.key]) continue;
-      if (twoUp) {
-        for (let i = 0; i < group.matches.length; i += 2) {
-          out.push({
-            kind: 'pair',
-            key: `pair:${group.key}:${group.matches[i].id}`,
-            a: group.matches[i],
-            b: group.matches[i + 1] ?? null,
-          });
-        }
-      } else {
-        for (const match of group.matches) out.push({ kind: 'match', match });
-      }
+      for (const match of group.matches) out.push({ kind: 'match', match });
     }
     return out;
-  }, [groups, collapsed, twoUp]);
+  }, [groups, collapsed, twoUp, rowsSource]);
 
   const allCollapsed = groups.length > 0 && groups.every((g) => collapsed[g.key]);
 
@@ -492,7 +495,7 @@ export default function MatchesScreen() {
               onReset={resetFilters}
               total={total}
               allCollapsed={allCollapsed}
-              onToggleCollapseAll={toggleAll}
+              onToggleCollapseAll={twoUp ? undefined : toggleAll}
             />
 
             {loading ? (
