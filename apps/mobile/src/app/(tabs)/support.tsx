@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { api, useAuth, useSupportTickets, SUPPORT_STATUS_LABELS, SUPPORT_PRIORITY_LABELS } from '@betting/core';
 import type { SupportCategory, SupportCategoryKey, SupportMessage, SupportPriority, SupportStatus, SupportTicket } from '@betting/core';
-import { Card, Screen, Button, FlashMsg, sbColors as colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
+import { Card, Screen, Button, FlashMsg, Icon, sbColors as colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
 function statusColor(s: SupportStatus): string {
   switch (s) {
@@ -58,7 +58,7 @@ function NewTicketForm({
       setBody('');
       setCategory('other');
       setPriority('normal');
-      setMsg({ kind: 'ok', text: '✅ 工单已提交，客服会尽快处理' });
+      setMsg({ kind: 'ok', text: '工单已提交，客服会尽快处理' });
       onCreated();
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
@@ -76,13 +76,16 @@ function NewTicketForm({
         {categories.map((c) => (
           <Pressable
             key={c.key}
+            accessibilityRole="button"
+            accessibilityState={{ selected: category === c.key }}
             onPress={() => setCategory(c.key)}
             style={({ pressed }) => [
               styles.chip,
               { backgroundColor: category === c.key ? colors.oddsActiveBg : colors.oddsBg, opacity: pressed ? 0.8 : 1 },
             ]}
           >
-            <Text style={[styles.chipText, { color: category === c.key ? colors.secondary : colors.text }]}>{c.label}</Text>
+            {/* 选中底是黄色（oddsActiveBg），文字必须用深色 onAccent，绿字在黄底上不可读 */}
+            <Text style={[styles.chipText, { color: category === c.key ? colors.onAccent : colors.text }]}>{c.label}</Text>
           </Pressable>
         ))}
       </View>
@@ -112,13 +115,15 @@ function NewTicketForm({
         {(Object.keys(SUPPORT_PRIORITY_LABELS) as SupportPriority[]).map((p) => (
           <Pressable
             key={p}
+            accessibilityRole="button"
+            accessibilityState={{ selected: priority === p }}
             onPress={() => setPriority(p)}
             style={({ pressed }) => [
               styles.chip,
               { backgroundColor: priority === p ? colors.oddsActiveBg : colors.oddsBg, opacity: pressed ? 0.8 : 1 },
             ]}
           >
-            <Text style={[styles.chipText, { color: priority === p ? colors.secondary : colors.text }]}>
+            <Text style={[styles.chipText, { color: priority === p ? colors.onAccent : colors.text }]}>
               {SUPPORT_PRIORITY_LABELS[p]}
             </Text>
           </Pressable>
@@ -156,7 +161,7 @@ function TicketDetail({
     try {
       await api.replySupportTicket(ticket.id, reply.trim());
       setReply('');
-      setMsg({ kind: 'ok', text: '✅ 已回复' });
+      setMsg({ kind: 'ok', text: '已回复' });
       onReplied();
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
@@ -179,7 +184,7 @@ function TicketDetail({
 
       <View style={{ marginTop: spacing.md }}>
         <View style={[styles.bubble, styles.bubbleUser]}>
-          <Text style={styles.bubbleMeta}>🧑 用户 · {fmtTime(ticket.created_at)}</Text>
+          <Text style={styles.bubbleMeta}>用户 · {fmtTime(ticket.created_at)}</Text>
           <Text style={styles.bubbleText}>{ticket.body}</Text>
         </View>
         {messages.map((m) => {
@@ -187,7 +192,7 @@ function TicketDetail({
           return (
             <View key={m.id} style={[styles.bubble, isAgent ? styles.bubbleAgent : styles.bubbleUser]}>
               <Text style={styles.bubbleMeta}>
-                {isAgent ? '🛠 客服' : '🧑 用户'} · {fmtTime(m.created_at)}
+                {isAgent ? '客服' : '用户'} · {fmtTime(m.created_at)}
               </Text>
               <Text style={styles.bubbleText}>{m.content}</Text>
             </View>
@@ -258,10 +263,10 @@ export default function SupportScreen() {
             <Pressable onPress={() => router.back()} hitSlop={8}>
               <Text style={styles.backText}>‹ 返回</Text>
             </Pressable>
-            <Text style={styles.title}>🎫 联系客服</Text>
+            <Text style={styles.title}>联系客服</Text>
           </View>
           <View style={styles.center}>
-            <EmptyState text="请先登录后再提交工单" />
+            <EmptyState iconName="user" text="请先登录后再提交工单" />
             <Button title="去登录" onPress={goLogin} style={{ marginTop: spacing.lg }} />
           </View>
         </SafeAreaView>
@@ -277,17 +282,17 @@ export default function SupportScreen() {
             <Pressable onPress={() => router.back()} hitSlop={8}>
               <Text style={styles.backText}>‹ 返回</Text>
             </Pressable>
-            <Text style={styles.title}>🎫 联系客服</Text>
+            <Text style={styles.title}>联系客服</Text>
           </View>
 
           <NewTicketForm categories={categories} onCreated={() => tickets.refresh()} />
 
-          <SectionTitle style={styles.recordTitle}>📋 我的工单</SectionTitle>
+          <SectionTitle style={styles.recordTitle}>我的工单</SectionTitle>
 
           {tickets.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 16 }} />}
           {tickets.error && <Text style={{ color: colors.danger, marginBottom: 8 }}>加载失败：{tickets.error}</Text>}
           {!tickets.loading && !tickets.error && (tickets.data?.tickets ?? []).length === 0 && (
-            <EmptyState text="暂无工单，可先在上面新建" />
+            <EmptyState iconName="ticket" text="暂无工单，可先在上面新建" />
           )}
 
           {(tickets.data?.tickets ?? []).map((t) => (
@@ -351,8 +356,8 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   hint: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: spacing.sm },
   bubble: { borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, maxWidth: '92%' },
-  bubbleUser: { alignSelf: 'flex-start', backgroundColor: 'rgba(124,58,237,0.14)', borderWidth: 1, borderColor: 'rgba(124,58,237,0.4)' },
-  bubbleAgent: { alignSelf: 'flex-end', backgroundColor: 'rgba(34,197,94,0.12)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.4)' },
+  bubbleUser: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: colors.border },
+  bubbleAgent: { alignSelf: 'flex-end', backgroundColor: 'rgba(29,181,106,0.12)', borderWidth: 1, borderColor: 'rgba(29,181,106,0.4)' },
   bubbleMeta: { color: colors.textMuted, fontSize: fontSize.xs, marginBottom: 4 },
   bubbleText: { color: colors.text, fontSize: fontSize.md },
 });

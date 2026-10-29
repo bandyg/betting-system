@@ -166,10 +166,11 @@ function EventRow({
   const inlineExtras = desktop ? extras.slice(0, INLINE_EXTRA_COUNT) : [];
   const overflowExtras = desktop ? extras.slice(INLINE_EXTRA_COUNT) : extras;
   const pinned = pins.has(match.id);
+  // 状态放倒计时前面：窄卡截断时牺牲的是倒计时而不是「未开始/LIVE」这个关键状态
   const metaText = [
     formatKickoffLocal(match.kickoff_time),
-    !isLive ? kickoffCountdownSuffixSafe(match.kickoff_time, now) : null,
     statusLabel,
+    !isLive ? kickoffCountdownSuffixSafe(match.kickoff_time, now) : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -303,7 +304,7 @@ function kickoffCountdownSuffixSafe(iso: string, now: number): string {
   if (Number.isNaN(diff) || diff <= 0) return '';
   const h = Math.floor(diff / 3600000);
   const m = Math.floor((diff % 3600000) / 60000);
-  if (h > 0 && h < 48) return `${h}h ${m}m`;
+  if (h > 0 && h < 48) return `${h}h${m}m`;
   if (h === 0 && m > 0) return `${m}m`;
   return '';
 }
