@@ -219,7 +219,9 @@ interface LeagueGroup {
 
 type MatchRowItem =
   | { kind: 'league'; key: string; sport: string | null; league: string; count: number }
-  | { kind: 'match'; match: Match };
+  | { kind: 'match'; match: Match }
+  /** 桌面双列：同联赛两张卡片并排（b 为空时补占位保持半宽） */
+  | { kind: 'pair'; key: string; a: Match; b: Match | null };
 
 function groupByLeague(matches: Match[]): LeagueGroup[] {
   const map = new Map<string, LeagueGroup>();
@@ -294,6 +296,9 @@ export default function MatchesScreen() {
     }
   }, []);
   const dockVisible = desktop && (slipItems.length > 0 || dockMsg !== null);
+  // 可用列表宽 ≈ 窗口 - 侧边栏(216) - dock(316) - 页边距/滚动条(56)；≥700 才值得开双列
+  const listWidth = winW - 216 - (dockVisible ? 316 : 0) - 56;
+  const twoUp = desktop && listWidth >= 700;
   const onPick = useCallback(
     (pick: {
       marketId: number;
@@ -325,7 +330,7 @@ export default function MatchesScreen() {
 
   const groups = useMemo(() => groupByLeague(rowsSource), [rowsSource]);
 
-  // 扁平化成 ONE FlatList 的行：联赛头 + 该联赛的赛事行
+  // 扁平化成 ONE FlatList 的行：联赛头（通栏）+ 该联赛的赛事行（双列时两张并排）
   const rows = useMemo<MatchRowItem[]>(() => {
     const out: MatchRowItem[] = [];
     for (const group of groups) {
@@ -337,10 +342,21 @@ export default function MatchesScreen() {
         count: group.matches.length,
       });
       if (collapsed[group.key]) continue;
-      for (const match of group.matches) out.push({ kind: 'match', match });
+      if (twoUp) {
+        for (let i = 0; i < group.matches.length; i += 2) {
+          out.push({
+            kind: 'pair',
+            key: `pair:${group.key}:${group.matches[i].id}`,
+            a: group.matches[i],
+            b: group.matches[i + 1] ?? null,
+          });
+        }
+      } else {
+        for (const match of group.matches) out.push({ kind: 'match', match });
+      }
     }
     return out;
-  }, [groups, collapsed]);
+  }, [groups, collapsed, twoUp]);
 
   const allCollapsed = groups.length > 0 && groups.every((g) => collapsed[g.key]);
 
@@ -360,7 +376,11 @@ export default function MatchesScreen() {
 
   const keyExtractor = useCallback(
     (item: MatchRowItem) =>
-      item.kind === 'league' ? `league:${item.key}` : `match:${item.match.id}`,
+      item.kind === 'league'
+        ? `league:${item.key}`
+        : item.kind === 'pair'
+          ? item.key
+          : `match:${item.match.id}`,
     [],
   );
 
@@ -374,6 +394,22 @@ export default function MatchesScreen() {
             collapsed={!!collapsed[item.key]}
             onToggle={() => toggleLeague(item.key)}
           />
+        );
+      }
+      if (item.kind === 'pair') {
+        return (
+          <View style={styles.pairRow}>
+            <View style={styles.pairCell}>
+              <MatchCard match={item.a} onPick={onPick} />
+            </View>
+            {item.b ? (
+              <View style={styles.pairCell}>
+                <MatchCard match={item.b} onPick={onPick} />
+              </View>
+            ) : (
+              <View style={styles.pairCell} />
+            )}
+          </View>
         );
       }
       return <MatchCard match={item.match} onPick={onPick} />;
@@ -437,7 +473,7 @@ export default function MatchesScreen() {
   );
 
   return (
-    <Screen maxWidth={dockVisible ? 1120 : undefined}>
+    <Screen maxWidth={desktop ? 1500 : undefined}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={dockVisible ? styles.bodyRow : styles.bodyCol}>
           <View style={styles.mainCol}>
@@ -578,6 +614,9 @@ const styles = StyleSheet.create({
   },
   leagueHeaderCount: { color: colors.textMuted, fontSize: fontSize.xs },
   matchCard: { marginBottom: spacing.lg },
+  // 桌面双列：两张卡片并排；奇数尾用空占位保持半宽
+  pairRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  pairCell: { flex: 1, minWidth: 0 },
   liveBadge: { color: '#2ecc71', fontWeight: '700', fontSize: 12 },
   finishedBadge: { color: colors.warning, fontWeight: '600', fontSize: 12 },
   matchHeader: { flexDirection: 'row', alignItems: 'flex-start' },
