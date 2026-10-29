@@ -16,6 +16,7 @@ export function OddsChip({
   flash,
   disabled,
   onPress,
+  accessibilityLabel,
   testID,
 }: {
   label: string;
@@ -24,6 +25,8 @@ export function OddsChip({
   flash?: 'up' | 'down' | null;
   disabled?: boolean;
   onPress?: () => void;
+  /** 完整可访问名（如「海东蓝鲨 vs 临港飞鹰 主胜 @2.05」），无障碍树里不再是匿名元素 */
+  accessibilityLabel?: string;
   testID?: string;
 }) {
   const t = useTheme();
@@ -57,6 +60,9 @@ export function OddsChip({
       testID={testID ?? `odds-${label}`}
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? `${label} ${price.toFixed(2)}`}
+      accessibilityState={{ selected: !!selected, disabled: !!disabled }}
       style={({ pressed }) => ({ opacity: disabled ? 0.45 : pressed ? 0.75 : 1 })}
     >
       <Animated.View
@@ -72,11 +78,11 @@ export function OddsChip({
           },
         ]}
       >
-        <Text style={{ color: t.textMuted, fontSize: fontSize.xs, fontWeight: '600' }}>{label}</Text>
+        <Text style={{ color: selected ? t.onAccent : t.textSecondary, fontSize: fontSize.xs, fontWeight: '600' }}>{label}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
           {flash === 'up' ? <Text style={{ color: t.success, fontSize: fontSize.xs }}>▲</Text> : null}
           {flash === 'down' ? <Text style={{ color: t.danger, fontSize: fontSize.xs }}>▼</Text> : null}
-          <Text style={{ color: selected ? t.secondary : t.text, fontSize: fontSize.md, fontWeight: '800' }}>
+          <Text style={{ color: selected ? t.onAccent : t.text, fontSize: fontSize.md, fontWeight: '800' }}>
             {price.toFixed(2)}
           </Text>
         </View>

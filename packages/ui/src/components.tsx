@@ -23,6 +23,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, sbRadius, fontSize, font, shadows } from './tokens';
 import { useTheme, useSb } from './theme';
+import { Icon, type IconName } from './icons';
 
 /* ---------------- Card ---------------- */
 export function Card({
@@ -227,13 +228,15 @@ export function PromotionCard({
   onClaim?: () => void;
 }) {
   const t = useTheme();
+  const sb = useSb();
   return (
     <Card glass style={styles.promoCard}>
       <View style={{ flex: 1 }}>
-        <Text style={styles.promoTitle}>{title}</Text>
-        <Text style={styles.promoDesc}>{description}</Text>
-        <View style={styles.promoBonus}>
-          <Text style={styles.promoBonusText}>{bonusLabel}</Text>
+        <Text style={[styles.promoTitle, { color: t.text }]}>{title}</Text>
+        <Text style={[styles.promoDesc, { color: t.textSecondary }]}>{description}</Text>
+        <View style={[styles.promoBonus, sb && { backgroundColor: 'rgba(240,195,15,0.12)' }]}>
+          <Icon name="gift" size={11} color={sb ? t.accent : '#06B6D4'} />
+          <Text style={[styles.promoBonusText, sb && { color: t.accent }]}>{bonusLabel}</Text>
         </View>
       </View>
       {claimStatus === 'approved' ? (
@@ -269,10 +272,13 @@ export function PromotionCard({
 /* ---------------- Banner (CMS 公告) ---------------- */
 export function Banner({ text }: { text: string }) {
   const t = useTheme();
+  const sb = useSb();
   return (
-    <View style={[styles.banner, { backgroundColor: 'rgba(124,58,237,0.15)', borderColor: t.borderStrong }]}>
-      <Text style={styles.bannerIcon}>📢</Text>
-      <Text style={styles.bannerText}>{text}</Text>
+    <View style={[styles.banner, { backgroundColor: sb ? 'rgba(15,130,70,0.16)' : 'rgba(124,58,237,0.15)', borderColor: t.borderStrong }]}>
+      <View style={styles.bannerIcon}>
+        <Icon name="bell" size={14} color={sb ? t.accent : t.textSecondary} />
+      </View>
+      <Text style={[styles.bannerText, { color: t.text }]}>{text}</Text>
     </View>
   );
 }
@@ -367,6 +373,7 @@ export function FlashMsg({
 export function EmptyState({
   text,
   icon = '📭',
+  iconName,
   title,
   desc,
   actionLabel,
@@ -374,7 +381,9 @@ export function EmptyState({
   testID,
 }: {
   text?: string;
+  /** 旧接口：emoji 字符串。新代码请传 iconName 用 SVG 图标 */
   icon?: string;
+  iconName?: IconName;
   title?: string;
   desc?: string;
   actionLabel?: string;
@@ -384,7 +393,13 @@ export function EmptyState({
   const t = useTheme();
   return (
     <View style={[styles.empty, { alignItems: 'center', gap: 8 }]} testID={testID ?? 'empty-state'}>
-      <Text style={{ fontSize: 40 }}>{icon}</Text>
+      {iconName ? (
+        <View style={[styles.emptyIconTile, { borderColor: t.border, backgroundColor: t.bgElevated }]}>
+          <Icon name={iconName} size={26} color={t.textMuted} />
+        </View>
+      ) : (
+        <Text style={{ fontSize: 40 }}>{icon}</Text>
+      )}
       <Text style={{ color: t.text, fontSize: fontSize.lg, fontWeight: '700' }}>{title ?? text ?? '暂无数据'}</Text>
       {desc ? <Text style={{ color: t.textMuted, fontSize: fontSize.sm, textAlign: 'center' }}>{desc}</Text> : null}
       {actionLabel && onAction ? (
@@ -496,6 +511,9 @@ const styles = StyleSheet.create({
   promoBonus: {
     marginTop: 8,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -529,8 +547,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 12,
   },
-  bannerIcon: { fontSize: 16, marginRight: 8 },
+  bannerIcon: { marginRight: 8 },
   bannerText: { color: '#F4F6FF', fontSize: 13, flex: 1 },
+  emptyIconTile: {
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
 });
 
 export type { ViewStyle, TextStyle };

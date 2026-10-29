@@ -37,6 +37,9 @@ export const colors = {
   oddsBorder: 'rgba(124, 58, 237, 0.4)',
   oddsActiveBg: 'rgba(6, 182, 212, 0.2)',
   oddsActiveBorder: '#06B6D4',
+
+  /** 选中/强调底色上的前景文字（oddsActiveBg 黄/青底上必须用深色） */
+  onAccent: '#EAF9FF',
 } as const;
 
 /** 键约束于暗色调色板、值宽化为 string，light 主题可赋值 */
@@ -75,6 +78,9 @@ export const sbColors: Theme = {
   oddsBorder: '#2E2E2E',
   oddsActiveBg: '#F0C30F',   // 黄实心 = 已选中
   oddsActiveBorder: '#F0C30F',
+
+  /** 黄底上的近黑前景（bet365 式选中赔率；头部充值按钮同色系） */
+  onAccent: '#1B1B00',
 };
 
 /** sportsbook 主题的圆角/头部尺寸（近直角观感，与 admin 的 radius 解耦） */
@@ -110,6 +116,8 @@ export const lightColors: Theme = {
   oddsBorder: 'rgba(90, 52, 209, 0.35)',
   oddsActiveBg: 'rgba(8, 145, 178, 0.15)',
   oddsActiveBorder: '#0891B2',
+
+  onAccent: '#063B46',
 };
 
 export const themes = { dark: colors, light: lightColors, sportsbook: sbColors } as const;
