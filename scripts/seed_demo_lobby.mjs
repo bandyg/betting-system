@@ -30,21 +30,22 @@ const MARKER = 'lobby-demo';
 const hour = 36e5;
 const now = Date.now();
 
-/** 演示赛程：队名全部虚构，kickoff 为相对当前的小时偏移 */
+/** 演示赛程：队名全部虚构，kickoff 为相对当前的小时偏移；extras 为附加玩法（大小/让球） */
 const DEMO = [
-  { sport: 'soccer', league: '东亚超级联赛', home: '海东蓝鲨', away: '临港飞鹰', inH: 5, odds: [2.05, 3.25, 3.5] },
-  { sport: 'soccer', league: '东亚超级联赛', home: '青云 FC', away: '白山联', inH: 28, odds: [1.85, 3.6, 4.0] },
-  { sport: 'soccer', league: '北欧联杯', home: '奥斯陆极光', away: '哥德堡水手', inH: 52, odds: [2.6, 3.2, 2.75] },
-  { sport: 'basketball', league: '太平洋职业联赛', home: '湾城巨鲸', away: '沙丘烈焰', inH: 9, odds: [1.72, null, 2.15] },
-  { sport: 'basketball', league: '太平洋职业联赛', home: '高原雄鹰', away: '港都猛虎', inH: 33, odds: [2.1, null, 1.78] },
-  { sport: 'tennis', league: 'ATP 巡回赛', home: '林德罗夫', away: '卡斯蒂亚', inH: 14, odds: [1.95, null, 1.88] },
-  { sport: 'baseball', league: '远东棒球联盟', home: '首尔多克丝', away: '釜山巨浪', inH: 20, odds: [2.3, null, 1.65] },
-  { sport: 'icehockey', league: '北方冰球联', home: '雪城狼群', away: '极地海豹', inH: 41, odds: [2.15, 3.9, 2.95] },
-  { sport: 'americanfootball', league: '大陆橄榄球联', home: '钢铁锻造者', away: '河谷公牛', inH: 62, odds: [1.68, null, 2.25] },
-  { sport: 'esports', league: '全球电竞冠军杯', home: '银月战队', away: '曙光战队', inH: 11, odds: [1.55, null, 2.5] },
+  { sport: 'soccer', league: '东亚超级联赛', home: '海东蓝鲨', away: '临港飞鹰', inH: 5, odds: [2.05, 3.25, 3.5], extras: [{ type: 'ou', line: 2.5, odds: [1.98, 1.82] }] },
+  { sport: 'soccer', league: '东亚超级联赛', home: '青云 FC', away: '白山联', inH: 28, odds: [1.85, 3.6, 4.0], extras: [{ type: 'ou', line: 3.5, odds: [1.88, 1.92] }] },
+  // 双附加玩法演示：大厅行内联大小 + 让球，其余收进 +N
+  { sport: 'soccer', league: '北欧联杯', home: '奥斯陆极光', away: '哥德堡水手', inH: 52, odds: [2.6, 3.2, 2.75], extras: [{ type: 'ou', line: 2.5, odds: [2.05, 1.75] }, { type: 'ah', line: 0.5, odds: [1.72, 2.18] }] },
+  { sport: 'basketball', league: '太平洋职业联赛', home: '湾城巨鲸', away: '沙丘烈焰', inH: 9, odds: [1.72, null, 2.15], extras: [{ type: 'ou', line: 218.5, odds: [1.9, 1.9] }] },
+  { sport: 'basketball', league: '太平洋职业联赛', home: '高原雄鹰', away: '港都猛虎', inH: 33, odds: [2.1, null, 1.78], extras: [{ type: 'ou', line: 204.5, odds: [1.87, 1.93] }] },
+  { sport: 'tennis', league: 'ATP 巡回赛', home: '林德罗夫', away: '卡斯蒂亚', inH: 14, odds: [1.95, null, 1.88], extras: [{ type: 'ou', line: 22.5, odds: [1.95, 1.85] }] },
+  { sport: 'baseball', league: '远东棒球联盟', home: '首尔多克丝', away: '釜山巨浪', inH: 20, odds: [2.3, null, 1.65], extras: [{ type: 'ou', line: 8.5, odds: [2.0, 1.8] }] },
+  { sport: 'icehockey', league: '北方冰球联', home: '雪城狼群', away: '极地海豹', inH: 41, odds: [2.15, 3.9, 2.95], extras: [{ type: 'ou', line: 5.5, odds: [1.85, 1.95] }] },
+  { sport: 'americanfootball', league: '大陆橄榄球联', home: '钢铁锻造者', away: '河谷公牛', inH: 62, odds: [1.68, null, 2.25], extras: [{ type: 'ou', line: 44.5, odds: [1.92, 1.88] }] },
+  { sport: 'esports', league: '全球电竞冠军杯', home: '银月战队', away: '曙光战队', inH: 11, odds: [1.55, null, 2.5], extras: [{ type: 'ou', line: 2.5, odds: [1.78, 2.02] }] },
   // 挂盘演示：市场 suspended，「仅开盘」筛选前后列表有可见差异
   { sport: 'soccer', league: '北欧联杯', home: '卑尔根霜', away: '马尔默狮子', inH: 77, odds: [2.45, 3.3, 2.9], suspend: true },
-  { sport: 'tennis', league: 'WTA 巡回赛', home: '早乙女凛', away: '杜兰朵', inH: 96, odds: [2.4, null, 1.6] },
+  { sport: 'tennis', league: 'WTA 巡回赛', home: '早乙女凛', away: '杜兰朵', inH: 96, odds: [2.4, null, 1.6], extras: [{ type: 'ou', line: 21.5, odds: [1.9, 1.9] }] },
 ];
 
 const insertMatch = db.prepare(
@@ -77,6 +78,12 @@ const seed = db.transaction(() => {
       const mk = insertMarket.run(matchId, '1x2', null, m.suspend ? 'suspended' : 'open');
       insertOdds.run(Number(mk.lastInsertRowid), 'home', m.odds[0]);
       insertOdds.run(Number(mk.lastInsertRowid), 'away', m.odds[2]);
+    }
+    for (const ex of m.extras ?? []) {
+      const emk = insertMarket.run(matchId, ex.type, ex.line, 'open');
+      const selections = ex.type === 'ou' ? ['over', 'under'] : ['home', 'away'];
+      insertOdds.run(Number(emk.lastInsertRowid), selections[0], ex.odds[0]);
+      insertOdds.run(Number(emk.lastInsertRowid), selections[1], ex.odds[1]);
     }
     created += 1;
   }
