@@ -12,6 +12,7 @@ import {
 } from '@betting/ui';
 import { useBetSlip, useCurrentUser, useSports } from '@betting/core';
 import { usePins } from '../../lib/pins';
+import { sportLabel } from '../../lib/sport-display';
 
 /** 头部以下、窄屏手机壳的场景底色 */
 const SHELL_BACKDROP = '#0D0D0D';
@@ -132,7 +133,7 @@ function useSportsCounts(): Array<{ sport: string; label: string; count: number 
   const sports = data?.sports ?? [];
   return sports.slice(0, 6).map((s) => ({
     sport: s.sport,
-    label: s.sport.charAt(0).toUpperCase() + s.sport.slice(1),
+    label: sportLabel(s.sport),
     count: s.leagues.reduce((sum, l) => sum + l.count, 0),
   }));
 }

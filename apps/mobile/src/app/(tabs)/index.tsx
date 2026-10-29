@@ -182,12 +182,10 @@ function EventRow({
         <View style={styles.evTeams}>
           <Text style={styles.evName} numberOfLines={1}>
             {match.home_team} <Text style={styles.evVs}>vs</Text> {match.away_team}
+            {isLive && match.home_score != null ? (
+              <Text style={styles.evScore}> {match.home_score} : {match.away_score}</Text>
+            ) : null}
           </Text>
-          {isLive && match.home_score != null ? (
-            <Text style={styles.evScore}>
-              {match.home_score} : {match.away_score}
-            </Text>
-          ) : null}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -198,11 +196,11 @@ function EventRow({
         >
           <Icon name="star" size={14} color={pinned ? colors.accent : colors.textMuted} />
         </Pressable>
-        {isSettled ? (
+        {isSettled || !primary ? (
           <Text style={styles.evScore}>{match.home_score ?? 0} : {match.away_score ?? 0}</Text>
-        ) : primary ? (
+        ) : (
           <MarketOdds market={primary} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
-        ) : null}
+        )}
         {extras.length > 0 ? (
           <Pressable
             accessibilityRole="button"
@@ -250,9 +248,7 @@ function EventRow({
           {metaText}
         </Text>
       </View>
-      {isSettled ? (
-        <Text style={styles.evScore}>{match.home_score ?? 0} : {match.away_score ?? 0}</Text>
-      ) : primary ? (
+      {primary && !isSettled ? (
         <View style={styles.mOddsCol}>
           <MarketOdds market={primary} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
         </View>
@@ -270,23 +266,14 @@ function EventRow({
           ))}
         </View>
       ) : null}
-      {extras.length > 0 && !expanded ? (
+      {extras.length > 0 ? (
         <Pressable
           accessibilityRole="button"
           testID={`more-markets-${match.id}`}
-          onPress={() => setExpanded(true)}
+          onPress={() => setExpanded((v) => !v)}
           style={styles.mMore}
         >
-          <Text style={styles.moreText}>+{extras.length}</Text>
-        </Pressable>
-      ) : null}
-      {expanded && extras.length > 0 ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setExpanded(false)}
-          style={styles.mMore}
-        >
-          <Text style={styles.moreText}>−</Text>
+          <Text style={styles.moreText}>{expanded ? '− 收起' : `+${extras.length} 玩法`}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -758,7 +745,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     minHeight: 48,
-    flexWrap: 'wrap',
   },
   evLive: {
     borderLeftWidth: 3,
@@ -769,7 +755,7 @@ const styles = StyleSheet.create({
   evDay: { fontSize: 10, color: colors.textMuted },
   evTimeText: { fontSize: 12, fontWeight: font.bold, color: colors.text, fontVariant: ['tabular-nums'] as const },
   liveText: { color: colors.danger, fontSize: 10, fontWeight: '900' },
-  evTeams: { flex: 1, minWidth: 120, paddingRight: 8 },
+  evTeams: { flex: 1, minWidth: 160, paddingRight: 8 },
   evName: { fontSize: 12.5, fontWeight: font.bold, color: colors.text },
   evVs: { color: colors.textMuted, fontWeight: font.medium },
   evScore: {

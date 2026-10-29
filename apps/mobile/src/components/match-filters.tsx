@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   },
   searchRow: { flexDirection: 'row', alignItems: 'center' },
   searchWrap: { flex: 1, position: 'relative', justifyContent: 'center' },
-  searchInput: { paddingRight: 34 },
+  searchInput: { paddingRight: 34, maxWidth: 460 },
   clearBtn: {
     position: 'absolute',
     right: 8,
