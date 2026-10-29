@@ -1,29 +1,33 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   useBetSlip,
+  useLiveOdds,
+  usePromotions,
   TYPE_LABELS,
   SEL_LABELS,
   MATCH_STATUS_LABELS,
-  MARKET_STATUS_LABELS,
 } from '@betting/core';
-import type { Match, OddsItem } from '@betting/core';
+import type { Match, Market } from '@betting/core';
 import type { MatchWhen } from '../../hooks/use-player-matches';
 import {
-  Card,
   Screen,
-  colors,
+  sbColors as colors,
+  Icon,
+  OddsChip,
   radius,
   fontSize,
   font,
@@ -38,9 +42,9 @@ import {
   usePlayerMatches,
 } from '../../hooks/use-player-matches';
 import type { PlayerMatchFilters } from '../../hooks/use-player-matches';
-import { sportIcon } from '../../lib/sport-display';
 import { DESKTOP_MIN_VIEWPORT } from '@betting/ui';
-import { formatKickoffLocal, kickoffCountdownSuffix } from '../../lib/datetime';
+import { formatKickoffLocal } from '../../lib/datetime';
+import { usePins } from '../../lib/pins';
 
 /** LIVE 只认开赛后 3 小时内；几个月前的 scheduled 陈数据不再显示 LIVE */
 const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
@@ -52,122 +56,93 @@ export interface PickMatchInfo {
   kickoff?: string;
 }
 
-function impliedProbability(price: number): string {
-  return `${Math.round((1 / price) * 100)}%`;
-}
+/** 玩法选项短标签（行式布局放不下全称） */
+const SHORT_LABELS: Record<string, string> = {
+  home: '主',
+  draw: '和',
+  away: '客',
+  over: '大',
+  under: '小',
+};
+const shortLabel = (sel: string) => SHORT_LABELS[sel] ?? sel.slice(0, 2);
 
-function OddsRow({
-  odds,
-  matchId,
+type OnPick = (pick: {
+  marketId: number;
+  selection: string;
+  price: number;
+  label: string;
+  matchInfo: PickMatchInfo;
+}) => void;
+
+/** 单个玩法市场的一排赔率筹码 */
+function MarketOdds({
+  market,
   matchInfo,
-  suspended,
+  flashFor,
   onPick,
 }: {
-  odds: OddsItem[];
-  matchId: number;
+  market: Market;
   matchInfo: PickMatchInfo;
-  suspended: boolean;
-  onPick: (pick: {
-    marketId: number;
-    selection: string;
-    price: number;
-    label: string;
-    matchInfo: PickMatchInfo;
-  }) => void;
+  flashFor: (marketId: number, selection: string) => 'up' | 'down' | undefined;
+  onPick: OnPick;
 }) {
   const { items } = useBetSlip();
+  const suspended = market.status !== 'open';
+  if (suspended) {
+    return (
+      <View style={styles.lockPill}>
+        <Icon name="lock" size={12} color={colors.warning} />
+        <Text style={styles.lockText}>暂停交易</Text>
+      </View>
+    );
+  }
   return (
     <View style={styles.oddsRow}>
-      {odds.map((o) => {
-        const active = items.some((i) => i.marketId === matchId && i.selection === o.selection);
-        const label = SEL_LABELS[o.selection] ?? o.selection;
+      {market.odds.map((o) => {
+        const active = items.some((i) => i.marketId === market.id && i.selection === o.selection);
         return (
-          <Pressable
+          <OddsChip
             key={o.selection}
-            disabled={suspended}
-            accessibilityRole="button"
-            aria-label={`${matchInfo.matchLabel} ${label} @${o.price.toFixed(2)}`}
-            onPress={() => onPick({ marketId: matchId, selection: o.selection, price: o.price, label, matchInfo })}
-            style={({ pressed }) => [
-              styles.oddsBtn,
-              {
-                backgroundColor: suspended
-                  ? colors.oddsBg
-                  : active
-                    ? colors.oddsActiveBg
-                    : colors.oddsBg,
-                borderColor: suspended
-                  ? colors.border
-                  : active
-                    ? colors.oddsActiveBorder
-                    : colors.oddsBorder,
-                opacity: suspended ? 0.45 : 1,
-                transform: [{ scale: pressed ? 0.94 : 1 }],
-              },
-            ]}
-          >
-            <Text style={styles.oddsLabel}>{suspended ? '\u5DF2\u6302\u76D8' : label}</Text>
-            <Text style={styles.oddsPrice}>{o.price.toFixed(2)}</Text>
-            <Text style={styles.oddsProb}>{impliedProbability(o.price)}</Text>
-          </Pressable>
+            label={shortLabel(o.selection)}
+            price={o.price}
+            selected={active}
+            flash={flashFor(market.id, o.selection)}
+            onPress={() =>
+              onPick({
+                marketId: market.id,
+                selection: o.selection,
+                price: o.price,
+                label: SEL_LABELS[o.selection] ?? o.selection,
+                matchInfo,
+              })
+            }
+            aria-label={`${matchInfo.matchLabel} ${SEL_LABELS[o.selection] ?? o.selection} @${o.price.toFixed(2)}`}
+            testID={`odds-${market.id}-${o.selection}`}
+          />
         );
       })}
     </View>
   );
 }
 
-function MarketBlock({
+/**
+ * v3 行式赛事呈现：
+ * - 桌面：时间 │ 对阵 │ 钉选 │ 1X2 筹码 │ +N 展开其余玩法（44px 行高）
+ * - 移动：紧凑卡（对阵左、赔率竖列右），+N 展开横排
+ */
+function EventRow({
   match,
   onPick,
+  desktop,
+  flashFor,
 }: {
   match: Match;
-  onPick: (pick: {
-    marketId: number;
-    selection: string;
-    price: number;
-    label: string;
-    matchInfo: PickMatchInfo;
-  }) => void;
+  onPick: OnPick;
+  desktop: boolean;
+  flashFor: (marketId: number, selection: string) => 'up' | 'down' | undefined;
 }) {
-  const matchInfo: PickMatchInfo = {
-    matchLabel: `${match.home_team} vs ${match.away_team}`,
-    league: match.league ?? undefined,
-    kickoff: match.kickoff_time,
-  };
-  return (
-    <View style={styles.marketBlock}>
-      {match.markets.map((m) => (
-        <View key={m.id} style={styles.marketItem}>
-          <Text style={styles.marketTitle}>
-            {TYPE_LABELS[m.type] ?? m.type}
-            {m.line != null ? ` @${m.line}` : ''}
-            {m.status !== 'open' && (
-              <Text style={{ color: colors.warning }}>
-                {' '}
-                {'\u00B7'} {MARKET_STATUS_LABELS[m.status] ?? m.status}
-              </Text>
-            )}
-          </Text>
-          <OddsRow odds={m.odds} matchId={m.id} matchInfo={matchInfo} suspended={m.status !== 'open'} onPick={onPick} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function MatchCard({
-  match,
-  onPick,
-}: {
-  match: Match;
-  onPick: (pick: {
-    marketId: number;
-    selection: string;
-    price: number;
-    label: string;
-    matchInfo: PickMatchInfo;
-  }) => void;
-}) {
+  const pins = usePins();
+  const [expanded, setExpanded] = useState(false);
   const kickoffMs = Date.parse(match.kickoff_time);
   const now = Date.now();
   const isLive =
@@ -176,38 +151,156 @@ function MatchCard({
     match.status !== 'settled' &&
     kickoffMs <= now &&
     now < kickoffMs + LIVE_WINDOW_MS;
-  const isFinished = match.status === 'finished';
   const isSettled = match.status === 'settled' || match.status === 'finished';
-  const isFeed = match.source === 'the-odds-api';
   const statusLabel = isLive ? '进行中' : MATCH_STATUS_LABELS[match.status] ?? match.status;
-  return (
-    <Card testID={`match-row-${match.id}`} style={styles.matchCard}>
-      <View style={styles.matchHeader}>
-        <View style={styles.sportBadge}>
-          <Text style={styles.sportIcon}>{sportIcon(match.sport)}</Text>
-          {match.league ? <Text style={styles.leagueLabel}>{match.league}</Text> : null}
+
+  const matchInfo: PickMatchInfo = {
+    matchLabel: `${match.home_team} vs ${match.away_team}`,
+    league: match.league ?? undefined,
+    kickoff: match.kickoff_time,
+  };
+  const primary = match.markets.find((m) => m.type === '1x2') ?? match.markets[0];
+  const extras = match.markets.filter((m) => m.id !== primary?.id);
+  const pinned = pins.has(match.id);
+  const metaText = `${formatKickoffLocal(match.kickoff_time)}${
+    !isLive ? ` · ${kickoffCountdownSuffixSafe(match.kickoff_time, now)}` : ''
+  } · ${statusLabel}`;
+
+  if (desktop) {
+    return (
+      <View style={[styles.evRow, isLive && styles.evLive]} testID={`match-row-${match.id}`}>
+        <View style={styles.evTime}>
+          <Text style={styles.evDay}>{isLive ? '进行中' : formatKickoffLocal(match.kickoff_time).split(' ')[0]}</Text>
+          <Text style={styles.evTimeText}>
+            {isLive ? (
+              <Text style={styles.liveText}>● LIVE</Text>
+            ) : (
+              formatKickoffLocal(match.kickoff_time).split(' ')[1] ?? ''
+            )}
+          </Text>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.teamNames}>
-            {match.home_team} <Text style={styles.vs}>vs</Text> {match.away_team}
+        <View style={styles.evTeams}>
+          <Text style={styles.evName} numberOfLines={1}>
+            {match.home_team} <Text style={styles.evVs}>vs</Text> {match.away_team}
           </Text>
-          <Text style={styles.kickoff}>
-            {'\uD83D\uDD50'} {formatKickoffLocal(match.kickoff_time)}
-            {kickoffCountdownSuffix(match.kickoff_time, now)} {'\u00B7'} {statusLabel}
-            {isLive ? <Text style={styles.liveBadge}> {'\u25CF'} LIVE</Text> : null}
-            {isFinished ? <Text style={styles.finishedBadge}> 已完场</Text> : null}
-            {isFeed ? <Text style={styles.feedBadge}> FEED</Text> : null}
-          </Text>
+          {isLive && match.home_score != null ? (
+            <Text style={styles.evScore}>
+              {match.home_score} : {match.away_score}
+            </Text>
+          ) : null}
         </View>
-        {isSettled && match.home_score != null ? (
-          <Text style={styles.score}>
-            {match.home_score} : {match.away_score}
-          </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={pinned ? '取消钉选' : '钉选赛事'}
+          onPress={() => pins.toggle(match.id)}
+          hitSlop={6}
+          style={styles.evPin}
+        >
+          <Icon name="star" size={14} color={pinned ? colors.accent : colors.textMuted} />
+        </Pressable>
+        {isSettled ? (
+          <Text style={styles.evScore}>{match.home_score ?? 0} : {match.away_score ?? 0}</Text>
+        ) : primary ? (
+          <MarketOdds market={primary} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
+        ) : null}
+        {extras.length > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            testID={`more-markets-${match.id}`}
+            onPress={() => setExpanded((v) => !v)}
+            style={styles.moreBtn}
+          >
+            <Text style={styles.moreText}>{expanded ? '−' : `+${extras.length}`}</Text>
+          </Pressable>
+        ) : null}
+        {expanded && extras.length > 0 ? (
+          <View style={styles.expandBlock}>
+            {extras.map((m) => (
+              <View key={m.id} style={styles.expandItem}>
+                <Text style={styles.marketTitle}>
+                  {TYPE_LABELS[m.type] ?? m.type}
+                  {m.line != null ? ` @${m.line}` : ''}
+                </Text>
+                <MarketOdds market={m} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
+              </View>
+            ))}
+          </View>
         ) : null}
       </View>
-      {!isSettled ? <MarketBlock match={match} onPick={onPick} /> : null}
-    </Card>
+    );
+  }
+
+  // 移动紧凑卡
+  return (
+    <View style={[styles.mCard, isLive && styles.evLive]} testID={`match-row-${match.id}`}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={pinned ? '取消钉选' : '钉选赛事'}
+        onPress={() => pins.toggle(match.id)}
+        hitSlop={6}
+        style={styles.mPin}
+      >
+        <Icon name="star" size={13} color={pinned ? colors.accent : colors.textMuted} />
+      </Pressable>
+      <View style={styles.mTeams}>
+        <Text style={styles.mTeam} numberOfLines={1}>{match.home_team}</Text>
+        <Text style={styles.mTeam} numberOfLines={1}>{match.away_team}</Text>
+        <Text style={styles.mMeta} numberOfLines={1}>
+          {isLive ? <Text style={styles.liveText}>● LIVE </Text> : null}
+          {metaText}
+        </Text>
+      </View>
+      {isSettled ? (
+        <Text style={styles.evScore}>{match.home_score ?? 0} : {match.away_score ?? 0}</Text>
+      ) : primary ? (
+        <View style={styles.mOddsCol}>
+          <MarketOdds market={primary} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
+        </View>
+      ) : null}
+      {expanded && extras.length > 0 ? (
+        <View style={styles.expandBlock}>
+          {extras.map((m) => (
+            <View key={m.id} style={styles.expandItem}>
+              <Text style={styles.marketTitle}>
+                {TYPE_LABELS[m.type] ?? m.type}
+                {m.line != null ? ` @${m.line}` : ''}
+              </Text>
+              <MarketOdds market={m} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {extras.length > 0 && !expanded ? (
+        <Pressable
+          accessibilityRole="button"
+          testID={`more-markets-${match.id}`}
+          onPress={() => setExpanded(true)}
+          style={styles.mMore}
+        >
+          <Text style={styles.moreText}>+{extras.length}</Text>
+        </Pressable>
+      ) : null}
+      {expanded && extras.length > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setExpanded(false)}
+          style={styles.mMore}
+        >
+          <Text style={styles.moreText}>−</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
+}
+
+function kickoffCountdownSuffixSafe(iso: string, now: number): string {
+  const diff = Date.parse(iso) - now;
+  if (Number.isNaN(diff) || diff <= 0) return '';
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  if (h > 0 && h < 48) return `${h}h ${m}m`;
+  if (h === 0 && m > 0) return `${m}m`;
+  return '';
 }
 
 interface LeagueGroup {
@@ -218,23 +311,20 @@ interface LeagueGroup {
 }
 
 type MatchRowItem =
-  | { kind: 'league'; key: string; sport: string | null; league: string; count: number }
-  | { kind: 'match'; match: Match }
-  /** 桌面双列：同联赛两张卡片并排（b 为空时补占位保持半宽） */
-  | { kind: 'pair'; key: string; a: Match; b: Match | null };
+  | { kind: 'league'; key: string; league: string; count: number }
+  | { kind: 'match'; match: Match };
 
 function groupByLeague(matches: Match[]): LeagueGroup[] {
   const map = new Map<string, LeagueGroup>();
   for (const match of matches) {
-    const sport = match.sport;
     const league = match.league?.trim() || '未分类联赛';
     // 折叠 key 只由运动 + 联赛决定，翻页追加后保持稳定
-    const key = `${sport ?? 'other'}||${league}`;
+    const key = `${match.sport ?? 'other'}||${league}`;
     const group = map.get(key);
     if (group) {
       group.matches.push(match);
     } else {
-      map.set(key, { key, sport, league, matches: [match] });
+      map.set(key, { key, sport: match.sport, league, matches: [match] });
     }
   }
   return Array.from(map.values());
@@ -257,12 +347,48 @@ function LeagueHeaderRow({
       onPress={onToggle}
       style={({ pressed }) => [styles.leagueHeader, { opacity: pressed ? 0.7 : 1 }]}
     >
-      <Text style={styles.leagueHeaderChevron}>{collapsed ? '\u25B8' : '\u25BE'}</Text>
+      <Text style={styles.leagueHeaderChevron}>{collapsed ? '▸' : '▾'}</Text>
       <Text style={styles.leagueHeaderText} numberOfLines={1}>
         {league}
       </Text>
       <Text style={styles.leagueHeaderCount}>{count} 场</Text>
     </Pressable>
+  );
+}
+
+/** hero 精选/促销区（绑定现有促销 API；无进行中活动时整区隐藏） */
+function HeroStrip() {
+  const promos = usePromotions('active');
+  const router = useRouter();
+  const items = promos.data?.promotions ?? [];
+  if (promos.loading || items.length === 0) return null;
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.hero}
+      contentContainerStyle={styles.heroContent}
+      testID="lobby-hero"
+    >
+      {items.slice(0, 5).map((p) => (
+        <Pressable
+          key={p.id}
+          accessibilityRole="button"
+          onPress={() => router.push('/promo')}
+          style={({ pressed }) => [styles.heroCard, { opacity: pressed ? 0.85 : 1 }]}
+        >
+          <View style={styles.heroTagWrap}>
+            <Icon name="fire" size={11} color={colors.accent} />
+            <Text style={styles.heroTag}>促销进行中</Text>
+          </View>
+          <Text style={styles.heroTitle} numberOfLines={1}>{p.title}</Text>
+          <Text style={styles.heroDesc} numberOfLines={1}>{p.description}</Text>
+          <View style={styles.heroCta}>
+            <Text style={styles.heroCtaText}>查看</Text>
+          </View>
+        </Pressable>
+      ))}
+    </ScrollView>
   );
 }
 
@@ -296,9 +422,43 @@ export default function MatchesScreen() {
     }
   }, []);
   const dockVisible = desktop && (slipItems.length > 0 || dockMsg !== null);
-  // 可用列表宽 ≈ 窗口 - 侧边栏(216) - dock(316) - 页边距/滚动条(56)；≥700 才值得开双列
-  const listWidth = winW - 216 - (dockVisible ? 316 : 0) - 56;
-  const twoUp = desktop && listWidth >= 700;
+
+  // WS 赔率涨跌：与上一笔价格对比，1.5s 后清除闪烁
+  const priceRef = useRef<Record<number, Record<string, number>>>({});
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [flash, setFlash] = useState<Record<string, 'up' | 'down'>>({});
+  const flashFor = useCallback(
+    (marketId: number, selection: string) => flash[`${marketId}:${selection}`],
+    [flash],
+  );
+  useLiveOdds((updates) => {
+    const next: Record<string, 'up' | 'down'> = {};
+    for (const u of updates) {
+      const before = priceRef.current[u.marketId];
+      for (const o of u.odds) {
+        if (before && before[o.selection] != null && before[o.selection] !== o.price) {
+          next[`${u.marketId}:${o.selection}`] = o.price > before[o.selection] ? 'up' : 'down';
+        }
+      }
+      priceRef.current[u.marketId] = Object.fromEntries(u.odds.map((o) => [o.selection, o.price]));
+    }
+    if (Object.keys(next).length > 0) {
+      setFlash(next);
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlash({}), 1500);
+    }
+  });
+  // 列表数据落地时记录基准价（首个对比基准）
+  useEffect(() => {
+    for (const match of rowsSource) {
+      for (const m of match.markets) {
+        if (!priceRef.current[m.id]) {
+          priceRef.current[m.id] = Object.fromEntries(m.odds.map((o) => [o.selection, o.price]));
+        }
+      }
+    }
+  }, [rowsSource]);
+
   const onPick = useCallback(
     (pick: {
       marketId: number;
@@ -330,36 +490,16 @@ export default function MatchesScreen() {
 
   const groups = useMemo(() => groupByLeague(rowsSource), [rowsSource]);
 
-  // 扁平化成 ONE FlatList 的行。
-  // 单列（手机/平板/窄桌面）：联赛头（通栏）+ 该联赛的赛事行，支持分组折叠。
-  // 桌面双列：放弃联赛分头（卡片自带联赛标签），全部比赛按开赛时间排成纯双列网格，
-  //   否则联赛普遍只有 1 场时会出现「半宽卡 + 空占位」的稀疏布局。
+  // 扁平化成 ONE FlatList 的行：联赛头（可折叠）+ 该联赛的赛事行
   const rows = useMemo<MatchRowItem[]>(() => {
     const out: MatchRowItem[] = [];
-    if (twoUp) {
-      for (let i = 0; i < rowsSource.length; i += 2) {
-        out.push({
-          kind: 'pair',
-          key: `pair:${rowsSource[i].id}`,
-          a: rowsSource[i],
-          b: rowsSource[i + 1] ?? null,
-        });
-      }
-      return out;
-    }
     for (const group of groups) {
-      out.push({
-        kind: 'league',
-        key: group.key,
-        sport: group.sport,
-        league: group.league,
-        count: group.matches.length,
-      });
+      out.push({ kind: 'league', key: group.key, league: group.league, count: group.matches.length });
       if (collapsed[group.key]) continue;
       for (const match of group.matches) out.push({ kind: 'match', match });
     }
     return out;
-  }, [groups, collapsed, twoUp, rowsSource]);
+  }, [groups, collapsed]);
 
   const allCollapsed = groups.length > 0 && groups.every((g) => collapsed[g.key]);
 
@@ -379,11 +519,7 @@ export default function MatchesScreen() {
 
   const keyExtractor = useCallback(
     (item: MatchRowItem) =>
-      item.kind === 'league'
-        ? `league:${item.key}`
-        : item.kind === 'pair'
-          ? item.key
-          : `match:${item.match.id}`,
+      item.kind === 'league' ? `league:${item.key}` : `match:${item.match.id}`,
     [],
   );
 
@@ -399,25 +535,9 @@ export default function MatchesScreen() {
           />
         );
       }
-      if (item.kind === 'pair') {
-        return (
-          <View style={styles.pairRow}>
-            <View style={styles.pairCell}>
-              <MatchCard match={item.a} onPick={onPick} />
-            </View>
-            {item.b ? (
-              <View style={styles.pairCell}>
-                <MatchCard match={item.b} onPick={onPick} />
-              </View>
-            ) : (
-              <View style={styles.pairCell} />
-            )}
-          </View>
-        );
-      }
-      return <MatchCard match={item.match} onPick={onPick} />;
+      return <EventRow match={item.match} onPick={onPick} desktop={desktop} flashFor={flashFor} />;
     },
-    [collapsed, toggleLeague, onPick],
+    [collapsed, toggleLeague, onPick, desktop, flashFor],
   );
 
   const footer = useMemo(() => {
@@ -476,18 +596,11 @@ export default function MatchesScreen() {
   );
 
   return (
-    <Screen maxWidth={desktop ? 1500 : undefined}>
+    <Screen maxWidth={desktop ? 1400 : undefined}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={dockVisible ? styles.bodyRow : styles.bodyCol}>
           <View style={styles.mainCol}>
-            {!desktop ? (
-              <View style={styles.header}>
-                <Text style={styles.title}>{'\u26A1'} BET PLAY</Text>
-                <Text style={styles.subtitle}>
-                  {'\u8D5B\u524D\u56FA\u5B9A\u8D54\u7387 \u00B7 \u7ACB\u5373\u4E0B\u6CE8'}
-                </Text>
-              </View>
-            ) : null}
+            <HeroStrip />
 
             <MatchFilters
               filters={filters}
@@ -495,7 +608,7 @@ export default function MatchesScreen() {
               onReset={resetFilters}
               total={total}
               allCollapsed={allCollapsed}
-              onToggleCollapseAll={twoUp ? undefined : toggleAll}
+              onToggleCollapseAll={toggleAll}
             />
 
             {loading ? (
@@ -507,11 +620,11 @@ export default function MatchesScreen() {
                 {error ? (
                   <View style={styles.errorBlock}>
                     <Text style={styles.errorText}>
-                      {'\u52A0\u8F7D\u5931\u8D25\uFF1A'}
+                      {'加载失败：'}
                       {error}
                     </Text>
                     <Pressable onPress={refresh} style={styles.retryBtn} testID="matches-retry">
-                      <Text style={styles.retryText}>{'\u91CD\u8BD5'}</Text>
+                      <Text style={styles.retryText}>重试</Text>
                     </Pressable>
                   </View>
                 ) : null}
@@ -546,8 +659,9 @@ export default function MatchesScreen() {
             <View style={styles.dock} testID="slip-dock">
               <View style={styles.dockHeader}>
                 <Text style={styles.dockTitle}>
-                  {'\uD83C\uDFAB'} 下注单{slipItems.length > 0 ? ` · ${slipItems.length}` : ''}
+                  下注单{slipItems.length > 0 ? ` · ${slipItems.length}` : ''}
                 </Text>
+                <Text style={styles.dockClear}>清空</Text>
               </View>
               <SlipPanel slim onMsgChange={onDockMsg} />
             </View>
@@ -571,98 +685,174 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.border,
   },
   dockHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
   },
-  dockTitle: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+  dockTitle: { color: colors.text, fontSize: 12.5, fontWeight: font.bold },
+  dockClear: { color: colors.textMuted, fontSize: 11 },
+
+  // hero 精选/促销
+  hero: { maxHeight: 108 },
+  heroContent: { gap: 10, paddingRight: 14, paddingBottom: 6 },
+  heroCard: {
+    width: 300,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#1F5236',
+    backgroundColor: colors.bgElevated,
+    padding: 12,
+    position: 'relative',
   },
-  title: {
-    fontSize: fontSize.hero,
-    fontWeight: font.bold,
-    color: colors.text,
-    letterSpacing: 1,
+  heroTagWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
+  heroTag: { fontSize: 10, fontWeight: '900', letterSpacing: 1, color: colors.accent },
+  heroTitle: { color: colors.text, fontSize: 12.5, fontWeight: font.bold },
+  heroDesc: { color: colors.textSecondary, fontSize: 11, marginTop: 3 },
+  heroCta: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    backgroundColor: colors.accent,
+    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  subtitle: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 2 },
+  heroCtaText: { color: '#1B1B00', fontWeight: '900', fontSize: 11 },
+
+  // 行式赛事
   list: { flex: 1 },
-  skeletonWrap: { padding: spacing.lg },
   listContent: { padding: spacing.lg, paddingBottom: 120 },
   leagueHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: 5,
     paddingHorizontal: 4,
     paddingVertical: 4,
   },
   leagueHeaderChevron: {
-    color: colors.secondary,
-    fontSize: fontSize.sm,
-    width: 16,
+    color: colors.textMuted,
+    fontSize: 11,
+    width: 14,
     fontWeight: font.bold,
   },
   leagueHeaderText: {
     flex: 1,
     color: colors.textSecondary,
-    fontSize: fontSize.sm,
+    fontSize: 11,
     fontWeight: font.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1.1,
   },
-  leagueHeaderCount: { color: colors.textMuted, fontSize: fontSize.xs },
-  matchCard: { marginBottom: spacing.lg },
-  // 桌面双列：两张卡片并排；奇数尾用空占位保持半宽
-  pairRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  pairCell: { flex: 1, minWidth: 0 },
-  liveBadge: { color: '#2ecc71', fontWeight: '700', fontSize: 12 },
-  finishedBadge: { color: colors.warning, fontWeight: '600', fontSize: 12 },
-  matchHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-  sportBadge: { alignItems: 'center', marginRight: spacing.md, minWidth: 40 },
-  sportIcon: { fontSize: 22 },
-  leagueLabel: {
-    color: colors.textMuted,
-    fontSize: 9,
-    fontWeight: font.medium,
-    marginTop: 2,
-    textAlign: 'center',
+  leagueHeaderCount: { color: colors.textMuted, fontSize: 11 },
+  evRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgElevated,
+    borderBottomColor: '#1F1F1F',
+    borderRadius: radius.sm,
+    marginBottom: 3,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    minHeight: 48,
+    flexWrap: 'wrap',
   },
-  teamNames: { fontSize: fontSize.lg, fontWeight: font.bold, color: colors.text },
-  vs: { color: colors.textMuted, fontSize: fontSize.md },
-  kickoff: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 4 },
-  feedBadge: { color: colors.secondary, fontSize: fontSize.xs, fontWeight: font.bold },
-  score: {
-    fontSize: fontSize.xl,
-    fontWeight: font.bold,
-    color: colors.success,
-    marginLeft: spacing.md,
+  evLive: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.danger,
+    backgroundColor: colors.bgElevated,
   },
-  marketBlock: { marginTop: spacing.md },
-  marketItem: { marginBottom: spacing.md },
+  evTime: { width: 66, flex: 0 },
+  evDay: { fontSize: 10, color: colors.textMuted },
+  evTimeText: { fontSize: 12, fontWeight: font.bold, color: colors.text, fontVariant: ['tabular-nums'] as const },
+  liveText: { color: colors.danger, fontSize: 10, fontWeight: '900' },
+  evTeams: { flex: 1, minWidth: 120, paddingRight: 8 },
+  evName: { fontSize: 12.5, fontWeight: font.bold, color: colors.text },
+  evVs: { color: colors.textMuted, fontWeight: font.medium },
+  evScore: {
+    color: colors.danger,
+    fontWeight: '900',
+    fontSize: 13,
+    fontVariant: ['tabular-nums'] as const,
+    paddingHorizontal: 8,
+  },
+  evPin: { paddingHorizontal: 6 },
+  oddsRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', alignItems: 'center' },
+  lockPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  lockText: { color: colors.warning, fontSize: 10.5, fontWeight: font.bold, letterSpacing: 1 },
+  moreBtn: {
+    width: 30,
+    height: 34,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+  moreText: { color: colors.textMuted, fontSize: 11 },
+  expandBlock: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    marginTop: 4,
+  },
+  expandItem: { marginRight: spacing.md },
   marketTitle: {
     color: colors.textSecondary,
-    fontSize: fontSize.xs,
+    fontSize: 10.5,
     fontWeight: font.regular,
+    marginBottom: 4,
+    letterSpacing: 0.4,
+  },
+
+  // 移动紧凑卡
+  mCard: {
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: '#1F1F1F',
+    borderRadius: radius.sm,
+    padding: 10,
     marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  oddsRow: { flexDirection: 'row', gap: spacing.sm },
-  oddsBtn: {
-    flex: 1,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
-  oddsLabel: { color: '#8B93B5', fontSize: fontSize.xs, fontWeight: font.regular },
-  oddsPrice: { fontSize: fontSize.lg, fontWeight: font.bold, color: colors.text, marginTop: 2 },
-  oddsProb: { fontSize: 10, color: colors.textMuted, marginTop: 1 },
+  mPin: { position: 'absolute', right: 8, top: 8, padding: 3 },
+  mTeams: { flex: 1, minWidth: 100, paddingRight: 8 },
+  mTeam: { color: colors.text, fontSize: 12.5, fontWeight: font.bold },
+  mMeta: { color: colors.textMuted, fontSize: 10, marginTop: 3 },
+  mOddsCol: { flexDirection: 'column', gap: 4 },
+  mMore: {
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingVertical: 4,
+    marginTop: 6,
+  },
+
+  skeletonWrap: { padding: spacing.lg },
   footer: { paddingVertical: spacing.lg, alignItems: 'center' },
   footerText: {
     textAlign: 'center',
@@ -674,7 +864,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginTop: spacing.sm,
     padding: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.danger,
     backgroundColor: 'rgba(239,68,68,0.08)',

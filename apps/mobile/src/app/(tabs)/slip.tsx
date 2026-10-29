@@ -42,7 +42,7 @@ export default function SlipScreen() {
     <Screen maxWidth={560}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
-          <SectionTitle>🎫 下注单</SectionTitle>
+          <SectionTitle>下注单</SectionTitle>
         </View>
 
         {slip.items.length === 0 && !msg && (

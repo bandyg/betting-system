@@ -3,7 +3,7 @@ import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextIn
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api, usePromotions, useCurrentUser, useContents, useClaims } from '@betting/core';
 import type { Content, Promotion, PromotionClaim } from '@betting/core';
-import { Screen, PromotionCard, Banner, FlashMsg, MarkdownText, colors, radius, fontSize, font, spacing, SectionTitle } from '@betting/ui';
+import { Screen, PromotionCard, Banner, FlashMsg, MarkdownText, sbColors as colors, radius, fontSize, font, spacing, SectionTitle } from '@betting/ui';
 import { formatLocalDateTime } from '../../lib/datetime';
 
 function bonusLabel(p: Promotion): string {
@@ -205,7 +205,7 @@ export default function PromoScreen() {
     <Screen maxWidth={720}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
-          <SectionTitle>🎁 促销活动</SectionTitle>
+          <SectionTitle>促销活动</SectionTitle>
           <View style={styles.langRow}>
             {['zh', 'en'].map((l) => (
               <Pressable
@@ -247,7 +247,7 @@ export default function PromoScreen() {
         {/* 公告/文章列表 */}
         {!contents.loading && (contents.data?.contents ?? []).length > 0 && (
           <View style={styles.contentListWrap}>
-            <SectionTitle>📰 公告中心</SectionTitle>
+            <SectionTitle>公告中心</SectionTitle>
             {(contents.data?.contents ?? []).map((c) => (
               <Pressable
                 key={c.id}

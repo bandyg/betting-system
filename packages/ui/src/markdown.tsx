@@ -1,6 +1,6 @@
 import React from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
-import { colors, fontSize, font, spacing } from './tokens';
+import { fontSize, font, spacing } from './tokens';
 import { useTheme } from './theme';
 
 type InlineToken =
@@ -59,7 +59,7 @@ function InlineText({ tokens }: { tokens: InlineToken[] }) {
             );
           case 'code':
             return (
-              <Text key={i} style={styles.code}>
+              <Text key={i} style={[styles.code, { color: t.secondary, backgroundColor: 'rgba(255,255,255,0.06)' }]}>
                 {tok.content}
               </Text>
             );
@@ -190,8 +190,6 @@ const styles = StyleSheet.create({
   code: {
     fontFamily: 'monospace',
     fontSize: fontSize.sm,
-    color: colors.secondary,
-    backgroundColor: 'rgba(6,182,212,0.1)',
     borderRadius: 4,
     paddingHorizontal: 4,
     paddingVertical: 1,

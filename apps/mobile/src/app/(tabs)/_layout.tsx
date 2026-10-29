@@ -1,76 +1,140 @@
 // 玩家端 Tab 导航（(tabs) route group —— URL 不带 group 前缀）
-// web 三档形态：
-// - ≥1024 桌面 webapp：左侧固定导航栏 + 隐藏底部 tab，内容全幅（下注单走大厅右侧 dock）
-// - 560~1023 手机壳：430 居中 + 暗背底
+// v3 sportsbook 视觉：品牌绿渐变头部（logo/余额/充值）全形态常驻；
+// - ≥1024 桌面 webapp：头部下方 [左侧导航+热门运动树 │ 内容]，隐藏底部 tab
+// - 560~1023 手机壳：430 居中 + 暗背底 + 底部 tab（SVG 图标）
 // - <560 原生手机：全幅 + 底部 tab
 import { Pressable, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Tabs, usePathname, useRouter } from 'expo-router';
 import {
-  colors,
-  APP_SHELL_MAX_WIDTH,
-  APP_SHELL_MIN_VIEWPORT,
-  DESKTOP_MIN_VIEWPORT,
+  sbColors as colors,
+  Icon, SbBolt, SportIcon,
+  APP_SHELL_MAX_WIDTH, APP_SHELL_MIN_VIEWPORT, DESKTOP_MIN_VIEWPORT,
 } from '@betting/ui';
-import { useBetSlip } from '@betting/core';
+import { useBetSlip, useCurrentUser, useSports } from '@betting/core';
+import { usePins } from '../../lib/pins';
 
-/** 宽屏 web 的场景底色：比页面底色更暗，把居中的手机壳 column 衬托出来 */
-const SHELL_BACKDROP = '#04060D';
-
-function EmojiIcon({ emoji }: { emoji: string }) {
-  // aria-hidden：否则读屏会把它和标题一起念，出现「⚽ ⚽ 赛事」的重复朗读
-  return <Text style={{ fontSize: 20 }} aria-hidden accessible={false}>{emoji}</Text>;
-}
+/** 头部以下、窄屏手机壳的场景底色 */
+const SHELL_BACKDROP = '#0D0D0D';
 
 const NAV_ITEMS = [
-  { route: '/', label: '赛事', emoji: '⚽' },
-  { route: '/promo', label: '促销', emoji: '🎁' },
-  { route: '/slip', label: '下注单', emoji: '🎫' },
-  { route: '/account', label: '我的', emoji: '👤' },
+  { route: '/', label: '赛事', icon: 'calendar' as const },
+  { route: '/promo', label: '促销', icon: 'gift' as const },
+  { route: '/slip', label: '下注单', icon: 'ticket' as const },
+  { route: '/account', label: '我的', icon: 'user' as const },
 ] as const;
+
+/** 品牌绿渐变头部：全形态常驻（余额芯片 + 充值主按钮） */
+function GreenHeader({ compact }: { compact?: boolean }) {
+  const { user } = useCurrentUser();
+  const router = useRouter();
+  return (
+    <View style={[styles.hdr, compact && { height: 46 }]}>
+      <View style={styles.logo}>
+        <View style={styles.boltTile}>
+          <SbBolt size={compact ? 13 : 15} />
+        </View>
+        <Text style={styles.logoText}>BET PLAY</Text>
+      </View>
+      <View style={styles.hdrSp} />
+      {user ? (
+        <>
+          <View style={styles.balChip}>
+            <Text style={styles.balText}>¥{(user.balance ?? 0).toLocaleString()}</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/account')}
+            style={({ pressed }) => [styles.depBtn, { opacity: pressed ? 0.85 : 1 }]}
+          >
+            <Text style={styles.depText}>充值</Text>
+          </Pressable>
+        </>
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/account')}
+          style={({ pressed }) => [styles.depBtn, { opacity: pressed ? 0.85 : 1 }]}
+        >
+          <Text style={styles.depText}>登录 / 注册</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
 
 function DesktopSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const slip = useBetSlip();
+  const pins = usePins();
+  const sports = useSportsCounts();
   return (
     <View style={styles.sidebar}>
-      <View style={styles.sidebarBrand}>
-        <Text style={styles.sidebarBrandTitle}>⚡ BET PLAY</Text>
-        <Text style={styles.sidebarBrandSub}>赛前固定赔率 · 立即下注</Text>
-      </View>
-      <View style={styles.sidebarNav}>
-        {NAV_ITEMS.map((item) => {
-          const active = pathname === item.route;
-          return (
-            <Pressable
-              key={item.route}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              onPress={() => router.navigate(item.route)}
-              style={({ pressed }) => [
-                styles.sidebarItem,
-                active && styles.sidebarItemActive,
-                { opacity: pressed ? 0.75 : 1 },
-              ]}
-            >
-              <Text style={styles.sidebarItemIcon}>{item.emoji}</Text>
-              <Text style={[styles.sidebarItemLabel, { color: active ? colors.secondary : colors.textSecondary }]}>
-                {item.label}
-              </Text>
-              {item.route === '/slip' && slip.items.length > 0 ? (
-                <View style={styles.sidebarBadge}>
-                  <Text style={styles.sidebarBadgeText}>{slip.items.length}</Text>
-                </View>
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </View>
-      <View style={styles.sidebarFoot}>
-        <Text style={styles.sidebarFootText}>演示环境 · 模拟支付</Text>
+      <View style={styles.sbCapWrap}><Text style={styles.sbCap}>导航</Text></View>
+      {NAV_ITEMS.map((item) => {
+        const active = pathname === item.route;
+        return (
+          <Pressable
+            key={item.route}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            onPress={() => router.navigate(item.route)}
+            style={({ pressed }) => [
+              styles.sbItem,
+              active && styles.sbItemActive,
+              { opacity: pressed ? 0.75 : 1 },
+            ]}
+          >
+            <Icon name={item.icon} size={15} color={active ? colors.text : colors.textSecondary} />
+            <Text style={[styles.sbItemLabel, { color: active ? colors.text : colors.textSecondary }]}>
+              {item.label}
+            </Text>
+            {item.route === '/slip' && slip.items.length > 0 ? (
+              <View style={styles.sbBadge}>
+                <Text style={styles.sbBadgeText}>{slip.items.length}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+      <View style={styles.sbSep} />
+      <View style={styles.sbCapWrap}><Text style={styles.sbCap}>我的关注</Text></View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.navigate('/')}
+        style={({ pressed }) => [styles.sbItem, { opacity: pressed ? 0.75 : 1 }]}
+      >
+        <Icon name="star" size={15} color={colors.accent} />
+        <Text style={[styles.sbItemLabel, { color: colors.textSecondary }]}>钉选的赛事</Text>
+        {pins.count > 0 ? <Text style={styles.sbN}>{pins.count}</Text> : null}
+      </Pressable>
+      <View style={styles.sbSep} />
+      <View style={styles.sbCapWrap}><Text style={styles.sbCap}>热门运动</Text></View>
+      {sports.map((s) => (
+        <View key={s.sport} style={styles.sbSport}>
+          <View style={styles.sbSportL}>
+            <SportIcon sport={s.sport} size={14} color={colors.textSecondary} />
+            <Text style={styles.sbSportLabel}>{s.label}</Text>
+          </View>
+          <Text style={styles.sbN}>{s.count}</Text>
+        </View>
+      ))}
+      <View style={styles.sbFoot}>
+        <Text style={styles.sbFootText}>演示环境 · 模拟支付</Text>
       </View>
     </View>
   );
+}
+
+/** 热门运动计数（/sports 与大厅同口径） */
+function useSportsCounts(): Array<{ sport: string; label: string; count: number }> {
+  const { data } = useSports();
+  const sports = data?.sports ?? [];
+  return sports.slice(0, 6).map((s) => ({
+    sport: s.sport,
+    label: s.sport.charAt(0).toUpperCase() + s.sport.slice(1),
+    count: s.leagues.reduce((sum, l) => sum + l.count, 0),
+  }));
 }
 
 export default function TabsLayout() {
@@ -85,105 +149,167 @@ export default function TabsLayout() {
   if (desktop) {
     return (
       <View style={styles.desktopRoot}>
-        <DesktopSidebar />
-        <View style={styles.desktopContent}>
-          <Tabs
-            screenOptions={{
-              headerShown: false,
-              tabBarStyle: { display: 'none' },
-              sceneStyle: { backgroundColor: colors.bg },
-            }}
-          >
-            <Tabs.Screen name="index" options={{ title: '赛事' }} />
-            <Tabs.Screen name="promo" options={{ title: '促销' }} />
-            <Tabs.Screen name="slip" options={{ title: '下注单' }} />
-            <Tabs.Screen name="account" options={{ title: '我的' }} />
-            <Tabs.Screen name="support" options={{ href: null }} />
-          </Tabs>
+        <GreenHeader />
+        <View style={styles.desktopBody}>
+          <DesktopSidebar />
+          <View style={styles.desktopContent}>
+            <Tabs
+              screenOptions={{
+                headerShown: false,
+                tabBarStyle: { display: 'none' },
+                sceneStyle: { backgroundColor: colors.bg },
+              }}
+            >
+              <Tabs.Screen name="index" options={{ title: '赛事' }} />
+              <Tabs.Screen name="promo" options={{ title: '促销' }} />
+              <Tabs.Screen name="slip" options={{ title: '下注单' }} />
+              <Tabs.Screen name="account" options={{ title: '我的' }} />
+              <Tabs.Screen name="support" options={{ href: null }} />
+            </Tabs>
+          </View>
         </View>
       </View>
     );
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.secondary,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: colors.bgElevated,
-          borderTopColor: colors.border,
-          height: Platform.OS === 'web' ? 64 : 84,
-          paddingBottom: Platform.OS === 'web' ? 12 : 24,
-          paddingTop: 8,
-          ...(shell
-            ? {
-                width: '100%',
-                maxWidth: APP_SHELL_MAX_WIDTH,
-                alignSelf: 'center',
-                borderLeftWidth: 1,
-                borderRightWidth: 1,
-                borderColor: colors.border,
-              }
-            : {}),
-        },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '700' },
-        sceneStyle: { backgroundColor: shell ? SHELL_BACKDROP : colors.bg },
-      }}
-    >
-      <Tabs.Screen name="index" options={{ title: '赛事', tabBarIcon: () => <EmojiIcon emoji="⚽" /> }} />
-      <Tabs.Screen name="promo" options={{ title: '促销', tabBarIcon: () => <EmojiIcon emoji="🎁" /> }} />
-      <Tabs.Screen
-        name="slip"
-        options={{
-          title: '下注单',
-          tabBarBadge: slipBadge,
-          tabBarIcon: () => <EmojiIcon emoji="🎫" />,
-        }}
-      />
-      <Tabs.Screen name="account" options={{ title: '我的', tabBarIcon: () => <EmojiIcon emoji="👤" /> }} />
-      <Tabs.Screen name="support" options={{ href: null }} />
-    </Tabs>
+    <View style={styles.mobileRoot}>
+      <GreenHeader compact />
+      <View style={styles.mobileTabs}>
+        <Tabs
+          screenOptions={{
+            headerShown: false,
+            tabBarActiveTintColor: colors.accent,
+            tabBarInactiveTintColor: colors.textMuted,
+            tabBarStyle: {
+              backgroundColor: colors.bgElevated,
+              borderTopColor: colors.border,
+              height: Platform.OS === 'web' ? 58 : 84,
+              paddingBottom: Platform.OS === 'web' ? 10 : 24,
+              paddingTop: 7,
+              ...(shell
+                ? {
+                    width: '100%',
+                    maxWidth: APP_SHELL_MAX_WIDTH,
+                    alignSelf: 'center',
+                    borderLeftWidth: 1,
+                    borderRightWidth: 1,
+                    borderColor: colors.border,
+                  }
+                : {}),
+            },
+            tabBarLabelStyle: { fontSize: 10.5, fontWeight: '700' },
+            sceneStyle: { backgroundColor: shell ? SHELL_BACKDROP : colors.bg },
+          }}
+        >
+          <Tabs.Screen name="index" options={{ title: '赛事', tabBarIcon: () => <Icon name="calendar" size={19} /> }} />
+          <Tabs.Screen name="promo" options={{ title: '促销', tabBarIcon: () => <Icon name="gift" size={19} /> }} />
+          <Tabs.Screen
+            name="slip"
+            options={{
+              title: '下注单',
+              tabBarBadge: slipBadge,
+              tabBarIcon: () => <Icon name="ticket" size={19} />,
+            }}
+          />
+          <Tabs.Screen name="account" options={{ title: '我的', tabBarIcon: () => <Icon name="user" size={19} /> }} />
+          <Tabs.Screen name="support" options={{ href: null }} />
+        </Tabs>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  desktopRoot: { flex: 1, flexDirection: 'row', backgroundColor: '#04060D' },
+  mobileRoot: { flex: 1, backgroundColor: colors.bg },
+  mobileTabs: { flex: 1 },
+  desktopRoot: { flex: 1, backgroundColor: colors.bg },
+  desktopBody: { flex: 1, flexDirection: 'row', minHeight: 0 },
   desktopContent: { flex: 1, minWidth: 0 },
+  hdr: {
+    height: 52,
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  logo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  boltTile: {
+    width: 26,
+    height: 26,
+    borderRadius: 5,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoText: { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.8 },
+  hdrSp: { flex: 1 },
+  balChip: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+  },
+  balText: { color: '#fff', fontWeight: '800', fontSize: 12, fontVariant: ['tabular-nums'] as const },
+  depBtn: {
+    backgroundColor: colors.accent,
+    borderRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  depText: { color: '#1B1B00', fontWeight: '900', fontSize: 12 },
   sidebar: {
-    width: 216,
+    width: 210,
     backgroundColor: colors.bgElevated,
     borderRightWidth: 1,
     borderRightColor: colors.border,
-    paddingTop: 24,
-    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingHorizontal: 8,
   },
-  sidebarBrand: { paddingHorizontal: 12, marginBottom: 28 },
-  sidebarBrandTitle: { color: colors.text, fontSize: 20, fontWeight: '700', letterSpacing: 1 },
-  sidebarBrandSub: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
-  sidebarNav: { gap: 4 },
-  sidebarItem: {
+  sbCapWrap: { paddingHorizontal: 9, paddingTop: 8, paddingBottom: 6 },
+  sbCap: { fontSize: 10, letterSpacing: 1.4, color: colors.textMuted, fontWeight: '800' },
+  sbItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    borderRadius: 10,
+    gap: 9,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderRadius: 3,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
+    marginBottom: 1,
   },
-  sidebarItemActive: { backgroundColor: colors.oddsActiveBg },
-  sidebarItemIcon: { fontSize: 17 },
-  sidebarItemLabel: { fontSize: 14, fontWeight: '700', flex: 1 },
-  sidebarBadge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.danger,
+  sbItemActive: {
+    backgroundColor: colors.bgGlass,
+    borderLeftColor: colors.accent,
+  },
+  sbItemLabel: { fontSize: 12, fontWeight: '600', flex: 1 },
+  sbBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
   },
-  sidebarBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  sidebarFoot: { marginTop: 'auto', paddingHorizontal: 12, paddingBottom: 16 },
-  sidebarFootText: { color: colors.textMuted, fontSize: 11 },
+  sbBadgeText: { color: '#1B1B00', fontSize: 10, fontWeight: '900' },
+  sbSep: { height: 1, backgroundColor: colors.border, marginVertical: 8, marginHorizontal: 4 },
+  sbSport: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 3,
+  },
+  sbSportL: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  sbSportLabel: { color: colors.textSecondary, fontSize: 12 },
+  sbN: { color: colors.textMuted, fontSize: 11, fontVariant: ['tabular-nums'] as const },
+  sbFoot: { marginTop: 'auto', paddingHorizontal: 9, paddingBottom: 14 },
+  sbFootText: { color: colors.textMuted, fontSize: 10.5 },
 });

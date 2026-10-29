@@ -21,8 +21,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radius, fontSize, font, shadows } from './tokens';
-import { useTheme } from './theme';
+import { colors, radius, sbRadius, fontSize, font, shadows } from './tokens';
+import { useTheme, useSb } from './theme';
 
 /* ---------------- Card ---------------- */
 export function Card({
@@ -37,16 +37,18 @@ export function Card({
   testID?: string;
 }) {
   const t = useTheme();
+  const sb = useSb();
   return (
     <View
       testID={testID}
       style={[
         styles.card,
+        sb && { borderRadius: sbRadius.md, borderWidth: 1 },
         {
           backgroundColor: glass ? t.bgGlass : t.bgElevated,
           borderColor: t.border,
         },
-        shadows.card,
+        sb ? shadows.cardSubtle : shadows.card,
         style,
       ]}
     >
@@ -74,13 +76,15 @@ export function Button({
   testID?: string;
 }) {
   const t = useTheme();
+  const sb = useSb();
+  const rad = sb ? sbRadius.sm : radius.pill;
   const scale = useSharedValue(1);
   const inner = (
-    <View style={[styles.buttonInner, { borderRadius: radius.pill }]}>
+    <View style={[styles.buttonInner, { borderRadius: rad }]}>
       {loading ? (
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color={sb && variant === 'gradient' ? '#0B6034' : '#fff'} />
       ) : (
-        <Text style={[styles.buttonText, variant === 'ghost' && { color: t.primary }]}>
+        <Text style={[styles.buttonText, variant === 'ghost' && { color: t.primary }, sb && { fontSize: 13, letterSpacing: 0.3 }]}>
           {title}
         </Text>
       )}
@@ -106,23 +110,24 @@ export function Button({
         }}
         style={({ pressed }) => [
           styles.button,
-          { borderRadius: radius.pill },
+          { borderRadius: rad },
           { opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
+          sb && styles.buttonSb,
           style,
         ]}
       >
         {variant === 'gradient' ? (
           <LinearGradient
-            colors={[t.gradientStart, t.gradientEnd]}
+            colors={sb ? ['#12904E', '#0F8246'] : [t.gradientStart, t.gradientEnd]}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
+            end={sb ? { x: 0, y: 1 } : { x: 1, y: 1 }}
+            style={[StyleSheet.absoluteFill, { borderRadius: rad }]}
           />
         ) : (
           <View
             style={[
               StyleSheet.absoluteFill,
-              { borderRadius: radius.pill, backgroundColor: variant === 'danger' ? t.danger : t.bgElevated },
+              { borderRadius: rad, backgroundColor: variant === 'danger' ? t.danger : t.bgElevated },
             ]}
           />
         )}
@@ -275,7 +280,19 @@ export function Banner({ text }: { text: string }) {
 /* ---------------- SectionTitle ---------------- */
 export function SectionTitle({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
   const t = useTheme();
-  return <Text style={[styles.sectionTitle, { color: t.text }, style]}>{children}</Text>;
+  const sb = useSb();
+  return (
+    <Text
+      style={[
+        styles.sectionTitle,
+        sb && { fontSize: 11, letterSpacing: 1.2, color: t.textSecondary, fontWeight: '800' },
+        { color: sb ? t.textSecondary : t.text },
+        style,
+      ]}
+    >
+      {children}
+    </Text>
+  );
 }
 
 /* ---------------- Screen (暗色背景容器，带进入转场) ----------------
@@ -335,12 +352,13 @@ export function FlashMsg({
 }: {
   msg: { kind: 'ok' | 'err'; text: string };
 }) {
+  const t = useTheme();
   return (
     <Animated.View
       entering={BounceIn.duration(420)}
-      style={[styles.msg, { backgroundColor: msg.kind === 'ok' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)' }]}
+      style={[styles.msg, { backgroundColor: msg.kind === 'ok' ? 'rgba(61,220,132,0.12)' : 'rgba(229,72,77,0.12)' }]}
     >
-      <Text style={{ color: msg.kind === 'ok' ? colors.success : colors.danger }}>{msg.text}</Text>
+      <Text style={{ color: msg.kind === 'ok' ? t.success : t.danger }}>{msg.text}</Text>
     </Animated.View>
   );
 }
@@ -392,6 +410,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     padding: 16,
+  },
+  buttonSb: {
+    height: 42,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   button: {
     height: 52,

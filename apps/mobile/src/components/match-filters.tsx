@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSports } from '@betting/core';
 import type { LeagueInfo } from '@betting/core';
-import { Input, font, fontSize, radius, spacing, useTheme } from '@betting/ui';
+import { Input, font, fontSize, spacing, useTheme, SportIcon } from '@betting/ui';
 import type { MatchWhen, PlayerMatchFilters } from '../hooks/use-player-matches';
 import { DEFAULT_PLAYER_MATCH_FILTERS, buildWindow } from '../hooks/use-player-matches';
-import { sportIcon, sportLabel } from '../lib/sport-display';
+import { sportLabel } from '../lib/sport-display';
 
 /** 稳定的 testID / 折叠 key 片段：保留中文与字母数字，其余折成 - */
 export function leagueSlug(value: string): string {
@@ -27,11 +27,13 @@ const MAX_LEAGUE_CHIPS = 30;
 
 function FilterChip({
   label,
+  icon,
   active,
   onPress,
   testID,
 }: {
   label: string;
+  icon?: ReactNode;
   active?: boolean;
   onPress: () => void;
   testID?: string;
@@ -52,6 +54,7 @@ function FilterChip({
         },
       ]}
     >
+      {icon}
       <Text
         numberOfLines={1}
         style={[styles.chipText, { color: active ? '#fff' : t.textSecondary }]}
@@ -158,11 +161,13 @@ export function MatchFilters({
           />
           {sports.map((s) => {
             const count = s.leagues.reduce((sum, l) => sum + l.count, 0);
+            const active = filters.sport === s.sport;
             return (
               <FilterChip
                 key={s.sport}
-                label={`${sportIcon(s.sport)} ${sportLabel(s.sport)} ${count}`}
-                active={filters.sport === s.sport}
+                label={`${sportLabel(s.sport)} ${count}`}
+                icon={<SportIcon sport={s.sport} size={13} color={active ? '#fff' : t.textSecondary} />}
+                active={active}
                 onPress={() => onChange({ sport: s.sport, league: null })}
                 testID={`sport-${s.sport}`}
               />
@@ -275,7 +280,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: radius.pill,
+    borderRadius: 4,
     borderWidth: 1,
   },
   chipText: { fontSize: fontSize.sm, fontWeight: font.medium },

@@ -42,6 +42,45 @@ export const colors = {
 /** 键约束于暗色调色板、值宽化为 string，light 主题可赋值 */
 export type Theme = { [K in keyof typeof colors]: string };
 
+/**
+ * Sportsbook 主题（v3 重设计，参考 bet365）：
+ * 中性炭黑三层底 + 品牌绿（头部/CTA/激活）+ 黄色专属「已选中赔率」。
+ * 仅玩家端使用（ThemeProvider mode="sportsbook"），admin 保持 dark/light 不受影响。
+ */
+export const sbColors: Theme = {
+  primary: '#0F8246',        // 品牌绿
+  secondary: '#1DB56A',      // 亮绿（链接/更多盘口）
+  accent: '#F0C30F',         // 黄（选中赔率/强化赔率）
+
+  gradientStart: '#12904E',
+  gradientEnd: '#0B6034',
+
+  bg: '#121212',
+  bgElevated: '#1A1A1A',
+  bgGlass: 'rgba(26, 26, 26, 0.88)',
+
+  border: '#2E2E2E',
+  borderStrong: '#3A3A3A',
+
+  text: '#F2F2F2',
+  textSecondary: '#ABABAB',
+  textMuted: '#767676',
+
+  success: '#3DDC84',
+  danger: '#E5484D',
+  warning: '#E5A83B',
+  info: '#17A35A',
+
+  oddsBg: '#242424',
+  oddsBorder: '#2E2E2E',
+  oddsActiveBg: '#F0C30F',   // 黄实心 = 已选中
+  oddsActiveBorder: '#F0C30F',
+};
+
+/** sportsbook 主题的圆角/头部尺寸（近直角观感，与 admin 的 radius 解耦） */
+export const sbRadius = { xs: 3, sm: 4, md: 6, lg: 10 };
+export const sbSize = { headerH: 52 };
+
 /** 亮色主题（同键映射，供 ThemeProvider 切换） */
 export const lightColors: Theme = {
   primary: '#5A34D1',
@@ -73,7 +112,8 @@ export const lightColors: Theme = {
   oddsActiveBorder: '#0891B2',
 };
 
-export const themes = { dark: colors, light: lightColors } as const;
+export const themes = { dark: colors, light: lightColors, sportsbook: sbColors } as const;
+
 export type ThemeMode = keyof typeof themes;
 
 /** 状态徽章语义分组（取色随主题自动切换） */
@@ -152,6 +192,14 @@ export const shadows = {
     shadowOpacity: 0.35,
     shadowRadius: 14,
     elevation: 6,
+  },
+  /** sportsbook：弱投影（近直角卡片靠发丝线分层） */
+  cardSubtle: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 2,
   },
   glow: {
     shadowColor: '#7C3AED',

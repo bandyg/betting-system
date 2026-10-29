@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { api, useAuth, useSupportTickets, SUPPORT_STATUS_LABELS, SUPPORT_PRIORITY_LABELS } from '@betting/core';
 import type { SupportCategory, SupportCategoryKey, SupportMessage, SupportPriority, SupportStatus, SupportTicket } from '@betting/core';
-import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
+import { Card, Screen, Button, FlashMsg, sbColors as colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 
 function statusColor(s: SupportStatus): string {
   switch (s) {

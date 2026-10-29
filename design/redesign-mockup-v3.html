@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BET PLAY · UI 提案 v3（bet365 基础上打磨）</title>
+<style>
+  :root {
+    --bg: #121212; --surface: #1A1A1A; --surface2: #242424; --line: #2E2E2E;
+    --text: #F2F2F2; --text2: #ABABAB; --muted: #767676;
+    --green: #0F8246; --green-deep: #0A5C31; --green-bright: #1DB56A;
+    --yellow: #F0C30F; --yellow-text: #1B1B00;
+    --pos: #3DDC84; --live: #E5484D; --amber: #E5A83B;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  /* 页面级滚动条整个隐藏（与正式 app 一致），滚轮/触摸/键盘照常滚动 */
+  html, body { scrollbar-width: none; -ms-overflow-style: none; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2E2E2E; border-radius: 3px; }
+  * { scrollbar-color: #2E2E2E transparent; }
+  body { background:#0C0C0C; color:var(--text); font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; font-size:12px; line-height:1.45; padding:48px 40px 120px; }
+  .page { max-width:1480px; margin:0 auto; }
+  h1 { font-size:24px; }
+  .kicker { color:var(--yellow); font-size:12px; font-weight:800; letter-spacing:2px; margin-bottom:8px; }
+  .lede { color:var(--text2); margin:10px 0 36px; max-width:860px; font-size:13px; }
+  h2.sec { font-size:14px; letter-spacing:1.5px; color:var(--text2); text-transform:uppercase; margin:56px 0 18px; padding-top:22px; border-top:1px solid var(--line); }
+  h2.sec b { color:var(--text); }
+  .note { color:var(--muted); font-size:11.5px; margin-top:10px; }
+  .boards { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+  .board { background:var(--bg); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .board .cap { padding:9px 14px; font-size:11.5px; color:var(--muted); border-top:1px solid var(--line); background:#181818; }
+  svg.ic { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; vertical-align:-3px; }
+
+  /* ---------- 桌面 v3 ---------- */
+  .desk { width:1440px; height:960px; font-size:12px; display:flex; flex-direction:column; }
+
+  .hdr { height:52px; background:linear-gradient(180deg,#117E45,#0B6034); display:flex; align-items:center; gap:14px; padding:0 16px; flex:none; box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 2px 10px rgba(0,0,0,.4); }
+  .hdr .logo { display:flex; align-items:center; gap:8px; }
+  .hdr .bolt { width:28px; height:28px; border-radius:6px; background:linear-gradient(160deg,#FFD84D,var(--yellow)); color:#1B1B00; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:15px; box-shadow:0 2px 8px rgba(240,195,15,.35); }
+  .hdr .logo b { font-size:16px; letter-spacing:.8px; color:#fff; }
+  .hdr .logo i { font-style:normal; color:rgba(255,255,255,.55); font-size:11px; margin-left:2px; }
+  .hdr .search { flex:0 0 320px; display:flex; align-items:center; gap:8px; background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.16); border-radius:4px; padding:7px 11px; color:rgba(255,255,255,.55); font-size:12px; }
+  .hdr .sp { flex:1; }
+  .live-chip { display:flex; align-items:center; gap:6px; background:rgba(0,0,0,.3); border-radius:4px; padding:5px 11px; color:#fff; font-weight:800; font-size:11.5px; }
+  .live-chip .dot { width:7px; height:7px; border-radius:50%; background:var(--live); box-shadow:0 0 6px var(--live); animation:pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .hdr .bell { position:relative; color:rgba(255,255,255,.85); }
+  .hdr .bell::after { content:''; position:absolute; top:-2px; right:-2px; width:7px; height:7px; border-radius:50%; background:var(--live); }
+  .hdr .bal { border:1px solid rgba(255,255,255,.3); border-radius:4px; padding:6px 12px; color:#fff; font-weight:800; font-variant-numeric:tabular-nums; font-size:12px; }
+  .hdr .dep { background:var(--yellow); color:#1B1B00; border:none; border-radius:4px; padding:7px 18px; font-weight:900; font-size:12px; box-shadow:0 2px 8px rgba(240,195,15,.25); }
+  .hdr .ic-user { color:rgba(255,255,255,.85); }
+
+  .desk-body { flex:1; display:flex; min-height:0; }
+
+  .sb { width:210px; background:var(--surface); border-right:1px solid var(--line); padding:10px 8px; display:flex; flex-direction:column; }
+  .sb-cap { font-size:10px; letter-spacing:1.4px; color:var(--muted); padding:4px 8px 6px; font-weight:800; }
+  .sb-item { display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:3px; color:var(--text2); font-weight:600; font-size:12px; margin-bottom:1px; border-left:3px solid transparent; }
+  .sb-item.active { background:var(--surface2); color:var(--text); border-left-color:var(--yellow); }
+  .sb-item .badge { margin-left:auto; background:var(--yellow); color:#1B1B00; font-size:10px; font-weight:900; border-radius:2px; padding:0 5px; }
+  .sb-item .n { margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .sb-sep { height:1px; background:var(--line); margin:8px 4px; }
+  .sb-sport { display:flex; align-items:center; gap:9px; padding:6px 9px; color:var(--text2); font-size:12px; justify-content:space-between; border-radius:3px; }
+  .sb-sport .l { display:flex; gap:9px; align-items:center; }
+  .sb-sport .n { color:var(--muted); font-variant-numeric:tabular-nums; }
+  .sb-sport .ld { color:var(--live); font-size:10px; font-weight:800; }
+
+  .main { flex:1; display:flex; flex-direction:column; min-width:0; background:var(--bg); }
+
+  /* 精选横幅区 */
+  .hero { display:flex; gap:10px; padding:12px 14px 4px; overflow:hidden; }
+  .hero-card { flex:1; height:96px; border-radius:6px; padding:12px 14px; position:relative; overflow:hidden; border:1px solid var(--line); background:var(--surface); }
+  .hero-card.boost { background:linear-gradient(135deg,#123B26 0%,#0E2E1D 60%,#0C2418 100%); border-color:#1F5236; }
+  .hero-card.promo { background:linear-gradient(135deg,#2B230C 0%,#1E1808 100%); border-color:#5A4718; }
+  .hero-card .tag { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:900; letter-spacing:1px; padding:2px 7px; border-radius:2px; margin-bottom:7px; }
+  .hero-card.boost .tag { background:rgba(240,195,15,.15); color:var(--yellow); }
+  .hero-card.promo .tag { background:rgba(61,220,132,.14); color:var(--pos); }
+  .hero-card .line1 { font-size:12.5px; font-weight:700; }
+  .hero-card .line2 { font-size:11px; color:var(--text2); margin-top:3px; }
+  .hero-card .cta { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:var(--yellow); color:#1B1B00; font-weight:900; font-size:11.5px; border-radius:4px; padding:7px 14px; }
+  .hero-card .cta.ghost { background:transparent; border:1px solid var(--pos); color:var(--pos); }
+  .hero-card .boost-price { color:var(--yellow); font-weight:900; font-size:15px; font-variant-numeric:tabular-nums; }
+  .hero-card .old { color:var(--muted); text-decoration:line-through; font-variant-numeric:tabular-nums; margin-right:6px; }
+  .hero-card .cdown { position:absolute; right:14px; top:12px; font-size:10.5px; color:var(--amber); font-variant-numeric:tabular-nums; font-weight:700; }
+  .flame { color:var(--yellow); }
+
+  /* 列表 */
+  .filter-bar { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--line); }
+  .seg { display:flex; background:var(--surface2); border:1px solid var(--line); border-radius:3px; padding:2px; }
+  .seg i { font-style:normal; padding:3px 11px; border-radius:2px; font-size:11.5px; color:var(--text2); font-weight:600; }
+  .seg i.on { background:var(--green); color:#fff; }
+  .switch { margin-left:auto; display:flex; align-items:center; gap:6px; color:var(--text2); font-size:11.5px; font-weight:600; }
+  .toggle { width:28px; height:16px; border-radius:8px; background:var(--surface2); border:1px solid var(--line); position:relative; }
+  .toggle::after { content:''; position:absolute; left:2px; top:2px; width:10px; height:10px; border-radius:50%; background:var(--muted); }
+  .toggle.on { background:var(--green); border-color:var(--green); }
+  .toggle.on::after { left:auto; right:2px; background:#fff; }
+
+  .list-wrap { flex:1; overflow:hidden; padding:2px 14px; }
+  .lg-head { display:flex; align-items:center; gap:8px; padding:11px 6px 5px; font-size:11px; letter-spacing:1.1px; color:var(--text2); font-weight:800; }
+  .lg-head .sport-dot { width:6px; height:6px; border-radius:50%; background:var(--green-bright); }
+  .lg-head .more-link { margin-left:10px; color:var(--green-bright); font-weight:600; letter-spacing:0; }
+  .lg-head .cnt { margin-left:auto; color:var(--muted); font-weight:500; }
+  .ev { display:flex; align-items:center; background:var(--surface); border-bottom:1px solid #1F1F1F; border-radius:4px; margin-bottom:3px; padding:6px 10px; height:48px; transition:background .15s; }
+  .ev:hover { background:var(--surface2); }
+  .ev.live-row { border-left:3px solid var(--live); background:linear-gradient(90deg, rgba(229,72,77,.06), var(--surface) 30%); }
+  .ev .time { width:70px; flex:none; }
+  .ev .time .d { font-size:10px; color:var(--muted); }
+  .ev .time .t { font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .ev .teams { flex:1; min-width:0; padding-right:10px; }
+  .ev .teams .nm { font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ev .teams .nm em { font-style:normal; color:var(--muted); font-weight:500; padding:0 4px; }
+  .ev .teams .clock { font-size:10px; color:var(--live); font-variant-numeric:tabular-nums; margin-left:8px; }
+  .score { color:var(--live); font-weight:900; font-variant-numeric:tabular-nums; padding-right:8px; }
+  .pin { color:var(--muted); margin-right:10px; cursor:pointer; }
+  .pin:hover, .pin.on { color:var(--yellow); }
+  .o1x2 { display:flex; gap:4px; flex:none; }
+  .ob { width:66px; height:36px; border-radius:3px; border:1px solid var(--line); background:var(--surface2); display:flex; align-items:center; justify-content:center; gap:6px; }
+  .ob .l { font-size:10px; color:var(--muted); font-weight:700; }
+  .ob .v { font-size:12.5px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .ob:hover { border-color:var(--green-bright); }
+  .ob.sel { background:var(--yellow); border-color:var(--yellow); box-shadow:0 0 10px rgba(240,195,15,.25); }
+  .ob.sel .l { color:rgba(27,27,0,.62); } .ob.sel .v { color:#1B1B00; }
+  .ob .mv-up { color:var(--pos); font-size:9px; font-weight:900; }
+  .ob .mv-dn { color:var(--live); font-size:9px; font-weight:900; }
+  .ob.boost { border-color:rgba(240,195,15,.4); }
+  .ob.boost .v { color:var(--yellow); }
+  .ob.boost .old { color:var(--muted); text-decoration:line-through; font-size:9.5px; font-weight:600; }
+  .ob.lock { width:96px; background:transparent; border-style:dashed; }
+  .ob.lock .l { color:var(--amber); }
+  .more { width:30px; height:36px; border-radius:3px; border:1px dashed var(--line); color:var(--muted); display:flex; align-items:center; justify-content:center; font-size:11px; }
+
+  .slip { width:280px; flex:none; border-left:1px solid var(--line); background:var(--surface); display:flex; flex-direction:column; }
+  .slip-h { padding:11px 14px; border-bottom:2px solid var(--green); display:flex; align-items:center; justify-content:space-between; }
+  .slip-h b { font-size:12.5px; }
+  .slip-h .clear { color:var(--muted); font-size:11px; }
+  .slip-tabs { display:flex; background:var(--surface2); border-radius:3px; padding:2px; font-size:11px; }
+  .slip-tabs i { font-style:normal; padding:3px 10px; border-radius:2px; color:var(--text2); }
+  .slip-tabs i.on { background:var(--green); color:#fff; font-weight:700; }
+  .slip-body { padding:10px 12px; flex:1; }
+  .sel-card { border:1px solid var(--line); border-left:3px solid var(--yellow); border-radius:3px; padding:8px 10px; margin-bottom:6px; background:var(--surface2); }
+  .sel-card .m { font-size:11px; color:var(--text2); display:flex; justify-content:space-between; }
+  .sel-card .m b { color:var(--yellow); font-weight:900; font-variant-numeric:tabular-nums; }
+  .sel-card .p { display:flex; justify-content:space-between; align-items:center; margin-top:4px; }
+  .sel-card .up { color:var(--pos); font-size:10px; font-weight:900; }
+  .accept { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--text2); padding:8px 0 2px; }
+  .accept .toggle { width:26px; height:15px; }
+  .slip-foot { padding:12px; border-top:1px solid var(--line); }
+  .frow { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; font-size:11.5px; color:var(--text2); }
+  .frow .amt { background:var(--surface2); border:1px solid var(--line); border-radius:3px; padding:6px 10px; width:104px; text-align:right; color:var(--text); font-weight:800; font-variant-numeric:tabular-nums; }
+  .quick { display:flex; gap:4px; margin-bottom:10px; }
+  .quick i { font-style:normal; flex:1; text-align:center; border:1px solid var(--line); background:var(--surface2); border-radius:2px; padding:4px 0; color:var(--text2); font-size:10.5px; font-variant-numeric:tabular-nums; }
+  .ret { display:flex; justify-content:space-between; margin:2px 0 11px; font-size:12px; color:var(--text2); }
+  .ret b { color:var(--pos); font-size:14px; font-variant-numeric:tabular-nums; }
+  .place { width:100%; background:linear-gradient(180deg,#12904E,var(--green)); border:1px solid rgba(255,255,255,.12); color:#fff; font-weight:900; font-size:13px; border-radius:4px; padding:10px 0; box-shadow:0 2px 10px rgba(15,130,70,.35); }
+  .slip-warn { margin-top:8px; font-size:10.5px; color:var(--muted); text-align:center; }
+
+  /* ---------- 移动 v3 ---------- */
+  .mob { width:390px; height:880px; display:flex; flex-direction:column; background:var(--bg); }
+  .m-hdr { height:48px; background:linear-gradient(180deg,#117E45,#0B6034); display:flex; align-items:center; gap:9px; padding:0 12px; flex:none; box-shadow:inset 0 1px 0 rgba(255,255,255,.08); }
+  .m-hdr .bolt { width:24px; height:24px; border-radius:5px; background:linear-gradient(160deg,#FFD84D,var(--yellow)); color:#1B1B00; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; }
+  .m-hdr b { color:#fff; font-size:13.5px; letter-spacing:.6px; margin-right:auto; }
+  .m-hdr .bal { border:1px solid rgba(255,255,255,.3); border-radius:4px; padding:4px 9px; color:#fff; font-weight:800; font-size:11px; font-variant-numeric:tabular-nums; }
+  .m-hdr .dep { background:var(--yellow); color:#1B1B00; font-weight:900; font-size:11px; border-radius:4px; padding:5px 12px; }
+  .m-hero { display:flex; gap:8px; padding:10px 12px 2px; overflow:hidden; }
+  .m-hero-card { flex:none; width:270px; height:74px; border-radius:6px; padding:10px 12px; background:linear-gradient(135deg,#123B26,#0C2418); border:1px solid #1F5236; position:relative; }
+  .m-hero-card .tag { display:inline-block; font-size:9.5px; font-weight:900; letter-spacing:1px; padding:1px 6px; border-radius:2px; background:rgba(240,195,15,.15); color:var(--yellow); margin-bottom:5px; }
+  .m-hero-card .line1 { font-size:12px; font-weight:700; }
+  .m-hero-card .line2 { font-size:10.5px; color:var(--text2); margin-top:2px; }
+  .m-hero-card .boost-price { color:var(--yellow); font-weight:900; }
+  .m-hero-card .cta { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:var(--yellow); color:#1B1B00; font-weight:900; font-size:10.5px; border-radius:3px; padding:6px 11px; }
+  .m-chips { display:flex; gap:6px; padding:9px 12px 3px; overflow:hidden; }
+  .m-chip { flex:none; border:1px solid var(--line); background:var(--surface); border-radius:3px; padding:5px 10px; font-size:11.5px; color:var(--text2); font-weight:600; }
+  .m-chip.on { background:var(--green); border-color:var(--green); color:#fff; }
+  .m-body { flex:1; padding:2px 12px; overflow:hidden; }
+  .m-lg { font-size:10px; letter-spacing:1.1px; color:var(--text2); font-weight:800; padding:10px 2px 4px; }
+  .m-ev { background:var(--surface); border:1px solid #1F1F1F; border-radius:4px; padding:8px 10px; margin-bottom:6px; display:flex; gap:10px; align-items:center; }
+  .m-ev.live-row { border-left:3px solid var(--live); }
+  .m-teams { flex:1; min-width:0; }
+  .m-teams .t { font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .m-teams .meta { font-size:10px; color:var(--muted); margin-top:3px; }
+  .m-odds { display:flex; flex-direction:column; gap:4px; }
+  .m-odds .ob { width:82px; height:28px; gap:8px; padding:0 9px; justify-content:space-between; }
+  .m-odds .ob .v { font-size:12px; }
+  .m-tabbar { display:flex; background:var(--surface); border-top:1px solid var(--line); padding:7px 0 13px; }
+  .m-tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--muted); font-size:10px; font-weight:600; position:relative; }
+  .m-tab.on { color:var(--yellow); }
+  .m-tab .badge { position:absolute; top:-4px; right:26px; background:var(--yellow); color:#1B1B00; font-size:9px; font-weight:900; border-radius:2px; padding:0 4px; }
+
+  .comp-grid { display:flex; gap:40px; flex-wrap:wrap; }
+  .comp-col b { display:block; font-size:11px; color:var(--muted); margin-bottom:12px; letter-spacing:1px; }
+  .states { display:flex; flex-direction:column; gap:14px; align-items:flex-start; }
+  .state-lab { font-size:10px; color:var(--muted); margin-top:6px; }
+  .vs-grid { font-size:12px; color:var(--text2); display:grid; gap:8px; max-width:440px; }
+  .vs-grid b { color:var(--text); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="kicker">BET PLAY · UI PROPOSAL v3</div>
+  <h1>v3 — 在 bet365 骨架上打磨「生命感」与「层次」</h1>
+  <p class="lede">v2 被接受但还不够优秀。v3 保持 v2 语言不变，补上让它从「可用」到「优秀」的四层东西：<b style="color:var(--text)">精选/促销 hero 区</b>（绑定现有促销 API）、<b style="color:var(--text)">数据生命感</b>（赔率涨跌箭头+闪烁、LIVE 计时器、收藏钉选，绑定 WS/本地状态）、<b style="color:var(--text)">视觉深度</b>（渐变头部、hero 渐变描边、行 hover 抬升、选中光晕）、<b style="color:var(--text)">下注单专业化</b>（接受赔率变动开关、快捷金额、清空）。所有元素都有真实数据来源，非装饰。</p>
+
+  <h2 class="sec">① 桌面 1440 — <b>完整形态</b></h2>
+  <div class="boards">
+    <div class="board">
+      <div class="desk">
+        <div class="hdr">
+          <div class="logo"><div class="bolt">⚡</div><b>BET PLAY</b><i>sportsbook</i></div>
+          <div class="search"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>搜索球队或联赛</div>
+          <div class="sp"></div>
+          <div class="live-chip"><span class="dot"></span>12 场直播中</div>
+          <svg class="ic bell" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+          <svg class="ic ic-user" viewBox="0 0 24 24" style="width:17px;height:17px"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+          <div class="bal">¥100.00</div>
+          <button class="dep">充值</button>
+        </div>
+        <div class="desk-body">
+          <div class="sb">
+            <div class="sb-cap">导航</div>
+            <div class="sb-item active"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>赛事</div>
+            <div class="sb-item"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18"/></svg>促销</div>
+            <div class="sb-item"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/></svg>下注单<span class="badge">1</span></div>
+            <div class="sb-item"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>我的</div>
+            <div class="sb-sep"></div>
+            <div class="sb-cap">我的关注</div>
+            <div class="sb-item" style="color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" style="color:var(--yellow)"><path d="M12 3l2.7 5.6 6.3.9-4.5 4.4 1 6.1-5.5-2.9-5.5 2.9 1-6.1L3 9.5l6.3-.9z"/></svg>钉选的赛事<span class="n">2</span></div>
+            <div class="sb-sep"></div>
+            <div class="sb-cap">热门运动</div>
+            <div class="sb-sport"><span class="l"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>足球</span><span class="ld">● 3</span><span class="n">862</span></div>
+            <div class="sb-sport"><span class="l"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18M12 12l6.4-6.4M12 12l6.4 6.4M12 12L5.6 5.6M12 12l-6.4 6.4"/></svg>篮球</span><span class="ld">● 5</span><span class="n">214</span></div>
+            <div class="sb-sport"><span class="l">网球</span><span class="n">96</span></div>
+            <div class="sb-sport"><span class="l">棒球</span><span class="n">58</span></div>
+            <div class="sb-sport"><span class="l">冰球</span><span class="n">54</span></div>
+            <div class="sb-sport"><span class="l">电竞</span><span class="n">31</span></div>
+          </div>
+          <div class="main">
+            <div class="hero">
+              <div class="hero-card boost">
+                <span class="tag"><span class="flame">🔥</span> 限时精选</span>
+                <div class="cdown">08:59:41</div>
+                <div class="line1">海东蓝鲨 主胜 <span class="old">2.05</span> → <span class="boost-price">2.60</span></div>
+                <div class="line2">vs 临港飞鹰 · 今日 15:00</div>
+                <div class="cta">立即投注</div>
+              </div>
+              <div class="hero-card promo">
+                <span class="tag">促销进行中</span>
+                <div class="line1">首充双倍 · 充值送 100% 奖金</div>
+                <div class="line2">新用户专享 · 审核通过后到账</div>
+                <div class="cta ghost">去领取</div>
+              </div>
+              <div class="hero-card boost">
+                <span class="tag"><span class="flame">🔥</span> 限时精选</span>
+                <div class="cdown">03:12:08</div>
+                <div class="line1">青云 FC 主胜 <span class="old">1.85</span> → <span class="boost-price">2.10</span></div>
+                <div class="line2">vs 白山联 · 明日 14:00</div>
+                <div class="cta">立即投注</div>
+              </div>
+            </div>
+            <div class="filter-bar">
+              <div class="seg"><i>今天</i><i class="on">近3天</i><i>全部</i></div>
+              <div class="seg"><i class="on">全部玩法</i><i>胜平负</i></div>
+              <div class="switch"><div class="toggle on"></div>仅开盘</div>
+            </div>
+            <div class="list-wrap">
+              <div class="lg-head"><span class="sport-dot"></span>东亚超级联赛 · 足球<span class="more-link">+6 盘口</span><span class="cnt">2 场</span></div>
+              <div class="ev">
+                <div class="time"><div class="d">今日</div><div class="t">15:00</div></div>
+                <div class="teams"><div class="nm">海东蓝鲨 <em>vs</em> 临港飞鹰</div></div>
+                <svg class="ic pin on" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 3l2.7 5.6 6.3.9-4.5 4.4 1 6.1-5.5-2.9-5.5 2.9 1-6.1L3 9.5l6.3-.9z"/></svg>
+                <div class="o1x2">
+                  <div class="ob sel"><span class="l">主</span><span class="v">2.05</span></div>
+                  <div class="ob"><span class="l">和</span><span class="v">3.25</span><span class="mv-up">▲</span></div>
+                  <div class="ob"><span class="l">客</span><span class="v">3.50</span><span class="mv-dn">▼</span></div>
+                  <div class="more">+6</div>
+                </div>
+              </div>
+              <div class="ev">
+                <div class="time"><div class="d">明日</div><div class="t">14:00</div></div>
+                <div class="teams"><div class="nm">青云 FC <em>vs</em> 白山联</div></div>
+                <svg class="ic pin" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 3l2.7 5.6 6.3.9-4.5 4.4 1 6.1-5.5-2.9-5.5 2.9 1-6.1L3 9.5l6.3-.9z"/></svg>
+                <div class="o1x2">
+                  <div class="ob"><span class="l">主</span><span class="v">1.85</span></div>
+                  <div class="ob"><span class="l">和</span><span class="v">3.60</span></div>
+                  <div class="ob"><span class="l">客</span><span class="v">4.00</span></div>
+                  <div class="more">+6</div>
+                </div>
+              </div>
+              <div class="lg-head"><span class="sport-dot" style="background:var(--live)"></span>太平洋职业联赛 · 篮球<span class="more-link">+9 盘口</span><span class="cnt">1 场</span></div>
+              <div class="ev live-row">
+                <div class="time"><div class="d">进行中 2Q</div><div class="t"><span class="live">● LIVE</span></div></div>
+                <div class="teams"><div class="nm">湾城巨鲸 <em>vs</em> 沙丘烈焰 <span class="score">48 : 45</span><span class="clock">08:32</span></div></div>
+                <svg class="ic pin" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 3l2.7 5.6 6.3.9-4.5 4.4 1 6.1-5.5-2.9-5.5 2.9 1-6.1L3 9.5l6.3-.9z"/></svg>
+                <div class="o1x2">
+                  <div class="ob"><span class="l">主</span><span class="v">1.72</span><span class="mv-dn">▼</span></div>
+                  <div class="ob"><span class="l">客</span><span class="v">2.15</span><span class="mv-up">▲</span></div>
+                  <div class="more">+9</div>
+                </div>
+              </div>
+              <div class="lg-head"><span class="sport-dot"></span>北欧联杯 · 足球<span class="cnt">2 场</span></div>
+              <div class="ev">
+                <div class="time"><div class="d">周四</div><div class="t">03:00</div></div>
+                <div class="teams"><div class="nm">雪城狼群 <em>vs</em> 极地海豹</div></div>
+                <svg class="ic pin" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 3l2.7 5.6 6.3.9-4.5 4.4 1 6.1-5.5-2.9-5.5 2.9 1-6.1L3 9.5l6.3-.9z"/></svg>
+                <div class="o1x2">
+                  <div class="ob boost"><span class="l">主</span><span class="old">2.15</span><span class="v">2.60 🔥</span></div>
+                  <div class="ob"><span class="l">和</span><span class="v">3.90</span></div>
+                  <div class="ob"><span class="l">客</span><span class="v">2.95</span></div>
+                  <div class="more">+6</div>
+                </div>
+              </div>
+              <div class="ev">
+                <div class="time"><div class="d">周五</div><div class="t">15:00</div></div>
+                <div class="teams"><div class="nm">卑尔根霜 <em>vs</em> 马尔默狮子</div></div>
+                <svg class="ic pin" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 3l2.7 5.6 6.3.9-4.5 4.4 1 6.1-5.5-2.9-5.5 2.9 1-6.1L3 9.5l6.3-.9z"/></svg>
+                <div class="o1x2">
+                  <div class="ob lock"><span class="l">暂停交易</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="slip">
+            <div class="slip-h"><b>下注单 · 1</b><span class="clear">清空</span></div>
+            <div class="slip-tabs" style="margin: 10px 12px 0;"><i class="on">单注</i><i>串关</i></div>
+            <div class="slip-body">
+              <div class="sel-card">
+                <div class="m"><span>主胜 @2.05</span><b>已选</b></div>
+                <div class="p"><span style="font-size:11px;color:var(--text2)">海东蓝鲨 vs 临港飞鹰 · 今日 15:00</span><span class="x">✕</span></div>
+              </div>
+              <div class="accept"><div class="toggle on"></div>赔率变动时自动接受</div>
+            </div>
+            <div class="slip-foot">
+              <div class="frow"><span>本单金额</span><div class="amt">100</div></div>
+              <div class="quick"><i>20</i><i>50</i><i>100</i><i>500</i></div>
+              <div class="ret"><span>预估回报</span><b>¥205.00</b></div>
+              <button class="place">确认下注 · ¥100</button>
+              <div class="slip-warn">下注即接受赔率变动条款 · 余额 ¥100.00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cap">桌面 1440 · 渐变头部+直播计数/铃铛 │ hero 精选/促销区（促销 API）│ 赔率涨跌箭头 │ LIVE 左红条+计时器 │ 收藏钉选 │ 挂盘赔率加价展示（🔥）│ 下注单接受赔率变动开关</div>
+    </div>
+  </div>
+
+  <h2 class="sec">② 移动 390 — <b>hero 区同步</b></h2>
+  <div class="boards">
+    <div class="board">
+      <div class="mob">
+        <div class="m-hdr">
+          <div class="bolt">⚡</div><b>BET PLAY</b>
+          <div class="bal">¥100.00</div>
+          <div class="dep">充值</div>
+        </div>
+        <div class="m-hero">
+          <div class="m-hero-card">
+            <span class="tag">🔥 限时精选</span>
+            <div class="line1">海东蓝鲨 主胜 <s style="color:var(--muted)">2.05</s> <span class="boost-price">2.60</span></div>
+            <div class="line2">vs 临港飞鹰 · 08:59:41</div>
+            <div class="cta">投注</div>
+          </div>
+        </div>
+        <div class="m-chips">
+          <div class="m-chip on">全部</div><div class="m-chip">足球 3</div><div class="m-chip">篮球 1</div><div class="m-chip">冰球 1</div>
+        </div>
+        <div class="m-chips" style="padding-top:0">
+          <div class="m-chip on">近3天</div><div class="m-chip">今天</div><div class="m-chip">全部</div><div class="m-chip">仅开盘</div>
+        </div>
+        <div class="m-body">
+          <div class="m-lg">东亚超级联赛 · 足球</div>
+          <div class="m-ev">
+            <div class="m-teams">
+              <div class="t">海东蓝鲨</div>
+              <div class="t">临港飞鹰</div>
+              <div class="meta">今日 15:00 · 和 3.25 <span style="color:var(--pos)">▲</span></div>
+            </div>
+            <div class="m-odds">
+              <div class="ob sel"><span class="l">主</span><span class="v">2.05</span></div>
+              <div class="ob"><span class="l">和</span><span class="v">3.25</span></div>
+              <div class="ob"><span class="l">客</span><span class="v">3.50</span><span class="mv-dn" style="color:var(--live);font-size:9px">▼</span></div>
+            </div>
+          </div>
+          <div class="m-lg">太平洋职业联赛 · 篮球</div>
+          <div class="m-ev live-row">
+            <div class="m-teams">
+              <div class="t">湾城巨鲸</div>
+              <div class="t">沙丘烈焰</div>
+              <div class="meta"><span class="live">● LIVE</span> 2Q 08:32 · 48:45</div>
+            </div>
+            <div class="m-odds">
+              <div class="ob"><span class="l">主</span><span class="v">1.72</span></div>
+              <div class="ob"><span class="l">客</span><span class="v">2.15</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="m-tabbar">
+          <div class="m-tab on"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>赛事</div>
+          <div class="m-tab"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18"/></svg>促销</div>
+          <div class="m-tab"><span class="badge">1</span><svg class="ic" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/></svg>下注单</div>
+          <div class="m-tab"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>我的</div>
+        </div>
+      </div>
+      <div class="cap">移动 390 · hero 横滑卡 │ LIVE 计分内联 │ 赔率变动箭头</div>
+    </div>
+
+    <div class="board" style="flex:1; min-width: 430px;">
+      <div style="padding: 24px;">
+        <div class="comp-grid" style="padding:0; border:none;">
+          <div class="comp-col">
+            <b>v3 新增 · 数据来源对照</b>
+            <div class="vs-grid">
+              <div><b>hero 精选卡</b>（限时加价）→ 促销 API + 倒计时；无活动时隐藏整区</div>
+              <div><b>赔率涨跌 ▲▼</b> + 按钮闪烁 → useLiveOdds WS 增量对比</div>
+              <div><b>LIVE 计时器/比分</b> → feed scores 数据（kickoff 推算 + scores 端点）</div>
+              <div><b>收藏钉选</b>（星标 + 我的关注）→ localStorage，纯前端</div>
+              <div><b>接受赔率变动开关</b> → 下注单本地状态，提交时生效</div>
+              <div><b>头部直播计数/铃铛</b> → matches live 计数 + 站内信（已有表）</div>
+              <div><b>挂盘赔率加价🔥</b> → promotions 与 odds 联动展示，可后置</div>
+            </div>
+          </div>
+          <div class="comp-col">
+            <b>微交互规范</b>
+            <div class="vs-grid">
+              <div>赔率变化：按钮底色闪绿（涨）/红（跌）400ms 后恢复</div>
+              <div>选中赔率：黄色 + 柔和外发光，点击缩放 0.96 回弹</div>
+              <div>行 hover：底色抬升 + 左缘 2px 品牌绿</div>
+              <div>dock/弹层：滑入 240ms ease-out</div>
+              <div>LIVE：红点 1.6s 脉冲</div>
+              <div>数字变化统一 tabular-nums，杜绝跳动</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cap">数据对照 & 微交互规范</div>
+    </div>
+  </div>
+
+  <h2 class="sec">③ 落地</h2>
+  <p class="lede" style="margin-bottom:0">确认后实现顺序：packages/ui tokens+组件（含 OddsButton 动效）→ 玩家端四屏 → hero 区接促销 API → WS 涨跌接入。分两批上线：先静态换肤，再接数据动效。</p>
+</div>
+</body>
+</html>

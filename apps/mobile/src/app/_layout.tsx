@@ -54,7 +54,8 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <ThemeProvider>
+        {/* 玩家端 v3 sportsbook 主题（炭黑/品牌绿/黄色选中）；admin 自带 dark/light store 不受影响 */}
+        <ThemeProvider mode="sportsbook">
           <StatusBar style="light" />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
         </ThemeProvider>

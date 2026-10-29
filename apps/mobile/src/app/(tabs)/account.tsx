@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { api, useAuth, useBets, usePreferences, useMyVip, useWithdrawals, useUsers, useMatches, useRiskLimits, useAnalyticsDashboard, useAnalyticsTrends, useAnalyticsHotMatches, useAnalyticsUsers, SEL_LABELS, RISK_FIELDS, RISK_FIELD_LABELS, MARKET_STATUS_LABELS, TYPE_LABELS, PAYMENT_STATUS_LABELS, WITHDRAWAL_METHOD_LABELS, WITHDRAWAL_STATUS_LABELS } from '@betting/core';
 import type { Bet, User, Market, RiskField, PaymentOrder, Withdrawal, DashboardStats, TrendPoint, HotMatch, UserAnalytics, MyVip } from '@betting/core';
-import { Card, Screen, Button, FlashMsg, colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
+import { Card, Screen, Button, FlashMsg, sbColors as colors, radius, fontSize, font, spacing, SectionTitle, EmptyState } from '@betting/ui';
 import { formatLocalDateTime } from '../../lib/datetime';
 
 /** VIP 等级中文名（tier key 来自 vip_tiers 表） */
@@ -79,7 +79,7 @@ function AuthForm() {
   return (
     <>
       <Card style={styles.authCard} glass>
-        <Text style={styles.authTitle}>{mode === 'login' ? '🔐 登录' : '✨ 注册新账号'}</Text>
+        <Text style={styles.authTitle}>{mode === 'login' ? '登录' : '注册新账号'}</Text>
         <Text style={styles.authSub}>
           {mode === 'login' ? '登录后查看余额、下注记录与偏好' : '注册后即可充值投注（演示环境为模拟支付）'}
         </Text>
@@ -706,7 +706,7 @@ function WithdrawCard({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <Card style={styles.sectionCard}>
-      <Text style={styles.cardTitle}>🏦 提现（PAM）</Text>
+      <Text style={styles.cardTitle}>提现（PAM）</Text>
       <View style={styles.row}>
         <TextInput
           value={amount}
@@ -925,7 +925,7 @@ export default function AccountScreen() {
     <Screen maxWidth={720}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView contentContainerStyle={styles.content}>
-          <SectionTitle>👤 我的</SectionTitle>
+          <SectionTitle>我的</SectionTitle>
 
           {/* 当前用户 */}
           <Card style={styles.userCard} glass>
@@ -947,7 +947,7 @@ export default function AccountScreen() {
           <Card style={styles.sectionCard} glass>
             <Pressable onPress={() => router.push('/support')} style={({ pressed }) => [styles.supportRow, { opacity: pressed ? 0.8 : 1 }]}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.supportTitle}>🎫 联系客服</Text>
+                <Text style={styles.supportTitle}>联系客服</Text>
                 <Text style={styles.hint}>工单系统 · 充值/投注/账户问题随时提交</Text>
               </View>
               <Text style={{ color: colors.secondary, fontSize: fontSize.md, fontWeight: font.bold }}>›</Text>
@@ -1025,7 +1025,7 @@ export default function AccountScreen() {
 
           {/* 客户偏好 (CRM) */}
           <Card style={styles.sectionCard}>
-            <Text style={styles.cardTitle}>❤️ 偏好设置（CRM）</Text>
+            <Text style={styles.cardTitle}>偏好设置（CRM）</Text>
             <TextInput
               value={favTeam}
               onChangeText={setFavTeam}
@@ -1045,7 +1045,7 @@ export default function AccountScreen() {
           </Card>
 
           {/* 投注记录 */}
-          <SectionTitle style={styles.recordTitle}>📋 投注记录</SectionTitle>
+          <SectionTitle style={styles.recordTitle}>投注记录</SectionTitle>
           {bets.loading && <ActivityIndicator color={colors.secondary} style={{ marginVertical: 12 }} />}
           {!bets.loading && (bets.data?.bets ?? []).length === 0 && (
             <EmptyState

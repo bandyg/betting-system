@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useBetSlip, useCurrentUser, useBets, placeBetItems, placeParlayItems } from '@betting/core';
-import { Card, Button, FlashMsg, colors, radius, fontSize, font, spacing } from '@betting/ui';
+import { Card, Button, FlashMsg, sbColors as colors, radius, fontSize, font, spacing } from '@betting/ui';
 import { formatKickoffLocal } from '../lib/datetime';
 
 export interface SlipPanelProps {
@@ -33,6 +33,7 @@ export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
   const [parlay, setParlay] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [acceptChanges, setAcceptChanges] = useState(true);
 
   const patchMsg = useCallback(
     (next: { kind: 'ok' | 'err'; text: string } | null) => {
@@ -113,7 +114,7 @@ export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
           keyExtractor={(i) => `${i.marketId}-${i.selection}`}
           contentContainerStyle={[styles.listContent, slim && { padding: spacing.md }]}
           renderItem={({ item }) => (
-            <Card style={styles.slipItem} glass>
+            <Card style={[styles.slipItem, styles.slipItemSb]} glass>
               <View style={{ flex: 1 }}>
                 <Text style={styles.slipLabel}>
                   {item.label} <Text style={styles.slipPrice}>@{item.price.toFixed(2)}</Text>
@@ -175,6 +176,34 @@ export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
               placeholderTextColor={colors.textMuted}
             />
           </View>
+          <View style={styles.quickRow}>
+            {[20, 50, 100, 500].map((v) => (
+              <Pressable
+                key={v}
+                accessibilityRole="button"
+                onPress={() => setStake(String(v))}
+                style={({ pressed }) => [
+                  styles.quickChip,
+                  { opacity: pressed ? 0.7 : 1, borderColor: Number(stake) === v ? colors.secondary : colors.border },
+                ]}
+              >
+                <Text style={[styles.quickText, { color: Number(stake) === v ? colors.secondary : colors.textSecondary }]}>
+                  {v}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.acceptRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: acceptChanges }}
+              onPress={() => setAcceptChanges(!acceptChanges)}
+              style={[styles.acceptBox, acceptChanges && styles.acceptBoxOn]}
+            >
+              {acceptChanges ? <Text style={styles.acceptCheck}>✓</Text> : null}
+            </Pressable>
+            <Text style={styles.acceptLabel}>赔率变动时自动接受</Text>
+          </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryText}>
               {parlay ? `串关 ${slip.items.length} 场 · 预估回报` : `共 ${slip.items.length} 单 · 预估回报`}
@@ -184,6 +213,11 @@ export function SlipPanel({ slim = false, onMsgChange }: SlipPanelProps) {
             </Text>
           </View>
           <Button title={submitting ? '提交中…' : `确认下注 ¥${totalStake.toLocaleString()}`} onPress={submit} loading={submitting} />
+          {slip.items.length > 0 ? (
+            <Pressable accessibilityRole="button" onPress={() => slip.clear()} hitSlop={6} style={styles.clearWrap}>
+              <Text style={styles.clearText}>清空下注单</Text>
+            </Pressable>
+          ) : null}
           {!user && <Text style={styles.hint}>⚠️ 未登录，下注前请到「我的」页登录</Text>}
         </View>
       )}
@@ -195,6 +229,25 @@ const styles = StyleSheet.create({
   wrap: { flex: 1 },
   listContent: { padding: spacing.lg, paddingBottom: 20 },
   slipItem: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  slipItemSb: { borderLeftWidth: 3, borderLeftColor: colors.accent },
+  quickRow: { flexDirection: 'row', gap: 4, marginBottom: 10 },
+  quickChip: { flex: 1, alignItems: 'center', borderWidth: 1, borderRadius: 3, paddingVertical: 5, backgroundColor: colors.bg },
+  quickText: { fontSize: 10.5, fontWeight: '700', fontVariant: ['tabular-nums'] as const },
+  acceptRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
+  acceptBox: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acceptBoxOn: { backgroundColor: colors.secondary, borderColor: colors.secondary },
+  acceptCheck: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  acceptLabel: { color: colors.textSecondary, fontSize: 11 },
+  clearWrap: { alignSelf: 'center', marginTop: 8, padding: 4 },
+  clearText: { color: colors.textMuted, fontSize: 11 },
   slipLabel: { color: colors.text, fontSize: fontSize.lg, fontWeight: font.bold },
   slipPrice: { color: colors.secondary, fontSize: fontSize.md, fontWeight: font.bold },
   slipMatch: { color: colors.text, fontSize: fontSize.sm, marginTop: 4 },

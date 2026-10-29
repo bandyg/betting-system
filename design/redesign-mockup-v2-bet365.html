@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BET PLAY · UI 提案 v2（bet365 方向）</title>
+<style>
+  :root {
+    --bg: #141414;          /* 炭黑底（对标 bet365 中性炭灰，去蓝调） */
+    --surface: #1C1C1C;
+    --surface2: #262626;
+    --line: #303030;
+    --text: #F2F2F2;
+    --text2: #ABABAB;
+    --muted: #737373;
+    --green: #0F8246;       /* 品牌绿：头部/主按钮/激活态（bet365 signature） */
+    --green-bright: #17A35A;
+    --yellow: #F0C30F;      /* 黄色 = 已选中赔率（bet365 最强语义，专属用途） */
+    --yellow-text: #1B1B00;
+    --pos: #3DDC84;         /* 余额/回报 */
+    --live: #E5484D;        /* 直播/输 */
+    --amber: #E5A83B;       /* 挂盘 */
+    --radius: 4px;          /* bet365 近直角 */
+  }
+  * { margin: 0;
+  /* 页面级滚动条整个隐藏（与正式 app 一致），滚轮/触摸/键盘照常滚动 */
+  html, body { scrollbar-width: none; -ms-overflow-style: none; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2E2E2E; border-radius: 3px; }
+  * { scrollbar-color: #2E2E2E transparent; } padding: 0; box-sizing: border-box; }
+  body {
+    background: #0D0D0D; color: var(--text);
+    font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 12px; line-height: 1.45;
+    padding: 48px 40px 120px;
+  }
+  .page { max-width: 1480px; margin: 0 auto; }
+  h1 { font-size: 24px; letter-spacing: .4px; }
+  .kicker { color: var(--yellow); font-size: 12px; font-weight: 800; letter-spacing: 2px; margin-bottom: 8px; }
+  .lede { color: var(--text2); margin: 10px 0 36px; max-width: 820px; font-size: 13px; }
+  h2.sec { font-size: 14px; letter-spacing: 1.5px; color: var(--text2); text-transform: uppercase; margin: 56px 0 18px; padding-top: 22px; border-top: 1px solid var(--line); }
+  h2.sec b { color: var(--text); }
+  .note { color: var(--muted); font-size: 11.5px; margin-top: 10px; }
+
+  .principles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .p-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+  .p-card b { display: block; margin-bottom: 5px; font-size: 12.5px; color: var(--yellow); }
+  .p-card span { color: var(--text2); font-size: 12px; }
+
+  .tokens { display: flex; gap: 32px; flex-wrap: wrap; }
+  .swatches { display: grid; grid-template-columns: repeat(8, 76px); gap: 8px; }
+  .sw { height: 76px; border-radius: 3px; border: 1px solid var(--line); padding: 8px; font-size: 10px; color: var(--text2); display: flex; flex-direction: column; justify-content: flex-end; }
+  .type-spec { font-size: 12px; color: var(--text2); display: grid; gap: 9px; }
+  .type-spec .t { color: var(--text); }
+
+  .boards { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .board { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .board .cap { padding: 9px 14px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); background: #191919; }
+
+  svg.ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+
+  /* ---------- 桌面 ---------- */
+  .desk { width: 1440px; height: 900px; font-size: 12px; display: flex; flex-direction: column; }
+
+  /* 全宽绿色头部（bet365 signature） */
+  .hdr { height: 48px; background: var(--green); display: flex; align-items: center; gap: 16px; padding: 0 16px; flex: none; }
+  .hdr .logo { display: flex; align-items: center; gap: 7px; margin-right: 8px; }
+  .hdr .bolt { width: 24px; height: 24px; border-radius: 5px; background: var(--yellow); color: #1B1B00; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 14px; }
+  .hdr .logo b { font-size: 15px; letter-spacing: .8px; color: #fff; }
+  .hdr .search { flex: 0 0 300px; display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.14); border-radius: 3px; padding: 6px 10px; color: rgba(255,255,255,.55); font-size: 12px; }
+  .hdr .sp { flex: 1; }
+  .hdr .bal { border: 1px solid rgba(255,255,255,.28); border-radius: 3px; padding: 5px 11px; color: #fff; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .hdr .dep { background: var(--yellow); color: #1B1B00; border: none; border-radius: 3px; padding: 6px 16px; font-weight: 900; font-size: 12px; }
+  .hdr .ic-user { color: rgba(255,255,255,.85); }
+
+  .desk-body { flex: 1; display: flex; min-height: 0; }
+
+  /* 左栏：页面导航 + 运动树（bet365 左侧即运动列表） */
+  .sb { width: 210px; background: var(--surface); border-right: 1px solid var(--line); padding: 10px 8px; display: flex; flex-direction: column; }
+  .sb-cap { font-size: 10px; letter-spacing: 1.4px; color: var(--muted); padding: 4px 8px 6px; font-weight: 800; }
+  .sb-item { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 3px; color: var(--text2); font-weight: 600; font-size: 12px; margin-bottom: 1px; border-left: 3px solid transparent; }
+  .sb-item.active { background: var(--surface2); color: var(--text); border-left-color: var(--yellow); }
+  .sb-item .badge { margin-left: auto; background: var(--yellow); color: #1B1B00; font-size: 10px; font-weight: 900; border-radius: 2px; padding: 0 5px; }
+  .sb-sep { height: 1px; background: var(--line); margin: 8px 4px; }
+  .sb-sport { display: flex; align-items: center; gap: 9px; padding: 6px 9px; color: var(--text2); font-size: 12px; justify-content: space-between; border-radius: 3px; }
+  .sb-sport .l { display: flex; gap: 9px; align-items: center; }
+  .sb-sport .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* 中列 */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+  .filter-bar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .seg { display: flex; background: var(--surface2); border: 1px solid var(--line); border-radius: 3px; padding: 2px; }
+  .seg i { font-style: normal; padding: 3px 11px; border-radius: 2px; font-size: 11.5px; color: var(--text2); font-weight: 600; }
+  .seg i.on { background: var(--green); color: #fff; }
+  .switch { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--text2); font-size: 11.5px; font-weight: 600; }
+  .toggle { width: 28px; height: 16px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--line); position: relative; }
+  .toggle::after { content: ''; position: absolute; left: 2px; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .toggle.on { background: var(--green); border-color: var(--green); }
+  .toggle.on::after { left: auto; right: 2px; background: #fff; }
+
+  .list-wrap { flex: 1; overflow: hidden; padding: 4px 14px; }
+  .lg-head { display: flex; align-items: center; gap: 8px; padding: 11px 6px 5px; font-size: 11px; letter-spacing: 1.1px; color: var(--text2); font-weight: 800; }
+  .lg-head .cnt { margin-left: auto; color: var(--muted); font-weight: 500; }
+  .lg-head .more-link { margin-left: 10px; color: var(--green-bright); font-weight: 600; letter-spacing: 0; }
+  .ev { display: flex; align-items: center; background: var(--surface); border-bottom: 1px solid #202020; padding: 5px 10px; height: 44px; }
+  .ev:hover { background: var(--surface2); }
+  .ev .time { width: 70px; flex: none; }
+  .ev .time .d { font-size: 10px; color: var(--muted); }
+  .ev .time .t { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ev .teams { flex: 1; min-width: 0; padding-right: 10px; }
+  .ev .teams .nm { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ev .teams .nm em { font-style: normal; color: var(--muted); font-weight: 500; padding: 0 4px; }
+  .live { color: var(--live); font-size: 10px; font-weight: 900; letter-spacing: .5px; }
+  .score { color: var(--live); font-weight: 900; font-variant-numeric: tabular-nums; padding-right: 8px; }
+  .o1x2 { display: flex; gap: 4px; flex: none; }
+  .ob { width: 64px; height: 34px; border-radius: 3px; border: 1px solid var(--line); background: var(--surface2); display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .ob .l { font-size: 10px; color: var(--muted); font-weight: 700; }
+  .ob .v { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .ob:hover { border-color: var(--green-bright); }
+  .ob.sel { background: var(--yellow); border-color: var(--yellow); }
+  .ob.sel .l { color: rgba(27,27,0,.62); } .ob.sel .v { color: #1B1B00; }
+  .ob.lock { width: 96px; background: transparent; border-style: dashed; }
+  .ob.lock .l { color: var(--amber); }
+  .more { width: 30px; height: 34px; border-radius: 3px; border: 1px dashed var(--line); color: var(--muted); display: flex; align-items: center; justify-content: center; font-size: 11px; }
+
+  /* 右列下注单 */
+  .slip { width: 280px; flex: none; border-left: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; }
+  .slip-h { padding: 11px 14px; border-bottom: 2px solid var(--green); display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
+  .slip-h b { font-size: 12.5px; }
+  .slip-tabs { display: flex; background: var(--surface2); border-radius: 3px; padding: 2px; font-size: 11px; }
+  .slip-tabs i { font-style: normal; padding: 3px 10px; border-radius: 2px; color: var(--text2); }
+  .slip-tabs i.on { background: var(--green); color: #fff; font-weight: 700; }
+  .slip-body { padding: 10px 12px; flex: 1; }
+  .sel-card { border: 1px solid var(--line); border-left: 3px solid var(--yellow); border-radius: 3px; padding: 8px 10px; margin-bottom: 6px; background: var(--surface2); }
+  .sel-card .m { font-size: 11px; color: var(--text2); display: flex; justify-content: space-between; }
+  .sel-card .m b { color: var(--yellow); font-weight: 900; font-variant-numeric: tabular-nums; }
+  .sel-card .p { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+  .sel-card .p .od { color: var(--muted); font-size: 11px; }
+  .x { color: var(--muted); font-size: 12px; padding: 0 2px; }
+  .slip-foot { padding: 12px; border-top: 1px solid var(--line); }
+  .frow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; font-size: 11.5px; color: var(--text2); }
+  .frow .amt { background: var(--surface2); border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; width: 104px; text-align: right; color: var(--text); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .quick { display: flex; gap: 4px; margin-bottom: 10px; }
+  .quick i { font-style: normal; flex: 1; text-align: center; border: 1px solid var(--line); background: var(--surface2); border-radius: 2px; padding: 4px 0; color: var(--text2); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .ret { display: flex; justify-content: space-between; margin: 2px 0 11px; font-size: 12px; color: var(--text2); }
+  .ret b { color: var(--pos); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .place { width: 100%; background: var(--green); border: none; color: #fff; font-weight: 900; font-size: 13px; border-radius: 3px; padding: 10px 0; }
+  .slip-warn { margin-top: 8px; font-size: 10.5px; color: var(--muted); text-align: center; }
+
+  /* ---------- 移动 ---------- */
+  .mob { width: 390px; height: 844px; display: flex; flex-direction: column; background: var(--bg); }
+  .m-hdr { height: 46px; background: var(--green); display: flex; align-items: center; gap: 9px; padding: 0 12px; flex: none; }
+  .m-hdr .bolt { width: 22px; height: 22px; border-radius: 4px; background: var(--yellow); color: #1B1B00; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; }
+  .m-hdr b { color: #fff; font-size: 13.5px; letter-spacing: .6px; margin-right: auto; }
+  .m-hdr .bal { border: 1px solid rgba(255,255,255,.3); border-radius: 3px; padding: 4px 9px; color: #fff; font-weight: 800; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .m-hdr .dep { background: var(--yellow); color: #1B1B00; font-weight: 900; font-size: 11px; border-radius: 3px; padding: 5px 11px; }
+  .m-chips { display: flex; gap: 6px; padding: 9px 12px 3px; overflow: hidden; }
+  .m-chip { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 3px; padding: 5px 10px; font-size: 11.5px; color: var(--text2); font-weight: 600; }
+  .m-chip.on { background: var(--green); border-color: var(--green); color: #fff; }
+  .m-body { flex: 1; padding: 2px 12px; overflow: hidden; }
+  .m-lg { font-size: 10px; letter-spacing: 1.1px; color: var(--text2); font-weight: 800; padding: 10px 2px 4px; }
+  .m-ev { background: var(--surface); border: 1px solid #202020; border-radius: 3px; padding: 8px 10px; margin-bottom: 6px; display: flex; gap: 10px; align-items: center; }
+  .m-teams { flex: 1; min-width: 0; }
+  .m-teams .t { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-teams .meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .m-odds { display: flex; flex-direction: column; gap: 4px; }
+  .m-odds .ob { width: 82px; height: 28px; gap: 8px; padding: 0 9px; justify-content: space-between; }
+  .m-odds .ob .v { font-size: 12px; }
+  .m-tabbar { display: flex; background: var(--surface); border-top: 1px solid var(--line); padding: 7px 0 13px; }
+  .m-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--muted); font-size: 10px; font-weight: 600; position: relative; }
+  .m-tab.on { color: var(--yellow); }
+  .m-tab .badge { position: absolute; top: -4px; right: 26px; background: var(--yellow); color: #1B1B00; font-size: 9px; font-weight: 900; border-radius: 2px; padding: 0 4px; }
+
+  .comp-grid { display: flex; gap: 40px; flex-wrap: wrap; }
+  .comp-col b { display: block; font-size: 11px; color: var(--muted); margin-bottom: 12px; letter-spacing: 1px; }
+  .states { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+  .state-lab { font-size: 10px; color: var(--muted); margin-top: 6px; }
+  .vs-grid { font-size: 12px; color: var(--text2); display: grid; gap: 8px; max-width: 430px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="kicker">BET PLAY · UI PROPOSAL v2 · 参考 bet365</div>
+  <h1>v2 — 炭黑 × 品牌绿 × 黄色选中赔率</h1>
+  <p class="lede">按 bet365 的视觉语言重调 v1 提案：中性炭黑底（去蓝调）、品牌绿只给头部/主按钮/激活态、<b style="color:var(--yellow)">黄色专属「已选中赔率」</b>（bet365 最强的状态语义）、整体密度再提一档（行高 44px、12px 基准字号、近直角）。功能与信息架构不变。</p>
+
+  <h2 class="sec">① 设计 Tokens — <b>v2 色板</b></h2>
+  <div class="tokens">
+    <div>
+      <div class="swatches">
+        <div class="sw" style="background:#141414">bg<br>#141414</div>
+        <div class="sw" style="background:#1C1C1C">surface<br>#1C1C1C</div>
+        <div class="sw" style="background:#262626">surface2<br>#262626</div>
+        <div class="sw" style="background:#303030">line<br>#303030</div>
+        <div class="sw" style="background:#0F8246">brand green<br>#0F8246</div>
+        <div class="sw" style="background:#F0C30F;color:#1B1B00">selection<br>#F0C30F</div>
+        <div class="sw" style="background:#E5484D">live/red<br>#E5484D</div>
+        <div class="sw" style="background:#E5A83B">suspended<br>#E5A83B</div>
+      </div>
+      <p class="note">绿色 = 品牌（头部/CTA/激活）；黄色 = 已选中赔率，不作他用；红 = 直播/输；琥珀 = 挂盘。对比 v1：品牌色从青变绿，新增黄色选中态，底色去蓝调。</p>
+    </div>
+    <div class="type-spec">
+      <div class="t" style="font-size:12px;font-weight:800">12 / 800 — 全局基准（信息密度优先）</div>
+      <div class="t" style="font-size:12.5px;font-weight:600">12.5 / 600 — 球队名</div>
+      <div class="t" style="font-size:11px;letter-spacing:1.1px;color:var(--text2)">11 / 800 · UPPERCASE — 联赛分组头</div>
+      <div class="t" style="font-variant-numeric:tabular-nums;font-weight:800;font-size:12.5px">2.30 — 赔率等宽数字</div>
+      <div class="t" style="color:var(--muted)">圆角收敛至 2–4px（bet365 近直角观感）</div>
+    </div>
+  </div>
+
+  <h2 class="sec">② 桌面 1440 — <b>绿色头部 + 高密度列表 + 下注单</b></h2>
+  <div class="boards">
+    <div class="board">
+      <div class="desk">
+        <div class="hdr">
+          <div class="logo"><div class="bolt">⚡</div><b>BET PLAY</b></div>
+          <div class="search"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>搜索球队或联赛</div>
+          <div class="sp"></div>
+          <svg class="ic ic-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+          <div class="bal">¥100.00</div>
+          <button class="dep">充值</button>
+        </div>
+        <div class="desk-body">
+          <div class="sb">
+            <div class="sb-cap">导航</div>
+            <div class="sb-item active"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>赛事</div>
+            <div class="sb-item"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18"/></svg>促销</div>
+            <div class="sb-item"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/></svg>下注单<span class="badge">1</span></div>
+            <div class="sb-item"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>我的</div>
+            <div class="sb-sep"></div>
+            <div class="sb-cap">热门运动</div>
+            <div class="sb-sport"><span class="l"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>足球</span><span class="n">862</span></div>
+            <div class="sb-sport"><span class="l"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18M12 12l6.4-6.4M12 12l6.4 6.4M12 12L5.6 5.6M12 12l-6.4 6.4"/></svg>篮球</span><span class="n">214</span></div>
+            <div class="sb-sport"><span class="l">网球</span><span class="n">96</span></div>
+            <div class="sb-sport"><span class="l">棒球</span><span class="n">58</span></div>
+            <div class="sb-sport"><span class="l">冰球</span><span class="n">54</span></div>
+            <div class="sb-sport"><span class="l">电竞</span><span class="n">31</span></div>
+          </div>
+          <div class="main">
+            <div class="filter-bar">
+              <div class="seg"><i>今天</i><i class="on">近3天</i><i>全部</i></div>
+              <div class="seg"><i class="on">全部玩法</i><i>胜平负</i></div>
+              <div class="switch"><div class="toggle on"></div>仅开盘</div>
+            </div>
+            <div class="list-wrap">
+              <div class="lg-head">东亚超级联赛 · 足球<span class="more-link">+6 盘口</span><span class="cnt">2 场</span></div>
+              <div class="ev">
+                <div class="time"><div class="d">今日</div><div class="t">15:00</div></div>
+                <div class="teams"><div class="nm">海东蓝鲨 <em>vs</em> 临港飞鹰</div></div>
+                <div class="o1x2">
+                  <div class="ob sel"><span class="l">主</span><span class="v">2.05</span></div>
+                  <div class="ob"><span class="l">和</span><span class="v">3.25</span></div>
+                  <div class="ob"><span class="l">客</span><span class="v">3.50</span></div>
+                  <div class="more">+6</div>
+                </div>
+              </div>
+              <div class="ev">
+                <div class="time"><div class="d">明日</div><div class="t">14:00</div></div>
+                <div class="teams"><div class="nm">青云 FC <em>vs</em> 白山联</div></div>
+                <div class="o1x2">
+                  <div class="ob"><span class="l">主</span><span class="v">1.85</span></div>
+                  <div class="ob"><span class="l">和</span><span class="v">3.60</span></div>
+                  <div class="ob"><span class="l">客</span><span class="v">4.00</span></div>
+                  <div class="more">+6</div>
+                </div>
+              </div>
+              <div class="lg-head">太平洋职业联赛 · 篮球<span class="more-link">+9 盘口</span><span class="cnt">1 场</span></div>
+              <div class="ev">
+                <div class="time"><div class="d">进行中 2Q</div><div class="t live" style="font-size:10px;font-weight:900">● LIVE</div></div>
+                <div class="teams"><div class="nm">湾城巨鲸 <em>vs</em> 沙丘烈焰 <span class="score">48 : 45</span></div></div>
+                <div class="o1x2">
+                  <div class="ob"><span class="l">主</span><span class="v">1.72</span></div>
+                  <div class="ob"><span class="l">客</span><span class="v">2.15</span></div>
+                  <div class="more">+9</div>
+                </div>
+              </div>
+              <div class="lg-head">北欧联杯 · 足球<span class="cnt">2 场</span></div>
+              <div class="ev">
+                <div class="time"><div class="d">周四</div><div class="t">03:00</div></div>
+                <div class="teams"><div class="nm">雪城狼群 <em>vs</em> 极地海豹</div></div>
+                <div class="o1x2">
+                  <div class="ob"><span class="l">主</span><span class="v">2.15</span></div>
+                  <div class="ob"><span class="l">和</span><span class="v">3.90</span></div>
+                  <div class="ob"><span class="l">客</span><span class="v">2.95</span></div>
+                  <div class="more">+6</div>
+                </div>
+              </div>
+              <div class="ev">
+                <div class="time"><div class="d">周五</div><div class="t">15:00</div></div>
+                <div class="teams"><div class="nm">卑尔根霜 <em>vs</em> 马尔默狮子</div></div>
+                <div class="o1x2">
+                  <div class="ob lock"><span class="l">暂停交易</span></div>
+                </div>
+              </div>
+              <div class="lg-head">大陆橄榄球联<span class="cnt">1 场</span></div>
+              <div class="ev">
+                <div class="time"><div class="d">周六</div><div class="t">00:00</div></div>
+                <div class="teams"><div class="nm">钢铁锻造者 <em>vs</em> 河谷公牛</div></div>
+                <div class="o1x2">
+                  <div class="ob"><span class="l">主</span><span class="v">1.68</span></div>
+                  <div class="ob"><span class="l">客</span><span class="v">2.25</span></div>
+                  <div class="more">+4</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="slip">
+            <div class="slip-h"><b>下注单 · 1</b><div class="slip-tabs"><i class="on">单注</i><i>串关</i></div></div>
+            <div class="slip-body">
+              <div class="sel-card">
+                <div class="m"><span>主胜 @2.05</span><b>已选</b></div>
+                <div class="p"><span style="font-size:11px;color:var(--text2)">海东蓝鲨 vs 临港飞鹰 · 今日 15:00</span><span class="x">✕</span></div>
+              </div>
+            </div>
+            <div class="slip-foot">
+              <div class="frow"><span>本单金额</span><div class="amt">100</div></div>
+              <div class="quick"><i>20</i><i>50</i><i>100</i><i>500</i></div>
+              <div class="ret"><span>预估回报</span><b>¥205.00</b></div>
+              <button class="place">确认下注 · ¥100</button>
+              <div class="slip-warn">下注即接受赔率变动条款 · 余额 ¥100.00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cap">桌面 1440 · 绿色全宽头部（余额+充值内联）│ 左栏页面导航+热门运动树 │ 高密度行式列表 │ 黄色选中赔率 │ 下注单带快捷金额</div>
+    </div>
+  </div>
+
+  <h2 class="sec">③ 移动 390 — <b>同语言适配</b></h2>
+  <div class="boards">
+    <div class="board">
+      <div class="mob">
+        <div class="m-hdr">
+          <div class="bolt">⚡</div><b>BET PLAY</b>
+          <div class="bal">¥100.00</div>
+          <div class="dep">充值</div>
+        </div>
+        <div class="m-chips">
+          <div class="m-chip on">全部</div><div class="m-chip">足球 3</div><div class="m-chip">篮球 1</div><div class="m-chip">冰球 1</div><div class="m-chip">棒球 1</div>
+        </div>
+        <div class="m-chips" style="padding-top:0">
+          <div class="m-chip on">近3天</div><div class="m-chip">今天</div><div class="m-chip">全部</div><div class="m-chip">仅开盘</div>
+        </div>
+        <div class="m-body">
+          <div class="m-lg">东亚超级联赛 · 足球</div>
+          <div class="m-ev">
+            <div class="m-teams">
+              <div class="t">海东蓝鲨</div>
+              <div class="t">临港飞鹰</div>
+              <div class="meta">今日 15:00</div>
+            </div>
+            <div class="m-odds">
+              <div class="ob sel"><span class="l">主</span><span class="v">2.05</span></div>
+              <div class="ob"><span class="l">和</span><span class="v">3.25</span></div>
+              <div class="ob"><span class="l">客</span><span class="v">3.50</span></div>
+            </div>
+          </div>
+          <div class="m-ev">
+            <div class="m-teams">
+              <div class="t">青云 FC</div>
+              <div class="t">白山联</div>
+              <div class="meta">明日 14:00</div>
+            </div>
+            <div class="m-odds">
+              <div class="ob"><span class="l">主</span><span class="v">1.85</span></div>
+              <div class="ob"><span class="l">和</span><span class="v">3.60</span></div>
+              <div class="ob"><span class="l">客</span><span class="v">4.00</span></div>
+            </div>
+          </div>
+          <div class="m-lg">太平洋职业联赛 · 篮球</div>
+          <div class="m-ev">
+            <div class="m-teams">
+              <div class="t">湾城巨鲸</div>
+              <div class="t">沙丘烈焰</div>
+              <div class="meta"><span class="live">● LIVE</span> 2Q · 48:45</div>
+            </div>
+            <div class="m-odds">
+              <div class="ob"><span class="l">主</span><span class="v">1.72</span></div>
+              <div class="ob"><span class="l">客</span><span class="v">2.15</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="m-tabbar">
+          <div class="m-tab on"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>赛事</div>
+          <div class="m-tab"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18"/></svg>促销</div>
+          <div class="m-tab"><span class="badge">1</span><svg class="ic" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/></svg>下注单</div>
+          <div class="m-tab"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>我的</div>
+        </div>
+      </div>
+      <div class="cap">移动 390 · 绿色头部（余额+充值）│ 紧凑卡 │ 黄色选中 │ 底部导航黄色激活态</div>
+    </div>
+
+    <div class="board" style="flex:1; min-width: 430px;">
+      <div style="padding: 24px;">
+        <div class="comp-grid" style="padding:0; border:none;">
+          <div class="comp-col">
+            <b>赔率按钮 · 状态（bet365 语义）</b>
+            <div class="states">
+              <div><div class="ob"><span class="l">主</span><span class="v">2.05</span></div><div class="state-lab">默认</div></div>
+              <div><div class="ob sel"><span class="l">主</span><span class="v">2.05</span></div><div class="state-lab">已选中 = 黄（bet365 最强识别）</div></div>
+              <div><div class="ob"><span class="l">主</span><span class="v">2.05</span><span style="color:var(--pos);font-size:10px;font-weight:900">▲</span></div><div class="state-lab">赔率上涨（WS 闪烁）</div></div>
+              <div><div class="ob lock"><span class="l">暂停交易</span></div><div class="state-lab">挂盘（虚线 + 琥珀）</div></div>
+            </div>
+          </div>
+          <div class="comp-col">
+            <b>对比 v1 的调整</b>
+            <div class="vs-grid">
+              <div>× 青色品牌 → ✓ 品牌绿头部/CTA（bet365 识别色）</div>
+              <div>× 选中=青实心 → ✓ 选中=黄（专用语义，一眼锁定已投注选项）</div>
+              <div>× 蓝调暗底 → ✓ 中性炭黑（更接近 bet365 的 neutral dark）</div>
+              <div>× 圆角 10px → ✓ 2–4px 近直角（专业盘口观感）</div>
+              <div>× 行高 52px → ✓ 44px、基准字号 12px，密度再提一档</div>
+              <div>× 侧边栏只有页面导航 → ✓ 加热门运动树（bet365 左栏形态）</div>
+              <div>× 下注单无快捷金额 → ✓ 20/50/100/500 快捷 chips</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cap">组件状态 & 与 v1 差异</div>
+    </div>
+  </div>
+
+  <h2 class="sec">④ 落地说明</h2>
+  <p class="lede" style="margin-bottom:0">确认后按 v2 tokens 重做 packages/ui（OddsButton/EventRow/Sidebar/SlipPanel）+ 玩家端四屏换肤；路由与功能不动，admin 本期不动。v1（青色版）保留在同目录 redesign-mockup.html 可对照。</p>
+</div>
+</body>
+</html>
