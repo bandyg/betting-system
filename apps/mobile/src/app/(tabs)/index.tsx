@@ -1,11 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,12 +32,14 @@ import {
   SkeletonList,
 } from '@betting/ui';
 import { MatchFilters, leagueSlug } from '../../components/match-filters';
+import { SlipPanel } from '../../components/slip-panel';
 import {
   DEFAULT_PLAYER_MATCH_FILTERS,
   usePlayerMatches,
 } from '../../hooks/use-player-matches';
 import type { PlayerMatchFilters } from '../../hooks/use-player-matches';
 import { sportIcon } from '../../lib/sport-display';
+import { DESKTOP_MIN_VIEWPORT } from '@betting/ui';
 import { formatKickoffLocal, kickoffCountdownSuffix } from '../../lib/datetime';
 
 /** LIVE 只认开赛后 3 小时内；几个月前的 scheduled 陈数据不再显示 LIVE */
@@ -276,7 +280,20 @@ export default function MatchesScreen() {
     loadMore,
   } = usePlayerMatches(filters);
 
-  const { add } = useBetSlip();
+  const { add, items: slipItems } = useBetSlip();
+  // 桌面 webapp：右侧下注单 dock（选中赔率后即时结算，无需跳 /slip）
+  const { width: winW } = useWindowDimensions();
+  const desktop = Platform.OS === 'web' && winW >= DESKTOP_MIN_VIEWPORT;
+  const [dockMsg, setDockMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const dockTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const onDockMsg = useCallback((m: { kind: 'ok' | 'err'; text: string } | null) => {
+    setDockMsg(m);
+    if (m) {
+      clearTimeout(dockTimer.current);
+      dockTimer.current = setTimeout(() => setDockMsg(null), 4000);
+    }
+  }, []);
+  const dockVisible = desktop && (slipItems.length > 0 || dockMsg !== null);
   const onPick = useCallback(
     (pick: {
       marketId: number;
@@ -420,66 +437,83 @@ export default function MatchesScreen() {
   );
 
   return (
-    <Screen>
+    <Screen maxWidth={dockVisible ? 1120 : undefined}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{'\u26A1'} BET PLAY</Text>
-          <Text style={styles.subtitle}>
-            {'\u8D5B\u524D\u56FA\u5B9A\u8D54\u7387 \u00B7 \u7ACB\u5373\u4E0B\u6CE8'}
-          </Text>
-        </View>
-
-        <MatchFilters
-          filters={filters}
-          onChange={patchFilters}
-          onReset={resetFilters}
-          total={total}
-          allCollapsed={allCollapsed}
-          onToggleCollapseAll={toggleAll}
-        />
-
-        {loading ? (
-          <View style={styles.skeletonWrap}>
-            <SkeletonList rows={6} />
-          </View>
-        ) : (
-          <>
-            {error ? (
-              <View style={styles.errorBlock}>
-                <Text style={styles.errorText}>
-                  {'\u52A0\u8F7D\u5931\u8D25\uFF1A'}
-                  {error}
+        <View style={dockVisible ? styles.bodyRow : styles.bodyCol}>
+          <View style={styles.mainCol}>
+            {!desktop ? (
+              <View style={styles.header}>
+                <Text style={styles.title}>{'\u26A1'} BET PLAY</Text>
+                <Text style={styles.subtitle}>
+                  {'\u8D5B\u524D\u56FA\u5B9A\u8D54\u7387 \u00B7 \u7ACB\u5373\u4E0B\u6CE8'}
                 </Text>
-                <Pressable onPress={refresh} style={styles.retryBtn} testID="matches-retry">
-                  <Text style={styles.retryText}>{'\u91CD\u8BD5'}</Text>
-                </Pressable>
               </View>
             ) : null}
 
-            <FlatList
-              style={styles.list}
-              data={rows}
-              keyExtractor={keyExtractor}
-              renderItem={renderRow}
-              initialNumToRender={12}
-              maxToRenderPerBatch={8}
-              windowSize={7}
-              removeClippedSubviews={false}
-              onEndReached={loadMore}
-              onEndReachedThreshold={0.4}
-              contentContainerStyle={styles.listContent}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={refresh}
-                  tintColor={colors.secondary}
-                />
-              }
-              ListEmptyComponent={error ? null : emptyState}
-              ListFooterComponent={footer}
+            <MatchFilters
+              filters={filters}
+              onChange={patchFilters}
+              onReset={resetFilters}
+              total={total}
+              allCollapsed={allCollapsed}
+              onToggleCollapseAll={toggleAll}
             />
-          </>
-        )}
+
+            {loading ? (
+              <View style={styles.skeletonWrap}>
+                <SkeletonList rows={6} />
+              </View>
+            ) : (
+              <>
+                {error ? (
+                  <View style={styles.errorBlock}>
+                    <Text style={styles.errorText}>
+                      {'\u52A0\u8F7D\u5931\u8D25\uFF1A'}
+                      {error}
+                    </Text>
+                    <Pressable onPress={refresh} style={styles.retryBtn} testID="matches-retry">
+                      <Text style={styles.retryText}>{'\u91CD\u8BD5'}</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+
+                <FlatList
+                  style={styles.list}
+                  data={rows}
+                  keyExtractor={keyExtractor}
+                  renderItem={renderRow}
+                  initialNumToRender={12}
+                  maxToRenderPerBatch={8}
+                  windowSize={7}
+                  removeClippedSubviews={false}
+                  onEndReached={loadMore}
+                  onEndReachedThreshold={0.4}
+                  contentContainerStyle={styles.listContent}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={refreshing}
+                      onRefresh={refresh}
+                      tintColor={colors.secondary}
+                    />
+                  }
+                  ListEmptyComponent={error ? null : emptyState}
+                  ListFooterComponent={footer}
+                />
+              </>
+            )}
+          </View>
+
+          {dockVisible ? (
+            <View style={styles.dock} testID="slip-dock">
+              <View style={styles.dockHeader}>
+                <Text style={styles.dockTitle}>
+                  {'\uD83C\uDFAB'} 下注单{slipItems.length > 0 ? ` · ${slipItems.length}` : ''}
+                </Text>
+              </View>
+              <SlipPanel slim onMsgChange={onDockMsg} />
+            </View>
+          ) : null}
+        </View>
       </SafeAreaView>
     </Screen>
   );
@@ -487,6 +521,24 @@ export default function MatchesScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  bodyCol: { flex: 1 },
+  bodyRow: { flex: 1, flexDirection: 'row' },
+  mainCol: { flex: 1, minWidth: 0 },
+  dock: {
+    width: 300,
+    marginLeft: spacing.lg,
+    backgroundColor: colors.bgElevated,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border,
+  },
+  dockHeader: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  dockTitle: { color: colors.text, fontSize: fontSize.md, fontWeight: font.bold },
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

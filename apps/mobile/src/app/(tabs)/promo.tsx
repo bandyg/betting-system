@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api, usePromotions, useCurrentUser, useContents, useClaims } from '@betting/core';
 import type { Content, Promotion, PromotionClaim } from '@betting/core';
@@ -18,6 +18,9 @@ export default function PromoScreen() {
   const [locale, setLocale] = useState<string>('zh');
   const contents = useContents('published', locale);
   const { user } = useCurrentUser();
+  // 弹层宽度：桌面档 560，其余 430
+  const { width: winW } = useWindowDimensions();
+  const sheetMaxWidth = winW >= 1024 ? 560 : 430;
   const [claimStatus, setClaimStatus] = useState<Record<number, PromotionClaim['status'] | null>>({});
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -199,7 +202,7 @@ export default function PromoScreen() {
   };
 
   return (
-    <Screen>
+    <Screen maxWidth={720}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <SectionTitle>🎁 促销活动</SectionTitle>
@@ -332,7 +335,7 @@ export default function PromoScreen() {
         {/* 领取审核弹窗 */}
         <Modal visible={reviewClaims !== null} transparent animationType="slide" onRequestClose={() => setReviewClaims(null)}>
           <View style={styles.modalBackdrop}>
-            <View style={styles.modalSheet}>
+            <View style={[styles.modalSheet, { maxWidth: sheetMaxWidth }]}>
               {reviewClaims && (
                 <>
                   <View style={styles.modalHeader}>
@@ -428,7 +431,7 @@ export default function PromoScreen() {
         {/* 内容详情弹窗（富文本正文） */}
         <Modal visible={viewing !== null} transparent animationType="slide" onRequestClose={() => setViewing(null)}>
           <View style={styles.modalBackdrop}>
-            <View style={styles.modalSheet}>
+            <View style={[styles.modalSheet, { maxWidth: sheetMaxWidth }]}>
               {viewing && (
                 <>
                   <View style={styles.modalHeader}>

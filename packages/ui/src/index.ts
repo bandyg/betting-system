@@ -5,7 +5,7 @@ export {
 } from './tokens';
 export type { Theme, ThemeMode } from './tokens';
 export { ThemeProvider, useTheme, useThemeMode } from './theme';
-export { Card, Button, OddsButton, SectionTitle, Screen, EmptyState, FlashMsg, PromotionCard, Banner, APP_SHELL_MAX_WIDTH, APP_SHELL_MIN_VIEWPORT } from './components';
+export { Card, Button, OddsButton, SectionTitle, Screen, EmptyState, FlashMsg, PromotionCard, Banner, APP_SHELL_MAX_WIDTH, APP_SHELL_MIN_VIEWPORT, DESKTOP_MIN_VIEWPORT, DESKTOP_CONTENT_WIDTH } from './components';
 export { MarkdownText } from './markdown';
 export { useToastStore, toast, toastApiError, ToastHost } from './toast';
 export type { ToastKind, ToastItem } from './toast';

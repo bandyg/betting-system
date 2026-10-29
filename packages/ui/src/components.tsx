@@ -279,27 +279,39 @@ export function SectionTitle({ children, style }: { children: React.ReactNode; s
 }
 
 /* ---------------- Screen (暗色背景容器，带进入转场) ----------------
- * web 宽屏时呈现「手机壳」形态：整列限宽 430 居中 + 描边，配合更暗的场景底色，
- * 明确移动优先产品在桌面上的身份（此前 720 半宽拉伸 + 全宽 tab 栏两头不像）。 */
+ * web 宽屏三档形态：
+ * - ≥1024 桌面 webapp：全幅应用（左侧导航壳由 (tabs) 布局负责），内容按屏选宽度居中；
+ * - 560~1023 手机壳：430 居中 + 描边 + 暗背底；
+ * - <560 原生手机全幅。
+ * 各屏可用 maxWidth 覆盖桌面档的内容宽度（大厅 860 / 下注单 560 / 账户促销 720）。 */
 export const APP_SHELL_MAX_WIDTH = 430;
 export const APP_SHELL_MIN_VIEWPORT = 560;
+export const DESKTOP_MIN_VIEWPORT = 1024;
+/** 桌面档的内容宽度由各屏决定：未指定时用 860 */
+export const DESKTOP_CONTENT_WIDTH = 860;
 
 export function Screen({
   children,
   style,
+  maxWidth: maxWidthProp,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** 桌面档（≥1024）的内容宽度覆盖 */
+  maxWidth?: number;
 }) {
   const t = useTheme();
   const { width } = useWindowDimensions();
-  const capped = Platform.OS === 'web' && width > APP_SHELL_MIN_VIEWPORT;
+  const web = Platform.OS === 'web';
+  const desktop = web && width >= DESKTOP_MIN_VIEWPORT;
+  const shell = web && !desktop && width > APP_SHELL_MIN_VIEWPORT;
+  const cap = maxWidthProp ?? DESKTOP_CONTENT_WIDTH;
   return (
     <Animated.View
       entering={FadeInDown.duration(320)}
       style={[
         styles.screen,
-        capped && {
+        shell && {
           width: '100%',
           maxWidth: APP_SHELL_MAX_WIDTH,
           alignSelf: 'center',
@@ -307,6 +319,7 @@ export function Screen({
           borderRightWidth: 1,
           borderColor: t.border,
         },
+        desktop && { width: '100%', maxWidth: cap, alignSelf: 'center' },
         { backgroundColor: t.bg },
         style,
       ]}

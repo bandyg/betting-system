@@ -252,7 +252,7 @@ export default function SupportScreen() {
 
   if (!user) {
     return (
-      <Screen>
+      <Screen maxWidth={720}>
         <SafeAreaView style={styles.safe} edges={['top']}>
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} hitSlop={8}>
@@ -270,7 +270,7 @@ export default function SupportScreen() {
   }
 
   return (
-    <Screen>
+    <Screen maxWidth={720}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>

@@ -906,7 +906,7 @@ export default function AccountScreen() {
   // ── 未登录：登录页 ──
   if (!user) {
     return (
-      <Screen>
+      <Screen maxWidth={430}>
         <SafeAreaView style={styles.safe} edges={['top']}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <View style={styles.brand}>
@@ -922,7 +922,7 @@ export default function AccountScreen() {
 
   // ── 已登录：用户信息页 ──
   return (
-    <Screen>
+    <Screen maxWidth={720}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView contentContainerStyle={styles.content}>
           <SectionTitle>👤 我的</SectionTitle>
