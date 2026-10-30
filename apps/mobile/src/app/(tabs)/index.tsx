@@ -175,54 +175,56 @@ function EventRow({
   if (desktop) {
     return (
       <View style={[styles.evRow, isLive && styles.evLive]} testID={`match-row-${match.id}`}>
-        <View style={styles.evTime}>
-          <Text style={styles.evDay}>{isLive ? '进行中' : formatKickoffLocal(match.kickoff_time).split(' ')[0]}</Text>
-          <Text style={styles.evTimeText}>
-            {isLive ? (
-              <Text style={styles.liveText}>● LIVE</Text>
-            ) : (
-              formatKickoffLocal(match.kickoff_time).split(' ')[1] ?? ''
-            )}
-          </Text>
-        </View>
-        <View style={styles.evTeams}>
-          <Text style={styles.evName} numberOfLines={1}>
-            {match.home_team} <Text style={styles.evVs}>vs</Text> {match.away_team}
-            {isLive && match.home_score != null ? (
-              <Text style={styles.evScore}> {match.home_score} : {match.away_score}</Text>
-            ) : null}
-          </Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={pinned ? '取消钉选' : '钉选赛事'}
-          onPress={() => pins.toggle(match.id)}
-          hitSlop={8}
-          style={styles.evPin}
-        >
-          <Icon name="star" size={14} color={pinned ? colors.accent : colors.textMuted} />
-        </Pressable>
-        {isSettled || !primary ? (
-          <Text style={[styles.evScore, styles.evFinalScore]}>{match.home_score ?? 0} : {match.away_score ?? 0}</Text>
-        ) : (
-          <View style={styles.inlineMarket}>
-            <Text style={styles.marketTitle} numberOfLines={1}>
-              {TYPE_LABELS[primary.type] ?? primary.type}
+        <View style={styles.evMainRow}>
+          <View style={styles.evTime}>
+            <Text style={styles.evDay}>{isLive ? '进行中' : formatKickoffLocal(match.kickoff_time).split(' ')[0]}</Text>
+            <Text style={styles.evTimeText}>
+              {isLive ? (
+                <Text style={styles.liveText}>● LIVE</Text>
+              ) : (
+                formatKickoffLocal(match.kickoff_time).split(' ')[1] ?? ''
+              )}
             </Text>
-            <MarketOdds market={primary} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
           </View>
-        )}
-        {!isSettled && extras.length > 0 ? (
+          <View style={styles.evTeams}>
+            <Text style={styles.evName} numberOfLines={1}>
+              {match.home_team} <Text style={styles.evVs}>vs</Text> {match.away_team}
+              {isLive && match.home_score != null ? (
+                <Text style={styles.evScore}> {match.home_score} : {match.away_score}</Text>
+              ) : null}
+            </Text>
+          </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={expanded ? '收起其余玩法' : `展开其余 ${extras.length} 个玩法`}
-            testID={`more-markets-${match.id}`}
-            onPress={() => setExpanded((v) => !v)}
-            style={({ pressed }) => [styles.moreBtn, { opacity: pressed ? 0.7 : 1 }]}
+            accessibilityLabel={pinned ? '取消钉选' : '钉选赛事'}
+            onPress={() => pins.toggle(match.id)}
+            hitSlop={8}
+            style={styles.evPin}
           >
-            <Text style={styles.moreText}>{expanded ? '− 收起玩法' : `+${extras.length} 玩法`}</Text>
+            <Icon name="star" size={14} color={pinned ? colors.accent : colors.textMuted} />
           </Pressable>
-        ) : null}
+          {isSettled || !primary ? (
+            <Text style={[styles.evScore, styles.evFinalScore]}>{match.home_score ?? 0} : {match.away_score ?? 0}</Text>
+          ) : (
+            <View style={styles.inlineMarket}>
+              <Text style={styles.marketTitle} numberOfLines={1}>
+                {TYPE_LABELS[primary.type] ?? primary.type}
+              </Text>
+              <MarketOdds market={primary} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
+            </View>
+          )}
+          {!isSettled && extras.length > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={expanded ? '收起其余玩法' : `展开其余 ${extras.length} 个玩法`}
+              testID={`more-markets-${match.id}`}
+              onPress={() => setExpanded((v) => !v)}
+              style={({ pressed }) => [styles.moreBtn, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <Text style={styles.moreText}>{expanded ? '− 收起玩法' : `+${extras.length} 玩法`}</Text>
+            </Pressable>
+          ) : null}
+        </View>
         {expanded && extras.length > 0 ? (
           <View style={styles.expandBlock}>
             {extras.map((m) => (
@@ -760,14 +762,18 @@ const styles = StyleSheet.create({
   },
   leagueHeaderCount: { color: colors.textMuted, fontSize: 11 },
   evRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    // 外层 column：主行 + 展开块各占一行（row 容器里 width:100% 的展开块会横向溢出）
+    flexDirection: 'column',
     backgroundColor: colors.bgElevated,
     borderBottomColor: colors.border,
     borderRadius: radius.sm,
     marginBottom: 3,
     paddingVertical: 5,
     paddingHorizontal: 10,
+  },
+  evMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     minHeight: 48,
   },
   evLive: {
