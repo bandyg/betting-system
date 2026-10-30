@@ -34,8 +34,14 @@ const now = Date.now();
 const DEMO = [
   { sport: 'soccer', league: '东亚超级联赛', home: '海东蓝鲨', away: '临港飞鹰', inH: 5, odds: [2.05, 3.25, 3.5], extras: [{ type: 'ou', line: 2.5, odds: [1.98, 1.82] }] },
   { sport: 'soccer', league: '东亚超级联赛', home: '青云 FC', away: '白山联', inH: 28, odds: [1.85, 3.6, 4.0], extras: [{ type: 'ou', line: 3.5, odds: [1.88, 1.92] }] },
-  // 双附加玩法演示：大厅行内联大小 + 让球，其余收进 +N
-  { sport: 'soccer', league: '北欧联杯', home: '奥斯陆极光', away: '哥德堡水手', inH: 52, odds: [2.6, 3.2, 2.75], extras: [{ type: 'ou', line: 2.5, odds: [2.05, 1.75] }, { type: 'ah', line: 0.5, odds: [1.72, 2.18] }] },
+  // 多玩法演示（>4 触发「查看全部」弹层）：三条大小线 + 两条让球线
+  { sport: 'soccer', league: '北欧联杯', home: '奥斯陆极光', away: '哥德堡水手', inH: 52, odds: [2.6, 3.2, 2.75], extras: [
+    { type: 'ou', line: 1.5, odds: [1.5, 2.5] },
+    { type: 'ou', line: 2.5, odds: [2.05, 1.75] },
+    { type: 'ou', line: 3.5, odds: [2.9, 1.4] },
+    { type: 'ah', line: 0.5, odds: [1.72, 2.18] },
+    { type: 'ah', line: 1, odds: [2.1, 1.74] },
+  ] },
   { sport: 'basketball', league: '太平洋职业联赛', home: '湾城巨鲸', away: '沙丘烈焰', inH: 9, odds: [1.72, null, 2.15], extras: [{ type: 'ou', line: 218.5, odds: [1.9, 1.9] }] },
   { sport: 'basketball', league: '太平洋职业联赛', home: '高原雄鹰', away: '港都猛虎', inH: 33, odds: [2.1, null, 1.78], extras: [{ type: 'ou', line: 204.5, odds: [1.87, 1.93] }] },
   { sport: 'tennis', league: 'ATP 巡回赛', home: '林德罗夫', away: '卡斯蒂亚', inH: 14, odds: [1.95, null, 1.88], extras: [{ type: 'ou', line: 22.5, odds: [1.95, 1.85] }] },

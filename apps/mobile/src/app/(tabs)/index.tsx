@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -55,6 +56,9 @@ export interface PickMatchInfo {
   league?: string;
   kickoff?: string;
 }
+
+/** 行内展开的玩法行数上限；更多玩法收进「查看全部」弹层 */
+const INLINE_EXPAND_LIMIT = 4;
 
 /** 玩法选项短标签（行式布局放不下全称） */
 const SHORT_LABELS: Record<string, string> = {
@@ -135,11 +139,13 @@ function EventRow({
   onPick,
   desktop,
   flashFor,
+  onOpenAll,
 }: {
   match: Match;
   onPick: OnPick;
   desktop: boolean;
   flashFor: (marketId: number, selection: string) => 'up' | 'down' | undefined;
+  onOpenAll: (match: Match) => void;
 }) {
   const pins = usePins();
   const [expanded, setExpanded] = useState(false);
@@ -227,7 +233,7 @@ function EventRow({
         </View>
         {expanded && extras.length > 0 ? (
           <View style={styles.expandBlock}>
-            {extras.map((m) => (
+            {extras.slice(0, INLINE_EXPAND_LIMIT).map((m) => (
               <View key={m.id} style={styles.expandItem}>
                 <Text style={styles.marketTitle} numberOfLines={1}>
                   {TYPE_LABELS[m.type] ?? m.type}
@@ -236,6 +242,16 @@ function EventRow({
                 <MarketOdds market={m} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
               </View>
             ))}
+            {extras.length > INLINE_EXPAND_LIMIT ? (
+              <Pressable
+                accessibilityRole="button"
+                testID={`all-markets-${match.id}`}
+                onPress={() => onOpenAll(match)}
+                style={styles.allMarketsBtn}
+              >
+                <Text style={styles.allMarketsText}>查看全部 {match.markets.length} 个玩法</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -269,15 +285,25 @@ function EventRow({
       ) : null}
       {expanded && extras.length > 0 ? (
         <View style={styles.expandBlock}>
-          {extras.map((m) => (
+          {extras.slice(0, INLINE_EXPAND_LIMIT).map((m) => (
             <View key={m.id} style={styles.expandItem}>
-              <Text style={styles.marketTitle}>
+              <Text style={styles.marketTitle} numberOfLines={1}>
                 {TYPE_LABELS[m.type] ?? m.type}
                 {m.line != null ? ` @${m.line}` : ''}
               </Text>
               <MarketOdds market={m} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
             </View>
           ))}
+          {extras.length > INLINE_EXPAND_LIMIT ? (
+            <Pressable
+              accessibilityRole="button"
+              testID={`all-markets-${match.id}`}
+              onPress={() => onOpenAll(match)}
+              style={styles.allMarketsBtn}
+            >
+              <Text style={styles.allMarketsText}>查看全部 {match.markets.length} 个玩法</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
       {extras.length > 0 ? (
@@ -393,9 +419,107 @@ function HeroStrip() {
   );
 }
 
+/** 赛事全部玩法弹层：桌面居中弹窗、窄屏底部抽屉；按玩法类型筛选，一个玩法一行 */
+function MatchMarketsSheet({
+  match,
+  onClose,
+  onPick,
+  flashFor,
+}: {
+  match: Match | null;
+  onClose: () => void;
+  onPick: OnPick;
+  flashFor: (marketId: number, selection: string) => 'up' | 'down' | undefined;
+}) {
+  const { width } = useWindowDimensions();
+  const desktop = Platform.OS === 'web' && width >= DESKTOP_MIN_VIEWPORT;
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const matchId = match?.id ?? null;
+  useEffect(() => {
+    setTypeFilter(null);
+  }, [matchId]);
+  const types = useMemo(
+    () => (match ? Array.from(new Set(match.markets.map((m) => m.type))) : []),
+    [match],
+  );
+  const list = useMemo(
+    () => (match && typeFilter ? match.markets.filter((m) => m.type === typeFilter) : match?.markets ?? []),
+    [match, typeFilter],
+  );
+  const matchInfo: PickMatchInfo | null = match
+    ? {
+        matchLabel: `${match.home_team} vs ${match.away_team}`,
+        league: match.league ?? undefined,
+        kickoff: match.kickoff_time,
+      }
+    : null;
+  return (
+    <Modal visible={!!match} transparent animationType={desktop ? 'fade' : 'slide'} onRequestClose={onClose}>
+      <View style={[styles.sheetBackdrop, desktop && styles.sheetBackdropDesktop]}>
+        <View style={[styles.sheet, desktop && styles.sheetDesktop]}>
+          {match && matchInfo ? (
+            <>
+              <View style={styles.sheetHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetTitle} numberOfLines={1}>
+                    {matchInfo.matchLabel}
+                  </Text>
+                  <Text style={styles.sheetMeta} numberOfLines={1}>
+                    {[match.league, formatKickoffLocal(match.kickoff_time)].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+                <Pressable accessibilityRole="button" accessibilityLabel="关闭玩法列表" onPress={onClose} hitSlop={10} style={styles.sheetClose}>
+                  <Icon name="close" size={16} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+              {types.length > 1 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeRow} contentContainerStyle={{ gap: 8 }}>
+                  {[
+                    { key: null as string | null, label: '全部' },
+                    ...types.map((t) => ({ key: t as string | null, label: TYPE_LABELS[t] ?? t })),
+                  ].map((c) => (
+                    <Pressable
+                      key={c.label}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: typeFilter === c.key }}
+                      onPress={() => setTypeFilter(c.key)}
+                      style={({ pressed }) => [
+                        styles.typeChip,
+                        { opacity: pressed ? 0.7 : 1, borderColor: typeFilter === c.key ? colors.accent : colors.border, backgroundColor: typeFilter === c.key ? colors.oddsActiveBg : colors.bg },
+                      ]}
+                    >
+                      <Text style={[styles.typeChipText, { color: typeFilter === c.key ? colors.onAccent : colors.textSecondary }]}>
+                        {c.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              ) : null}
+              <ScrollView style={styles.sheetList} contentContainerStyle={{ paddingBottom: spacing.md, gap: 8 }}>
+                {list.map((m) => (
+                  <View key={m.id} style={styles.expandItem}>
+                    <Text style={styles.marketTitle} numberOfLines={1}>
+                      {TYPE_LABELS[m.type] ?? m.type}
+                      {m.line != null ? ` @${m.line}` : ''}
+                    </Text>
+                    <MarketOdds market={m} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
+                  </View>
+                ))}
+                {list.length === 0 ? <Text style={styles.sheetEmpty}>该类型暂无盘口</Text> : null}
+              </ScrollView>
+            </>
+          ) : null}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function MatchesScreen() {
   const [filters, setFilters] = useState<PlayerMatchFilters>(DEFAULT_PLAYER_MATCH_FILTERS);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // 「查看全部玩法」弹层的目标赛事
+  const [sheetMatch, setSheetMatch] = useState<Match | null>(null);
 
   const {
     rowsSource,
@@ -537,7 +661,7 @@ export default function MatchesScreen() {
           />
         );
       }
-      return <EventRow match={item.match} onPick={onPick} desktop={desktop} flashFor={flashFor} />;
+      return <EventRow match={item.match} onPick={onPick} desktop={desktop} flashFor={flashFor} onOpenAll={setSheetMatch} />;
     },
     [collapsed, toggleLeague, onPick, desktop, flashFor],
   );
@@ -680,6 +804,7 @@ export default function MatchesScreen() {
           ) : null}
         </View>
       </SafeAreaView>
+      <MatchMarketsSheet match={sheetMatch} onClose={() => setSheetMatch(null)} onPick={onPick} flashFor={flashFor} />
     </Screen>
   );
 }
@@ -876,6 +1001,46 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     marginTop: 6,
   },
+
+  // 「查看全部玩法」弹层
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheetBackdropDesktop: { justifyContent: 'center', alignItems: 'center' },
+  sheet: {
+    backgroundColor: colors.bgElevated,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    maxHeight: '85%',
+    width: '100%',
+    maxWidth: 430,
+    alignSelf: 'center',
+  },
+  sheetDesktop: {
+    borderRadius: radius.lg,
+    maxWidth: 640,
+    maxHeight: '80%',
+  },
+  sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.sm },
+  sheetTitle: { color: colors.text, fontSize: fontSize.lg, fontWeight: font.bold },
+  sheetMeta: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
+  sheetClose: { padding: 4 },
+  typeRow: { marginBottom: spacing.sm },
+  typeChip: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1 },
+  typeChipText: { fontSize: fontSize.sm, fontWeight: font.bold },
+  sheetList: { flexGrow: 0, maxHeight: 520 },
+  sheetEmpty: { color: colors.textMuted, fontSize: fontSize.sm, textAlign: 'center', paddingVertical: spacing.xl },
+  allMarketsBtn: {
+    alignSelf: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.borderStrong,
+  },
+  allMarketsText: { color: colors.secondary, fontSize: fontSize.sm, fontWeight: font.bold },
 
   skeletonWrap: { padding: spacing.lg },
   footer: { paddingVertical: spacing.lg, alignItems: 'center' },
