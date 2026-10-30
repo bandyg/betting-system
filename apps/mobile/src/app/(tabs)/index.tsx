@@ -203,8 +203,8 @@ function EventRow({
             hitSlop={8}
             style={styles.evPin}
           >
-            <Icon name="star" size={14} color={pinned ? colors.accent : colors.textMuted} />
-          </Pressable>
+          <Icon name="star" size={14} filled={pinned} color={pinned ? colors.accent : colors.textMuted} />
+        </Pressable>
           {isSettled || !primary ? (
             <Text style={[styles.evScore, styles.evFinalScore]}>{match.home_score ?? 0} : {match.away_score ?? 0}</Text>
           ) : (
@@ -241,7 +241,7 @@ function EventRow({
         hitSlop={10}
         style={styles.mPin}
       >
-        <Icon name="star" size={13} color={pinned ? colors.accent : colors.textMuted} />
+        <Icon name="star" size={13} filled={pinned} color={pinned ? colors.accent : colors.textMuted} />
       </Pressable>
       <View style={styles.mTeams}>
         <Text style={styles.mTeam} numberOfLines={1}>{match.home_team}</Text>
@@ -489,6 +489,9 @@ export default function MatchesScreen() {
   const { pinned: pinnedParam } = useLocalSearchParams<{ pinned?: string }>();
   const pinnedOnly = pinnedParam === '1';
   const pins = usePins();
+  // 钉选视图按 id 直取全生命周期比赛（开赛/结束后钉选依然可见）
+  const pinnedIds = useMemo(() => (pinnedOnly ? pins.ids() : null), [pinnedOnly, pins.count]);
+  const pinnedHookOpts = useMemo(() => (pinnedIds ? { pinnedIds } : undefined), [pinnedIds]);
 
   const {
     rowsSource,
@@ -500,7 +503,7 @@ export default function MatchesScreen() {
     hasMore,
     refresh,
     loadMore,
-  } = usePlayerMatches(filters);
+  } = usePlayerMatches(filters, pinnedHookOpts);
 
   const { add, clear: clearSlip, items: slipItems } = useBetSlip();
   // 桌面 webapp：右侧下注单 dock 常驻（选中赔率后即时结算，无需跳 /slip）；
@@ -677,12 +680,8 @@ export default function MatchesScreen() {
     <EmptyState
       testID="matches-empty"
       iconName="star"
-      title={pins.count > 0 ? '钉选的赛事不在当前时段' : '还没有钉选的赛事'}
-      desc={
-        pins.count > 0
-          ? '试试把时间范围切到「全部」，或取消「钉选」筛选'
-          : '点赛事行右侧的星标，比赛就会收进这里'
-      }
+      title="还没有钉选的赛事"
+      desc="点赛事行右侧的星标，比赛就会收进这里（开赛后依然可见）"
     />
   ) : hasNarrowFilters ? (
     <EmptyState

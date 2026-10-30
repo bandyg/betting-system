@@ -106,7 +106,11 @@ export interface PlayerMatchesResult {
   loadMore: () => void;
 }
 
-export function usePlayerMatches(filters: PlayerMatchFilters): PlayerMatchesResult {
+export function usePlayerMatches(
+  filters: PlayerMatchFilters,
+  opts?: { /** 非空 = 钉选视图：按这批 id 直取全生命周期比赛（忽略 scheduled 状态与时间窗） */
+    pinnedIds?: number[] | null; },
+): PlayerMatchesResult {
   const [debouncedQ, setDebouncedQ] = useState(filters.q);
   const [rowsSource, setRowsSource] = useState<Match[]>([]);
   const [total, setTotal] = useState(0);
@@ -140,6 +144,21 @@ export function usePlayerMatches(filters: PlayerMatchFilters): PlayerMatchesResu
   // 只在真正影响请求的字段变化时重建请求构造器
   const buildParams = useCallback(
     (offset: number): MatchListParams => {
+      // 钉选视图：按 id 直取（关注要跟踪比赛全生命周期，开赛/结束后依然可见）
+      if (opts?.pinnedIds) {
+        const params: MatchListParams = {
+          ids: opts.pinnedIds.join(','),
+          sort: 'kickoff_asc',
+          limit: PLAYER_MATCH_PAGE_SIZE,
+          offset,
+        };
+        const keyword = debouncedQ.trim();
+        if (keyword) params.q = keyword;
+        if (filters.sport) params.sport = filters.sport;
+        if (filters.league) params.league = filters.league;
+        if (filters.onlyOpen) params.withOdds = true;
+        return params;
+      }
       const window = buildWindow(filters.when);
       const params: MatchListParams = {
         status: 'scheduled',
@@ -156,7 +175,7 @@ export function usePlayerMatches(filters: PlayerMatchFilters): PlayerMatchesResu
       if (filters.onlyOpen) params.withOdds = true;
       return params;
     },
-    [debouncedQ, filters.sport, filters.league, filters.when, filters.onlyOpen],
+    [debouncedQ, filters.sport, filters.league, filters.when, filters.onlyOpen, opts?.pinnedIds],
   );
 
   const fetchPage = useCallback(

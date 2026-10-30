@@ -142,20 +142,31 @@ const PATHS: Record<string, React.ReactNode> = {
 
 export type IconName = keyof typeof PATHS;
 
-/** 线性图标：size 像素、color 缺省随 currentColor */
+/** 线性图标：size 像素、color 缺省随 currentColor；filled=true 用实心填充（星标等选中态） */
 export function Icon({
   name,
   size = 16,
   color,
   strokeWidth = 1.7,
+  filled = false,
 }: {
   name: IconName;
   size?: number;
   color?: ColorValue;
   strokeWidth?: number;
+  filled?: boolean;
 }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? 'currentColor'} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? (color ?? 'currentColor') : 'none'}
+      stroke={filled ? 'none' : (color ?? 'currentColor')}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       {PATHS[name]}
     </Svg>
   );

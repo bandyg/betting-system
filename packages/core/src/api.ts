@@ -106,6 +106,8 @@ export interface MatchListParams {
   from?: string;
   to?: string;
   withOdds?: boolean;
+  /** 按一批 id 直取（钉选视图；逗号分隔） */
+  ids?: string;
   limit?: number;
   offset?: number;
   sort?: 'kickoff_asc' | 'kickoff_desc';
@@ -138,6 +140,7 @@ export const api = {
     if (params?.from) qs.push(`from=${encodeURIComponent(params.from)}`);
     if (params?.to) qs.push(`to=${encodeURIComponent(params.to)}`);
     if (params?.withOdds) qs.push('withOdds=1');
+    if (params?.ids) qs.push(`ids=${encodeURIComponent(params.ids)}`);
     if (params?.limit !== undefined) qs.push(`limit=${encodeURIComponent(String(params.limit))}`);
     if (params?.offset !== undefined) qs.push(`offset=${encodeURIComponent(String(params.offset))}`);
     if (params?.sort) qs.push(`sort=${encodeURIComponent(params.sort)}`);

@@ -56,7 +56,7 @@ matchesRouter.post('/matches', requireAuth, requireRole('admin'), (req, res) => 
 
 // GET /matches — list matches with optional filtering, search, date range, odds and pagination
 matchesRouter.get('/matches', (req, res) => {
-  const { sport, league, status, q, from, to, withOdds, limit: limitRaw, offset: offsetRaw, sort: sortRaw } = req.query;
+  const { sport, league, status, q, from, to, withOdds, ids: idsRaw, limit: limitRaw, offset: offsetRaw, sort: sortRaw } = req.query;
 
   let where = '';
   const params: unknown[] = [];
@@ -72,6 +72,15 @@ matchesRouter.get('/matches', (req, res) => {
   if (typeof status === 'string' && status.trim()) {
     where += ' AND status = ?';
     params.push(status.trim());
+  }
+  // 按一批 id 直取（钉选视图用：全生命周期，不受 status/from 限制）
+  if (typeof idsRaw === 'string' && idsRaw.trim()) {
+    const idList = idsRaw.split(',').map((s) => Number(s.trim())).filter((n) => Number.isInteger(n) && n > 0);
+    if (idList.length === 0) {
+      return res.status(400).json({ error: 'ids must be comma-separated positive integers' });
+    }
+    where += ` AND id IN (${idList.map(() => '?').join(',')})`;
+    params.push(...idList);
   }
   if (typeof q === 'string' && q.trim()) {
     const pattern = `%${q.trim().replace(/[\\%_]/g, '\\$&')}%`;

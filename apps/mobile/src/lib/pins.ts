@@ -54,8 +54,18 @@ export function pinnedCount(): number {
   return pinned.size;
 }
 
+export function pinnedIds(): number[] {
+  load();
+  return [...pinned];
+}
+
 /** 订阅钉选状态的 hook（返回版本号触发重渲染） */
-export function usePins(): { count: number; has: (id: number) => boolean; toggle: (id: number) => void } {
+export function usePins(): {
+  count: number;
+  ids: () => number[];
+  has: (id: number) => boolean;
+  toggle: (id: number) => void;
+} {
   const [version, setVersion] = useState(0);
   useEffect(() => {
     const listener = () => setVersion((v) => v + 1);
@@ -68,6 +78,7 @@ export function usePins(): { count: number; has: (id: number) => boolean; toggle
   }, []);
   return {
     count: pinnedCount(),
+    ids: pinnedIds,
     has: (id: number) => {
       void version;
       load();
