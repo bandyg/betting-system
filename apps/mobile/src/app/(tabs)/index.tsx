@@ -160,11 +160,8 @@ function EventRow({
     kickoff: match.kickoff_time,
   };
   const primary = match.markets.find((m) => m.type === '1x2') ?? match.markets[0];
+  // 行内只放主 pool；其余玩法全部收进「+N 玩法」展开（一个玩法一行，避免横排挤爆/竖排杂乱）
   const extras = match.markets.filter((m) => m.id !== primary?.id);
-  // 桌面行内联展示的前 N 个附加玩法（更接近 bet365 的多盘口列），其余收进 +N 展开
-  const INLINE_EXTRA_COUNT = 2;
-  const inlineExtras = desktop ? extras.slice(0, INLINE_EXTRA_COUNT) : [];
-  const overflowExtras = desktop ? extras.slice(INLINE_EXTRA_COUNT) : extras;
   const pinned = pins.has(match.id);
   // 状态放倒计时前面：窄卡截断时牺牲的是倒计时而不是「未开始/LIVE」这个关键状态
   const metaText = [
@@ -209,38 +206,28 @@ function EventRow({
           <Text style={[styles.evScore, styles.evFinalScore]}>{match.home_score ?? 0} : {match.away_score ?? 0}</Text>
         ) : (
           <View style={styles.inlineMarket}>
-            {/* 所有 pool 统一「标题+筹码」结构，多 pool 并排时筹码才在同一基线上 */}
             <Text style={styles.marketTitle} numberOfLines={1}>
               {TYPE_LABELS[primary.type] ?? primary.type}
             </Text>
             <MarketOdds market={primary} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
           </View>
         )}
-        {!isSettled && inlineExtras.map((m) => (
-          <View key={m.id} style={styles.inlineMarket}>
-            <Text style={styles.marketTitle} numberOfLines={1}>
-              {TYPE_LABELS[m.type] ?? m.type}
-              {m.line != null ? ` @${m.line}` : ''}
-            </Text>
-            <MarketOdds market={m} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
-          </View>
-        ))}
-        {overflowExtras.length > 0 ? (
+        {!isSettled && extras.length > 0 ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={expanded ? '收起其余玩法' : `展开其余 ${overflowExtras.length} 个玩法`}
+            accessibilityLabel={expanded ? '收起其余玩法' : `展开其余 ${extras.length} 个玩法`}
             testID={`more-markets-${match.id}`}
             onPress={() => setExpanded((v) => !v)}
-            style={styles.moreBtn}
+            style={({ pressed }) => [styles.moreBtn, { opacity: pressed ? 0.7 : 1 }]}
           >
-            <Text style={styles.moreText}>{expanded ? '−' : `+${overflowExtras.length}`}</Text>
+            <Text style={styles.moreText}>{expanded ? '− 收起玩法' : `+${extras.length} 玩法`}</Text>
           </Pressable>
         ) : null}
-        {expanded && overflowExtras.length > 0 ? (
+        {expanded && extras.length > 0 ? (
           <View style={styles.expandBlock}>
-            {overflowExtras.map((m) => (
+            {extras.map((m) => (
               <View key={m.id} style={styles.expandItem}>
-                <Text style={styles.marketTitle}>
+                <Text style={styles.marketTitle} numberOfLines={1}>
                   {TYPE_LABELS[m.type] ?? m.type}
                   {m.line != null ? ` @${m.line}` : ''}
                 </Text>
@@ -699,7 +686,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   bodyCol: { flex: 1 },
   bodyRow: { flex: 1, flexDirection: 'row' },
-  mainCol: { flex: 1, minWidth: 0 },
+  // 限宽：单 pool 行不需要整个内容区宽，过宽时行右侧留白难看
+  mainCol: { flex: 1, minWidth: 0, maxWidth: 860 },
   dock: {
     width: 300,
     marginLeft: spacing.lg,
@@ -805,7 +793,7 @@ const styles = StyleSheet.create({
   evFinalScore: { color: colors.text, fontSize: 14 },
   evPin: { paddingHorizontal: 6 },
   oddsRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', alignItems: 'center' },
-  inlineMarket: { marginRight: spacing.lg, maxWidth: 200 },
+  inlineMarket: { maxWidth: 240 },
   lockPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -819,30 +807,34 @@ const styles = StyleSheet.create({
   },
   lockText: { color: colors.warning, fontSize: 10.5, fontWeight: font.bold, letterSpacing: 1 },
   moreBtn: {
-    minWidth: 32,
-    height: 36,
-    paddingHorizontal: 6,
+    minWidth: 76,
+    height: 40,
+    paddingHorizontal: 10,
     borderRadius: radius.sm,
     borderWidth: 1,
+    borderStyle: 'dashed',
     borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 'auto',
+    marginLeft: spacing.sm,
   },
   moreText: { color: colors.textSecondary, fontSize: 11.5, fontWeight: font.bold },
+  // 展开：一个玩法一行（标题左、筹码右），不再横向换行堆组
   expandBlock: {
     width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    // 与行内玩法组同侧（赔率区右缘）：展开组不再从卡片最左（队名/时间下方）起排
-    justifyContent: 'flex-end',
-    gap: spacing.md,
+    flexDirection: 'column',
+    gap: 8,
     paddingTop: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     marginTop: 4,
   },
-  expandItem: { /* 间距交给 expandBlock 的 gap，避免最右组比主 pool 缩进 */ },
+  expandItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
   marketTitle: {
     color: colors.textSecondary,
     fontSize: 10.5,
