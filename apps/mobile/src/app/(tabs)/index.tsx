@@ -828,13 +828,15 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     flexWrap: 'wrap',
+    // 与行内玩法组同侧（赔率区右缘）：展开组不再从卡片最左（队名/时间下方）起排
+    justifyContent: 'flex-end',
     gap: spacing.md,
     paddingTop: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     marginTop: 4,
   },
-  expandItem: { marginRight: spacing.md },
+  expandItem: { /* 间距交给 expandBlock 的 gap，避免最右组比主 pool 缩进 */ },
   marketTitle: {
     color: colors.textSecondary,
     fontSize: 10.5,
