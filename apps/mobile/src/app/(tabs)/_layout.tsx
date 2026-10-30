@@ -4,7 +4,7 @@
 // - 560~1023 壳档：自适应宽列居中（min(视口-32, 760)）+ 暗背底 + 底部 tab（SVG 图标）
 // - <560 原生手机：全幅 + 底部 tab
 import { Pressable, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { Tabs, usePathname, useRouter } from 'expo-router';
+import { Tabs, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import {
   sbColors as colors,
   Icon, SbBolt, SportIcon,
@@ -69,11 +69,14 @@ function DesktopSidebar() {
   const slip = useBetSlip();
   const pins = usePins();
   const sports = useSportsCounts();
+  // 「钉选的赛事」= 真实筛选视图（/?pinned=1）；再点一次退出筛选
+  const { pinned } = useLocalSearchParams<{ pinned?: string }>();
+  const pinnedActive = pinned === '1';
   return (
     <View style={styles.sidebar}>
       <View style={styles.sbCapWrap}><Text style={styles.sbCap}>导航</Text></View>
       {NAV_ITEMS.map((item) => {
-        const active = pathname === item.route;
+        const active = pathname === item.route && !pinnedActive;
         return (
           <Pressable
             key={item.route}
@@ -102,11 +105,18 @@ function DesktopSidebar() {
       <View style={styles.sbCapWrap}><Text style={styles.sbCap}>我的关注</Text></View>
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.navigate('/')}
-        style={({ pressed }) => [styles.sbItem, { opacity: pressed ? 0.75 : 1 }]}
+        accessibilityState={{ selected: pinnedActive }}
+        onPress={() => router.navigate(pinnedActive ? '/' : '/?pinned=1')}
+        style={({ pressed }) => [
+          styles.sbItem,
+          pinnedActive && styles.sbItemActive,
+          { opacity: pressed ? 0.75 : 1 },
+        ]}
       >
         <Icon name="star" size={15} color={colors.accent} />
-        <Text style={[styles.sbItemLabel, { color: colors.textSecondary }]}>钉选的赛事</Text>
+        <Text style={[styles.sbItemLabel, { color: pinnedActive ? colors.text : colors.textSecondary }]}>
+          钉选的赛事
+        </Text>
         {pins.count > 0 ? <Text style={styles.sbN}>{pins.count}</Text> : null}
       </Pressable>
       <View style={styles.sbSep} />

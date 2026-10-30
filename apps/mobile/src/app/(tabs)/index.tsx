@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   useBetSlip,
@@ -471,10 +471,15 @@ function MatchMarketsSheet({
 }
 
 export default function MatchesScreen() {
+  const router = useRouter();
   const [filters, setFilters] = useState<PlayerMatchFilters>(DEFAULT_PLAYER_MATCH_FILTERS);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   // 「查看全部玩法」弹层的目标赛事
   const [sheetMatch, setSheetMatch] = useState<Match | null>(null);
+  // 只看钉选：侧栏「钉选的赛事」与筛选栏 ⭐chip 共用（URL ?pinned=1 驱动，可深链）
+  const { pinned: pinnedParam } = useLocalSearchParams<{ pinned?: string }>();
+  const pinnedOnly = pinnedParam === '1';
+  const pins = usePins();
 
   const {
     rowsSource,
@@ -567,9 +572,16 @@ export default function MatchesScreen() {
 
   const resetFilters = useCallback(() => {
     setFilters(DEFAULT_PLAYER_MATCH_FILTERS);
-  }, []);
+    if (pinnedOnly) router.replace('/');
+  }, [pinnedOnly, router]);
 
-  const groups = useMemo(() => groupByLeague(rowsSource), [rowsSource]);
+  // 只看钉选：在服务端结果上做客户端过滤（钉选是本地 localStorage 状态）
+  const filteredSource = useMemo(
+    () => (pinnedOnly ? rowsSource.filter((m) => pins.has(m.id)) : rowsSource),
+    [rowsSource, pinnedOnly, pins.count],
+  );
+
+  const groups = useMemo(() => groupByLeague(filteredSource), [filteredSource]);
 
   // 扁平化成 ONE FlatList 的行：联赛头（可折叠）+ 该联赛的赛事行
   const rows = useMemo<MatchRowItem[]>(() => {
@@ -629,15 +641,15 @@ export default function MatchesScreen() {
         </View>
       );
     }
-    if (!hasMore && rowsSource.length > 0) {
+    if (!hasMore && filteredSource.length > 0) {
       return (
         <Text testID="list-footer" style={styles.footerText}>
-          已全部加载 {'\u00B7'} {total} 场
+          已全部加载 {'\u00B7'} {pinnedOnly ? filteredSource.length : total} 场
         </Text>
       );
     }
     return <View testID="list-footer" />;
-  }, [loadingMore, hasMore, rowsSource.length, total]);
+  }, [loadingMore, hasMore, filteredSource.length, total, pinnedOnly]);
 
   const hasNarrowFilters =
     filters.q.trim() !== '' ||
@@ -652,7 +664,18 @@ export default function MatchesScreen() {
     all: { desc: '暂无可浏览的赛事，下拉刷新试试' },
   };
 
-  const emptyState = hasNarrowFilters ? (
+  const emptyState = pinnedOnly ? (
+    <EmptyState
+      testID="matches-empty"
+      iconName="star"
+      title={pins.count > 0 ? '钉选的赛事不在当前时段' : '还没有钉选的赛事'}
+      desc={
+        pins.count > 0
+          ? '试试把时间范围切到「全部」，或取消「钉选」筛选'
+          : '点赛事行右侧的星标，比赛就会收进这里'
+      }
+    />
+  ) : hasNarrowFilters ? (
     <EmptyState
       testID="matches-empty"
       iconName="search"
@@ -687,7 +710,9 @@ export default function MatchesScreen() {
               filters={filters}
               onChange={patchFilters}
               onReset={resetFilters}
-              total={total}
+              total={pinnedOnly ? filteredSource.length : total}
+              pinnedOnly={pinnedOnly}
+              onTogglePinned={() => router.replace(pinnedOnly ? '/' : '/?pinned=1')}
               allCollapsed={allCollapsed}
               onToggleCollapseAll={toggleAll}
             />

@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSports } from '@betting/core';
 import type { LeagueInfo } from '@betting/core';
-import { Input, font, fontSize, spacing, useTheme, SportIcon } from '@betting/ui';
+import { Icon, Input, font, fontSize, spacing, useTheme, SportIcon } from '@betting/ui';
 import type { MatchWhen, PlayerMatchFilters } from '../hooks/use-player-matches';
 import { DEFAULT_PLAYER_MATCH_FILTERS, buildWindow } from '../hooks/use-player-matches';
 import { sportLabel } from '../lib/sport-display';
@@ -76,6 +76,9 @@ export interface MatchFiltersProps {
   onChange: (patch: Partial<PlayerMatchFilters>) => void;
   onReset: () => void;
   total: number;
+  /** 只看钉选的赛事（桌面侧栏「钉选的赛事」与筛选栏 ⭐chip 共用同一状态） */
+  pinnedOnly?: boolean;
+  onTogglePinned?: () => void;
   /** 双列网格等无分组头的布局下没有可折叠对象，不传即隐藏「全部收起」 */
   allCollapsed?: boolean;
   onToggleCollapseAll?: () => void;
@@ -86,6 +89,8 @@ export function MatchFilters({
   onChange,
   onReset,
   total,
+  pinnedOnly,
+  onTogglePinned,
   allCollapsed,
   onToggleCollapseAll,
 }: MatchFiltersProps) {
@@ -112,7 +117,8 @@ export function MatchFilters({
     filters.sport === null &&
     filters.league === null &&
     filters.when === DEFAULT_PLAYER_MATCH_FILTERS.when &&
-    !filters.onlyOpen;
+    !filters.onlyOpen &&
+    !pinnedOnly;
 
   return (
     <View
@@ -224,6 +230,15 @@ export function MatchFilters({
             onPress={() => onChange({ onlyOpen: !filters.onlyOpen })}
             testID="only-open"
           />
+          {onTogglePinned ? (
+            <FilterChip
+              label="钉选"
+              icon={<Icon name="star" size={13} color={pinnedOnly ? '#fff' : t.accent} />}
+              active={pinnedOnly}
+              onPress={onTogglePinned}
+              testID="pinned-only"
+            />
+          ) : null}
         </View>
       </View>
 
