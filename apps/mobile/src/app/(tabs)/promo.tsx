@@ -337,8 +337,8 @@ export default function PromoScreen() {
 
         {/* 领取审核弹窗 */}
         <Modal visible={reviewClaims !== null} transparent animationType="slide" onRequestClose={() => setReviewClaims(null)}>
-          <View style={styles.modalBackdrop}>
-            <View style={[styles.modalSheet, { maxWidth: sheetMaxWidth }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="关闭审核弹窗" onPress={() => setReviewClaims(null)} style={styles.modalBackdrop}>
+            <Pressable onPress={() => {}} style={[styles.modalSheet, { maxWidth: sheetMaxWidth }]}>
               {reviewClaims && (
                 <>
                   <View style={styles.modalHeader}>
@@ -377,8 +377,8 @@ export default function PromoScreen() {
                   ))}
                 </>
               )}
-            </View>
-          </View>
+            </Pressable>
+          </Pressable>
         </Modal>
 
         {/* 管理员 CMS：内容管理（仅 role=admin 可见） */}
@@ -433,8 +433,8 @@ export default function PromoScreen() {
 
         {/* 内容详情弹窗（富文本正文） */}
         <Modal visible={viewing !== null} transparent animationType="slide" onRequestClose={() => setViewing(null)}>
-          <View style={styles.modalBackdrop}>
-            <View style={[styles.modalSheet, { maxWidth: sheetMaxWidth }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="关闭公告详情" onPress={() => setViewing(null)} style={styles.modalBackdrop}>
+            <Pressable onPress={() => {}} style={[styles.modalSheet, { maxWidth: sheetMaxWidth }]}>
               {viewing && (
                 <>
                   <View style={styles.modalHeader}>
@@ -454,8 +454,8 @@ export default function PromoScreen() {
                   </View>
                 </>
               )}
-            </View>
-          </View>
+            </Pressable>
+          </Pressable>
         </Modal>
       </SafeAreaView>
     </Screen>
