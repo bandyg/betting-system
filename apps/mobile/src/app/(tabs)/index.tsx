@@ -57,9 +57,6 @@ export interface PickMatchInfo {
   kickoff?: string;
 }
 
-/** 行内展开的玩法行数上限；更多玩法收进「查看全部」弹层 */
-const INLINE_EXPAND_LIMIT = 4;
-
 /** 玩法选项短标签（行式布局放不下全称） */
 const SHORT_LABELS: Record<string, string> = {
   home: '主',
@@ -148,7 +145,6 @@ function EventRow({
   onOpenAll: (match: Match) => void;
 }) {
   const pins = usePins();
-  const [expanded, setExpanded] = useState(false);
   const kickoffMs = Date.parse(match.kickoff_time);
   const now = Date.now();
   const isLive =
@@ -222,38 +218,15 @@ function EventRow({
           {!isSettled && extras.length > 0 ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={expanded ? '收起其余玩法' : `展开其余 ${extras.length} 个玩法`}
+              accessibilityLabel={`查看这场比赛的全部 ${extras.length} 个玩法`}
               testID={`more-markets-${match.id}`}
-              onPress={() => setExpanded((v) => !v)}
+              onPress={() => onOpenAll(match)}
               style={({ pressed }) => [styles.moreBtn, { opacity: pressed ? 0.7 : 1 }]}
             >
-              <Text style={styles.moreText}>{expanded ? '− 收起玩法' : `+${extras.length} 玩法`}</Text>
+              <Text style={styles.moreText}>+{extras.length} 玩法</Text>
             </Pressable>
           ) : null}
         </View>
-        {expanded && extras.length > 0 ? (
-          <View style={styles.expandBlock}>
-            {extras.slice(0, INLINE_EXPAND_LIMIT).map((m) => (
-              <View key={m.id} style={styles.expandItem}>
-                <Text style={styles.marketTitle} numberOfLines={1}>
-                  {TYPE_LABELS[m.type] ?? m.type}
-                  {m.line != null ? ` @${m.line}` : ''}
-                </Text>
-                <MarketOdds market={m} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
-              </View>
-            ))}
-            {extras.length > INLINE_EXPAND_LIMIT ? (
-              <Pressable
-                accessibilityRole="button"
-                testID={`all-markets-${match.id}`}
-                onPress={() => onOpenAll(match)}
-                style={styles.allMarketsBtn}
-              >
-                <Text style={styles.allMarketsText}>查看全部 {match.markets.length} 个玩法</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ) : null}
       </View>
     );
   }
@@ -283,37 +256,15 @@ function EventRow({
           <MarketOdds market={primary} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
         </View>
       ) : null}
-      {expanded && extras.length > 0 ? (
-        <View style={styles.expandBlock}>
-          {extras.slice(0, INLINE_EXPAND_LIMIT).map((m) => (
-            <View key={m.id} style={styles.expandItem}>
-              <Text style={styles.marketTitle} numberOfLines={1}>
-                {TYPE_LABELS[m.type] ?? m.type}
-                {m.line != null ? ` @${m.line}` : ''}
-              </Text>
-              <MarketOdds market={m} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
-            </View>
-          ))}
-          {extras.length > INLINE_EXPAND_LIMIT ? (
-            <Pressable
-              accessibilityRole="button"
-              testID={`all-markets-${match.id}`}
-              onPress={() => onOpenAll(match)}
-              style={styles.allMarketsBtn}
-            >
-              <Text style={styles.allMarketsText}>查看全部 {match.markets.length} 个玩法</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
-      {extras.length > 0 ? (
+      {extras.length > 0 && !isSettled ? (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={`查看这场比赛的全部 ${extras.length} 个玩法`}
           testID={`more-markets-${match.id}`}
-          onPress={() => setExpanded((v) => !v)}
+          onPress={() => onOpenAll(match)}
           style={styles.mMore}
         >
-          <Text style={styles.moreText}>{expanded ? '− 收起' : `+${extras.length} 玩法`}</Text>
+          <Text style={styles.moreText}>+{extras.length} 玩法</Text>
         </Pressable>
       ) : null}
     </View>
@@ -461,12 +412,16 @@ function MatchMarketsSheet({
             <>
               <View style={styles.sheetHeader}>
                 <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetKicker}>赛事盘口 · 共 {match.markets.length} 个玩法</Text>
                   <Text style={styles.sheetTitle} numberOfLines={1}>
-                    {matchInfo.matchLabel}
+                    {match.home_team} <Text style={styles.sheetVs}>vs</Text> {match.away_team}
                   </Text>
-                  <Text style={styles.sheetMeta} numberOfLines={1}>
-                    {[match.league, formatKickoffLocal(match.kickoff_time)].filter(Boolean).join(' · ')}
-                  </Text>
+                  <View style={styles.sheetMetaRow}>
+                    <Icon name="trophy" size={12} color={colors.textMuted} />
+                    <Text style={styles.sheetMeta} numberOfLines={1}>{match.league ?? '未分类联赛'}</Text>
+                    <Icon name="clock" size={12} color={colors.textMuted} />
+                    <Text style={styles.sheetMeta}>{formatKickoffLocal(match.kickoff_time)}</Text>
+                  </View>
                 </View>
                 <Pressable accessibilityRole="button" accessibilityLabel="关闭玩法列表" onPress={onClose} hitSlop={10} style={styles.sheetClose}>
                   <Icon name="close" size={16} color={colors.textSecondary} />
@@ -950,16 +905,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   moreText: { color: colors.textSecondary, fontSize: 11.5, fontWeight: font.bold },
-  // 展开：一个玩法一行（标题左、筹码右），不再横向换行堆组
-  expandBlock: {
-    width: '100%',
-    flexDirection: 'column',
-    gap: 8,
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    marginTop: 4,
-  },
+  // 玩法行（弹层内）：一个玩法一行，标题左、筹码右
   expandItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1011,6 +957,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
+    // 品牌绿顶条：一眼看出这是赛事弹层而非页面内容
+    borderTopWidth: 3,
+    borderTopColor: colors.primary,
     padding: spacing.lg,
     maxHeight: '85%',
     width: '100%',
@@ -1023,24 +972,17 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
   },
   sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.sm },
-  sheetTitle: { color: colors.text, fontSize: fontSize.lg, fontWeight: font.bold },
-  sheetMeta: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
+  sheetKicker: { color: colors.accent, fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 4 },
+  sheetTitle: { color: colors.text, fontSize: fontSize.xl, fontWeight: font.bold },
+  sheetVs: { color: colors.textMuted, fontWeight: font.medium },
+  sheetMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+  sheetMeta: { color: colors.textMuted, fontSize: fontSize.xs },
   sheetClose: { padding: 4 },
   typeRow: { marginBottom: spacing.sm },
   typeChip: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1 },
   typeChipText: { fontSize: fontSize.sm, fontWeight: font.bold },
   sheetList: { flexGrow: 0, maxHeight: 520 },
   sheetEmpty: { color: colors.textMuted, fontSize: fontSize.sm, textAlign: 'center', paddingVertical: spacing.xl },
-  allMarketsBtn: {
-    alignSelf: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.borderStrong,
-  },
-  allMarketsText: { color: colors.secondary, fontSize: fontSize.sm, fontWeight: font.bold },
 
   skeletonWrap: { padding: spacing.lg },
   footer: { paddingVertical: spacing.lg, alignItems: 'center' },
