@@ -18,9 +18,9 @@ export default function PromoScreen() {
   const [locale, setLocale] = useState<string>('zh');
   const contents = useContents('published', locale);
   const { user } = useCurrentUser();
-  // 弹层宽度：桌面档 560，其余 430
+  // 弹层宽度：桌面/平板档 560，窄屏 430
   const { width: winW } = useWindowDimensions();
-  const sheetMaxWidth = winW >= 1024 ? 560 : 430;
+  const sheetMaxWidth = winW >= 768 ? 560 : 430;
   const [claimStatus, setClaimStatus] = useState<Record<number, PromotionClaim['status'] | null>>({});
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);

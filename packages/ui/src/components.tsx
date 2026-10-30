@@ -304,7 +304,7 @@ export function SectionTitle({ children, style }: { children: React.ReactNode; s
 /* ---------------- Screen (暗色背景容器，带进入转场) ----------------
  * web 宽屏三档形态：
  * - ≥1024 桌面 webapp：全幅应用（左侧导航壳由 (tabs) 布局负责），内容按屏选宽度居中；
- * - 560~1023 手机壳：430 居中 + 描边 + 暗背底；
+ * - 560~1023 壳档：自适应宽列居中（min(视口-32, 760)）+ 描边 + 暗背底，平板不再套手机壳；
  * - <560 原生手机全幅。
  * 各屏可用 maxWidth 覆盖桌面档的内容宽度（大厅 860 / 下注单 560 / 账户促销 720）。 */
 export const APP_SHELL_MAX_WIDTH = 430;
@@ -312,6 +312,13 @@ export const APP_SHELL_MIN_VIEWPORT = 560;
 export const DESKTOP_MIN_VIEWPORT = 1024;
 /** 桌面档的内容宽度由各屏决定：未指定时用 860 */
 export const DESKTOP_CONTENT_WIDTH = 860;
+/** 壳档（560~1023）内容列上限：平板不该被钉在 430 的手机壳里 */
+export const SHELL_TABLET_MAX_WIDTH = 760;
+
+/** 壳档内容列宽：小屏贴近满幅（留 16px 边距），平板封顶 760 居中 */
+export function shellMaxWidth(viewportWidth: number): number {
+  return Math.min(viewportWidth - 32, SHELL_TABLET_MAX_WIDTH);
+}
 
 export function Screen({
   children,
@@ -336,7 +343,7 @@ export function Screen({
         styles.screen,
         shell && {
           width: '100%',
-          maxWidth: APP_SHELL_MAX_WIDTH,
+          maxWidth: shellMaxWidth(width),
           alignSelf: 'center',
           borderLeftWidth: 1,
           borderRightWidth: 1,

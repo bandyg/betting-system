@@ -6,7 +6,7 @@ export {
 export type { Theme, ThemeMode } from './tokens';
 export { ThemeProvider, useTheme, useThemeMode, useSb } from './theme';
 export { Icon, SportIcon, SbBolt } from './icons';
-export { Card, Button, OddsButton, SectionTitle, Screen, EmptyState, FlashMsg, PromotionCard, Banner, APP_SHELL_MAX_WIDTH, APP_SHELL_MIN_VIEWPORT, DESKTOP_MIN_VIEWPORT, DESKTOP_CONTENT_WIDTH } from './components';
+export { Card, Button, OddsButton, SectionTitle, Screen, EmptyState, FlashMsg, PromotionCard, Banner, APP_SHELL_MAX_WIDTH, APP_SHELL_MIN_VIEWPORT, DESKTOP_MIN_VIEWPORT, DESKTOP_CONTENT_WIDTH, shellMaxWidth, SHELL_TABLET_MAX_WIDTH } from './components';
 export { MarkdownText } from './markdown';
 export { useToastStore, toast, toastApiError, ToastHost } from './toast';
 export type { ToastKind, ToastItem } from './toast';

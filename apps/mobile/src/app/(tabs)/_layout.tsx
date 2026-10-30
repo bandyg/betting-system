@@ -1,14 +1,14 @@
 // 玩家端 Tab 导航（(tabs) route group —— URL 不带 group 前缀）
 // v3 sportsbook 视觉：品牌绿渐变头部（logo/余额/充值）全形态常驻；
 // - ≥1024 桌面 webapp：头部下方 [左侧导航+热门运动树 │ 内容]，隐藏底部 tab
-// - 560~1023 手机壳：430 居中 + 暗背底 + 底部 tab（SVG 图标）
+// - 560~1023 壳档：自适应宽列居中（min(视口-32, 760)）+ 暗背底 + 底部 tab（SVG 图标）
 // - <560 原生手机：全幅 + 底部 tab
 import { Pressable, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Tabs, usePathname, useRouter } from 'expo-router';
 import {
   sbColors as colors,
   Icon, SbBolt, SportIcon,
-  APP_SHELL_MAX_WIDTH, APP_SHELL_MIN_VIEWPORT, DESKTOP_MIN_VIEWPORT,
+  APP_SHELL_MIN_VIEWPORT, DESKTOP_MIN_VIEWPORT, shellMaxWidth,
 } from '@betting/ui';
 import { useBetSlip, useCurrentUser, useSports } from '@betting/core';
 import { usePins } from '../../lib/pins';
@@ -192,7 +192,7 @@ export default function TabsLayout() {
               ...(shell
                 ? {
                     width: '100%',
-                    maxWidth: APP_SHELL_MAX_WIDTH,
+                    maxWidth: shellMaxWidth(width),
                     alignSelf: 'center',
                     borderLeftWidth: 1,
                     borderRightWidth: 1,
