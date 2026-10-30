@@ -338,7 +338,7 @@ export default function PromoScreen() {
         {/* 领取审核弹窗 */}
         <Modal visible={reviewClaims !== null} transparent animationType="slide" onRequestClose={() => setReviewClaims(null)}>
           <Pressable accessibilityRole="button" accessibilityLabel="关闭审核弹窗" onPress={() => setReviewClaims(null)} style={styles.modalBackdrop}>
-            <Pressable onPress={() => {}} style={[styles.modalSheet, { maxWidth: sheetMaxWidth }]}>
+            <Pressable onPress={(e) => e.stopPropagation()} style={[styles.modalSheet, { maxWidth: sheetMaxWidth }]}>
               {reviewClaims && (
                 <>
                   <View style={styles.modalHeader}>
@@ -434,7 +434,7 @@ export default function PromoScreen() {
         {/* 内容详情弹窗（富文本正文） */}
         <Modal visible={viewing !== null} transparent animationType="slide" onRequestClose={() => setViewing(null)}>
           <Pressable accessibilityRole="button" accessibilityLabel="关闭公告详情" onPress={() => setViewing(null)} style={styles.modalBackdrop}>
-            <Pressable onPress={() => {}} style={[styles.modalSheet, { maxWidth: sheetMaxWidth }]}>
+            <Pressable onPress={(e) => e.stopPropagation()} style={[styles.modalSheet, { maxWidth: sheetMaxWidth }]}>
               {viewing && (
                 <>
                   <View style={styles.modalHeader}>

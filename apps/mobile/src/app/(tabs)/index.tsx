@@ -406,14 +406,17 @@ function MatchMarketsSheet({
     : null;
   return (
     <Modal visible={!!match} transparent animationType={desktop ? 'fade' : 'slide'} onRequestClose={onClose}>
-      {/* 点弹层外（遮罩）关闭；弹层本体是空 onPress 的 Pressable，吞掉内部点击防止冒泡误关 */}
+      {/* 点弹层外（遮罩）关闭；弹层本体 stopPropagation 吞掉内部点击，防止冒泡到遮罩误关 */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="关闭玩法列表"
         onPress={onClose}
         style={[styles.sheetBackdrop, desktop && styles.sheetBackdropDesktop]}
       >
-        <Pressable onPress={() => {}} style={[styles.sheet, desktop && styles.sheetDesktop]}>
+        <Pressable
+          onPress={(e) => e.stopPropagation()}
+          style={[styles.sheet, desktop && styles.sheetDesktop]}
+        >
           {match && matchInfo ? (
             <>
               <View style={styles.sheetHeader}>
