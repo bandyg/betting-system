@@ -208,7 +208,13 @@ function EventRow({
         {isSettled || !primary ? (
           <Text style={[styles.evScore, styles.evFinalScore]}>{match.home_score ?? 0} : {match.away_score ?? 0}</Text>
         ) : (
-          <MarketOdds market={primary} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
+          <View style={styles.inlineMarket}>
+            {/* 所有 pool 统一「标题+筹码」结构，多 pool 并排时筹码才在同一基线上 */}
+            <Text style={styles.marketTitle} numberOfLines={1}>
+              {TYPE_LABELS[primary.type] ?? primary.type}
+            </Text>
+            <MarketOdds market={primary} matchInfo={matchInfo} flashFor={flashFor} onPick={onPick} />
+          </View>
         )}
         {!isSettled && inlineExtras.map((m) => (
           <View key={m.id} style={styles.inlineMarket}>
@@ -799,7 +805,7 @@ const styles = StyleSheet.create({
   evFinalScore: { color: colors.text, fontSize: 14 },
   evPin: { paddingHorizontal: 6 },
   oddsRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', alignItems: 'center' },
-  inlineMarket: { marginRight: spacing.md, maxWidth: 200 },
+  inlineMarket: { marginRight: spacing.lg, maxWidth: 200 },
   lockPill: {
     flexDirection: 'row',
     alignItems: 'center',
